@@ -25,6 +25,11 @@ if ($LASTEXITCODE -ge 8) { throw 'copia del plugin fallita' }
 robocopy (Join-Path $repo 'app\psrx') (Join-Path $lavoro 'py_modules\psrx') *.py /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw 'copia della libreria fallita' }
 
+# Firmware incluso nel plugin (procedura "Nuovo ricevitore" senza internet): l'ultimo compilato.
+$fwBuild = Join-Path $env:USERPROFILE '.ds5-build\build-psrx\normale\ds5-bridge.uf2'
+New-Item -ItemType Directory -Force (Join-Path $lavoro 'firmware') | Out-Null
+if (Test-Path $fwBuild) { Copy-Item $fwBuild (Join-Path $lavoro 'firmware\ps-rx-firmware.uf2') -Force }
+
 Push-Location $lavoro
 try {
     # pnpm scrive avvisi su stderr: in Windows PowerShell 5.1 non devono diventare errori fatali.
@@ -48,7 +53,7 @@ $zip = Join-Path $Uscita "ps-rx-decky-$versione.zip"
 $script = @"
 import os, sys, zipfile
 lavoro, zip_path = sys.argv[1], sys.argv[2]
-voci = ['plugin.json', 'package.json', 'main.py', 'LICENSE', 'README.md', 'dist', 'py_modules']
+voci = ['plugin.json', 'package.json', 'main.py', 'LICENSE', 'README.md', 'dist', 'py_modules', 'firmware']
 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as z:
     for voce in voci:
         percorso = os.path.join(lavoro, voce)

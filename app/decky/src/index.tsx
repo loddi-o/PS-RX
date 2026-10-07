@@ -80,6 +80,8 @@ const preparaFirmware = callable<[string], Firmware>("prepara_firmware");
 const caricaFirmware = callable<[], Errore>("carica_firmware");
 const annullaCaricamento = callable<[], Errore>("annulla_caricamento");
 const leggiNotifiche = callable<[], boolean>("notifiche");
+const picoBootsel = callable<[], boolean>("pico_bootsel");
+const installaPico = callable<[], Errore & { versione?: string; origine?: string }>("installa_pico");
 interface Aggiornamenti extends Errore {
   versione?: string; pagina?: string; note?: string; firmware_installato?: string; firmware_nuovo?: boolean;
   plugin_installato?: string; plugin_nuovo?: boolean;
@@ -446,6 +448,40 @@ function SezioneAggiornamenti() {
   );
 }
 
+// Firmware su un Pico 2 W nuovo (o collegato tenendo premuto BOOTSEL): il plugin lo riconosce da solo.
+function SezioneNuovoPico() {
+  const [presente, setPresente] = useState(false);
+  const [lavoro, setLavoro] = useState("");
+  useEffect(() => {
+    let vivo = true;
+    const guarda = async () => { const r = await picoBootsel(); if (vivo) setPresente(r); };
+    guarda();
+    const t = window.setInterval(guarda, 2000);
+    return () => { vivo = false; window.clearInterval(t); };
+  }, []);
+  const installa = async () => {
+    setLavoro("Download del firmware e copia nel Pico (circa 30 s)...");
+    const r = await installaPico();
+    setLavoro("");
+    if (r.errore) avviso("PS-RX", r.errore);
+    else avviso("PS-RX", `Ricevitore pronto: PS-RX ${r.versione} (${r.origine}). Ora abbina un controller.`);
+  };
+  return (
+    <PanelSection title="Nuovo ricevitore">
+      <PanelSectionRow>
+        <Field description={presente ? "Trovato un Raspberry Pi Pico in modalità BOOTSEL." :
+          "Collega un Pico 2 W nuovo (compare da solo) o uno già usato tenendo premuto BOOTSEL mentre lo colleghi."} />
+      </PanelSectionRow>
+      <PanelSectionRow>
+        <ButtonItem layout="below" disabled={!presente || !!lavoro} description={lavoro || "Installa l'ultimo firmware PS-RX."}
+          onClick={installa}>
+          Installa PS-RX sul Pico
+        </ButtonItem>
+      </PanelSectionRow>
+    </PanelSection>
+  );
+}
+
 function SezioneSistema(props: { st: Stato }) {
   const { st } = props;
   const [notifiche, setNotifiche] = useState<boolean | null>(null);
@@ -518,9 +554,12 @@ function Contenuto() {
   }, []);
   if (!st) {
     return (
-      <PanelSection title="PS-RX">
-        <PanelSectionRow><Field label="Ricevitore" description={errore || "ricerca..."} /></PanelSectionRow>
-      </PanelSection>
+      <>
+        <PanelSection title="PS-RX">
+          <PanelSectionRow><Field label="Ricevitore" description={errore || "ricerca..."} /></PanelSectionRow>
+        </PanelSection>
+        <SezioneNuovoPico />
+      </>
     );
   }
   return (

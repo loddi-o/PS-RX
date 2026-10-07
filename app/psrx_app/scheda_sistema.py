@@ -88,7 +88,11 @@ class SchedaSistema(Scheda):
         self.bootsel.clicked.connect(self._bootsel)
         self.registro = QPushButton('Registro…')
         self.registro.clicked.connect(lambda: DialogoRegistro(self).exec())
+        self.procedura = QPushButton('Prepara un nuovo ricevitore…')
+        self.procedura.setToolTip('Firmware su un Pico 2 W nuovo, o di nuovo su questo ricevitore')
+        self.procedura.clicked.connect(finestra.apri_procedura)
         v.addLayout(riga(self.aggiorna_fw, self.bootsel, self.registro))
+        v.addLayout(riga(self.procedura))
         v.addWidget(nota('L\'aggiornamento dall\'app carica il file (.uf2 o .bin), ne verifica l\'impronta e lo '
                          'installa: serve che i controller siano spenti. In modalità BOOTSEL il Pico compare come '
                          'chiavetta e il file .uf2 si copia a mano.'))

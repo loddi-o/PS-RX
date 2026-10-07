@@ -8,9 +8,10 @@ from typing import Callable, Optional
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction, QCloseEvent
-from PySide6.QtWidgets import (QApplication, QLabel, QMainWindow, QMenu, QMessageBox, QSystemTrayIcon, QTabWidget,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QPushButton,
+                               QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget)
 
+from psrx import pico_nuovo
 from psrx import protocollo as p
 from psrx import schema
 
@@ -30,6 +31,8 @@ class Finestra(QMainWindow):
         self.aggiornatore = aggiorna.Aggiornatore()
         self.aggiornatore.esito.connect(self._su_esito_aggiornamenti)
         self._ricerca_automatica = False
+        self.procedura = None
+        self._bootsel_visto = False   # procedura gia' proposta per il Pico in BOOTSEL collegato adesso
         self.setWindowTitle('PS-RX' + (' (simulato)' if simulato else ''))
         self.setWindowIcon(icona.icona())
         self.resize(900, 760)
@@ -38,8 +41,16 @@ class Finestra(QMainWindow):
         col = QVBoxLayout(centro)
         col.setContentsMargins(0, 8, 0, 0)
         self.intestazione = QLabel('Ricerca del ricevitore…')
-        self.intestazione.setContentsMargins(16, 0, 16, 0)
-        col.addWidget(self.intestazione)
+        self.intestazione.setWordWrap(True)
+        self.nuovo = QPushButton('Prepara un nuovo ricevitore…')
+        self.nuovo.setToolTip('Installa PS-RX su un Raspberry Pi Pico 2 W nuovo o in modalità BOOTSEL')
+        self.nuovo.clicked.connect(self.apri_procedura)
+        self.nuovo.setVisible(False)
+        testa = QHBoxLayout()
+        testa.setContentsMargins(16, 0, 16, 0)
+        testa.addWidget(self.intestazione, 1)
+        testa.addWidget(self.nuovo)
+        col.addLayout(testa)
         self.schede = QTabWidget()
         self.gamepad = SchedaGamepad(self)
         self.rete = SchedaRete(self)
@@ -72,6 +83,10 @@ class Finestra(QMainWindow):
         # Ricerca automatica degli aggiornamenti: dopo qualche secondo, cosi' la versione del firmware e' gia'
         # nota se il ricevitore e' collegato.
         QTimer.singleShot(8000, self._ricerca_all_avvio)
+        # Pico nuovo o in BOOTSEL collegato senza un PS-RX: la procedura si propone da sola.
+        self._timer_bootsel = QTimer(self)
+        self._timer_bootsel.timeout.connect(self._cerca_bootsel)
+        self._timer_bootsel.start(2000)
 
     # --- servizi per le schede --------------------------------------------------------------------
     def esegui(self, funzione: Callable, fatto_testo: str = '', fatto: Optional[Callable] = None) -> None:
@@ -114,7 +129,9 @@ class Finestra(QMainWindow):
         self.ist = ist
         if ist is None or ist.stato is None:
             self.intestazione.setText('<b>Ricevitore non trovato.</b> Collega il PS-RX a una porta USB '
-                                      '(se è aperto da un\'altra app, chiudila).')
+                                      '(se è aperto da un\'altra app, chiudila). Hai un Pico 2 W nuovo? Usa il '
+                                      'pulsante qui accanto.')
+            self.nuovo.setVisible(True)
             if self.vassoio:
                 self.vassoio.setIcon(icona.icona(icona.GRIGIO))
                 self.vassoio.setToolTip('PS-RX: non collegato')
@@ -126,6 +143,7 @@ class Finestra(QMainWindow):
             if st.finestra_abbinamento:
                 testo += ' · <b>abbinamento in corso</b>'
             self.intestazione.setText(testo)
+            self.nuovo.setVisible(False)
             if self.vassoio:
                 self.vassoio.setIcon(icona.icona(icona.BLU))
                 self.vassoio.setToolTip(f'PS-RX: {n} controller, modalità {st.nome_modalita}')
@@ -144,6 +162,34 @@ class Finestra(QMainWindow):
             critica = any(c for _, _, c in notifiche)
         icona_msg = QSystemTrayIcon.Warning if critica else QSystemTrayIcon.Information
         self.vassoio.showMessage(titolo, testo, icona_msg, 6000)
+
+    # --- nuovo ricevitore ------------------------------------------------------------------------
+    def apri_procedura(self) -> None:
+        from .procedura import Procedura
+        if self.procedura is not None and self.procedura.isVisible():
+            self.procedura.raise_()
+            return
+        self.mostra()
+        self.procedura = Procedura(self)
+        self.procedura.show()
+
+    def _cerca_bootsel(self) -> None:
+        if self.ist is not None and self.ist.stato is not None:
+            return
+        if self.procedura is not None and self.procedura.isVisible():
+            return
+        try:
+            presente = bool(pico_nuovo.trova())
+        except OSError:
+            presente = False
+        if presente and not self._bootsel_visto:
+            self._bootsel_visto = True
+            if self.vassoio and not self.isVisible():
+                self.vassoio.showMessage('PS-RX', 'Trovato un Raspberry Pi Pico pronto per il firmware.',
+                                         QSystemTrayIcon.Information, 5000)
+            self.apri_procedura()
+        elif not presente:
+            self._bootsel_visto = False
 
     # --- aggiornamenti ---------------------------------------------------------------------------
     def _ricerca_all_avvio(self) -> None:

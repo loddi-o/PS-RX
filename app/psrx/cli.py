@@ -10,6 +10,7 @@ PS-RX - riga di comando.
     python -m psrx registro
     python -m psrx carica firmware.uf2 | bootsel
     python -m psrx aggiornamenti | aggiorna-firmware   (release su GitHub)
+    python -m psrx installa-pico [firmware.uf2]        (Pico 2 W nuovo o in BOOTSEL)
     python -m psrx regola-udev       (Linux: regola udev per l'accesso senza root)
 
 Con --simulatore usa un ricevitore finto (per provare senza hardware).
@@ -107,6 +108,43 @@ def comando_aggiornamenti(ps: Psrx, installa: bool) -> int:
     return 0
 
 
+def comando_installa_pico(file: str) -> int:
+    from . import aggiornamenti as ag
+    from . import pico_nuovo
+    import tempfile
+    print('collega il Pico 2 W (se e\' gia\' stato usato, tieni premuto BOOTSEL mentre lo colleghi)...')
+    fine = time.monotonic() + 120
+    while not pico_nuovo.presente():
+        if time.monotonic() > fine:
+            print('nessun Pico in modalita\' BOOTSEL')
+            return 1
+        time.sleep(0.5)
+    if not file:
+        rel = ag.ultima_release()
+        f = rel.file.get('firmware')
+        if f is None:
+            print('l\'ultima release non contiene il firmware .uf2')
+            return 1
+        file = ag.scarica(f, os.path.join(tempfile.gettempdir(), 'ps-rx'))
+    img = leggi_firmware(file)
+    print(f'copia di {img.nome} (versione {img.versione or "?"}) nel Pico...')
+    unita = pico_nuovo.trova()
+    if unita:
+        pico_nuovo.scrivi_uf2(unita[0], file)
+    else:
+        pico_nuovo.scrivi_uf2_come_root(file)   # Linux: chiavetta non montata (serve root)
+    print('attendo il ricevitore PS-RX...')
+    t = pico_nuovo.attendi_psrx(_apri_usb)
+    t.chiudi()
+    print('fatto: il ricevitore e\' pronto (python -m psrx abbina per il primo controller)')
+    return 0
+
+
+def _apri_usb():
+    from .servizio import apri_usb
+    return apri_usb()
+
+
 def main(argv=None) -> int:
     a = argparse.ArgumentParser(prog='python -m psrx', description='Gestione del ricevitore PS-RX via USB')
     a.add_argument('--simulatore', action='store_true', help='usa un ricevitore simulato')
@@ -150,8 +188,16 @@ def main(argv=None) -> int:
     sub.add_parser('regola-udev')
     sub.add_parser('aggiornamenti', help='cerca una nuova versione su GitHub')
     sub.add_parser('aggiorna-firmware', help='scarica da GitHub e installa l\'ultimo firmware')
+    s = sub.add_parser('installa-pico', help='firmware su un Pico 2 W nuovo o in BOOTSEL')
+    s.add_argument('file', nargs='?', default='', help='firmware .uf2 (senza: l\'ultimo da GitHub)')
     args = a.parse_args(argv)
 
+    if args.comando == 'installa-pico':
+        try:
+            return comando_installa_pico(args.file)
+        except (OSError, TimeoutError, FirmwareNonValido) as e:
+            print(f'installazione non riuscita: {e}')
+            return 1
     if args.comando == 'regola-udev':
         from .permessi import REGOLA
         sys.stdout.write(REGOLA)

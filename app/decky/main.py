@@ -30,7 +30,7 @@ import zipfile
 
 import decky
 
-from psrx import VERSIONE_APP, aggiornamenti as ag, permessi, protocollo as p, schema
+from psrx import VERSIONE_APP, aggiornamenti as ag, permessi, pico_nuovo, protocollo as p, schema
 from psrx.errori import ErrorePsrx, PermessoNegato, Scollegato
 from psrx.firmware import FirmwareNonValido, leggi as leggi_firmware
 from psrx.notifiche import Sorvegliante
@@ -172,6 +172,41 @@ class Plugin:
         # Riavvio di Decky Loader poco dopo, per lasciare il tempo alla risposta di arrivare al pannello.
         self.loop.call_later(2, lambda: subprocess.Popen(['systemctl', 'restart', 'plugin_loader']))
         return {'ok': True}
+
+    # --- nuovo ricevitore (Pico 2 W nuovo o in BOOTSEL) ------------------------------------------------
+    async def pico_bootsel(self) -> bool:
+        return await asyncio.to_thread(pico_nuovo.presente)
+
+    async def installa_pico(self) -> dict:
+        """Ultimo firmware da GitHub (o quello incluso nel plugin se non c'e' internet) copiato nel Pico in
+        BOOTSEL; il plugin gira come root e monta da se' la chiavetta. Poi si aspetta il PS-RX."""
+        if self.caricatore is not None:
+            return {'errore': 'un aggiornamento e\' gia\' in corso'}
+        if not await asyncio.to_thread(pico_nuovo.presente):
+            return {'errore': 'nessun Pico in modalita\' BOOTSEL: collegalo tenendo premuto BOOTSEL'}
+        origine = ''
+        try:
+            rel = await asyncio.to_thread(ag.ultima_release)
+            f = rel.file.get('firmware')
+            if f is None:
+                raise ag.ErroreAggiornamento('release senza firmware')
+            percorso = await asyncio.to_thread(ag.scarica, f, CARTELLA_DOWNLOAD)
+            origine = f'{rel.versione} da GitHub'
+        except ag.ErroreAggiornamento:
+            percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'firmware', 'ps-rx-firmware.uf2')
+            if not os.path.exists(percorso):
+                return {'errore': 'GitHub non raggiungibile e nessun firmware incluso nel plugin'}
+            origine = 'incluso nel plugin'
+        try:
+            img = await asyncio.to_thread(leggi_firmware, percorso)
+            await asyncio.to_thread(pico_nuovo.scrivi_uf2_come_root, percorso)
+            self.ps.chiudi()
+            t = await asyncio.to_thread(pico_nuovo.attendi_psrx, ag_apri_usb)
+            t.chiudi()
+        except (OSError, FirmwareNonValido, TimeoutError, subprocess.SubprocessError) as e:
+            return {'errore': f'installazione non riuscita: {e}'}
+        decky.logger.info(f'PS-RX: firmware {img.versione} ({origine}) installato su un Pico nuovo')
+        return {'ok': True, 'versione': img.versione or '', 'origine': origine}
 
     # --- notifiche ------------------------------------------------------------------------------------
     async def _sorveglia(self) -> None:
@@ -395,3 +430,8 @@ def estrai_plugin(zip_: str, cartella: str) -> None:
             with z.open(info) as sorgente, open(destinazione + '.nuovo', 'wb') as out:
                 out.write(sorgente.read())
             os.replace(destinazione + '.nuovo', destinazione)
+
+
+def ag_apri_usb():
+    from psrx.servizio import apri_usb
+    return apri_usb()
