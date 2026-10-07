@@ -182,12 +182,14 @@ target_sources(ds5-bridge PRIVATE
         src/psrx/ds4_posti.cpp
         src/psrx/eventi.cpp
         src/psrx/log_psrx.cpp
+        src/psrx/mouse.cpp
         src/psrx/pad.cpp
         src/psrx/politiche.cpp
         src/psrx/posti.cpp
         src/psrx/psrx.cpp
         src/psrx/salvataggio.cpp
         src/psrx/servizio_usb.cpp
+        src/psrx/trackpad.cpp
         src/psrx/uart_asincrona.cpp
 )
 target_link_libraries(ds5-bridge

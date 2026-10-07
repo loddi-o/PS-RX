@@ -34,10 +34,12 @@ CRITICHE = [
 MODIFICATE = {
     'on_bt_data': "ramo del DualShock 4 (report 0x11) valutato solo quando il report non e' 0x31",
     'bt_write': "un DualShock 4 riceve lo stato tradotto nel suo report 0x11; per il DualSense un controllo in piu'",
-    'state_update': "con 'colore secondo il posto' attivo i colori dell'host non si copiano (un AND in piu')",
+    'usb_variant_task': "il bersaglio USB ha anche il mouse del touchpad (un campo in piu' da confrontare e copiare)",
+    'state_update':"con 'colore secondo il posto' attivo i colori dell'host non si copiano (un AND in piu')",
     'state_push_slot_to_bt': "stessa funzione, ora anche fuori linea: la chiama posti.cpp per il colore del posto",
     'l2cap_packet_handler':"solo il ramo di apertura del canale: contiene bt_write e init_feature (inline), che "
-                            "ora chiede anche il report 0xA3; il ramo dei dati e' identico",
+                            "ora chiede anche il report 0xA3. Nel ramo dei dati cambia solo l'assegnazione dei registri: "
+                            "un salvataggio sullo stack attorno alla chiamata (2 istruzioni, ~15 ns a pacchetto)",
 }
 
 INDIRIZZO = re.compile(r'\b(?:0x)?[12]00[0-9a-f]{5}\b')

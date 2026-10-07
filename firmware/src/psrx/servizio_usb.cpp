@@ -49,6 +49,7 @@ static uint32_t t_eventi = 0;
 
 // Azioni messe in coda dalle richieste e eseguite in servizio_usb_task().
 static bool rich_led = false;
+static bool rich_forma_usb = false;   // posti fissi cambiati: ricalcola la variante USB
 static bool rich_abbina = false;
 static bool rich_dimentica = false;
 static bool rich_dimentica_tutti = false;
@@ -130,6 +131,7 @@ static uint8_t imposta(uint8_t id, uint16_t valore) {
     // Effetti immediati: solo variabili. Il cambio di descrittore USB lo fa usb_variant_task() di
     // DS5-Linux-Bridge nel ciclo principale.
     if (id == IMP_LED_PICO_SPENTO) rich_led = true;
+    if (id == IMP_POSTI_FISSI) rich_forma_usb = true;
     if (id == IMP_TASTIERA_RISVEGLIO) usb_request_wake_kbd(valore != 0);
     if (id == IMP_REGISTRO) weblog_set_enabled(valore != 0);
     salvataggio_segna_modifica();
@@ -568,6 +570,16 @@ void servizio_usb_task() {
     if (rich_led) {
         rich_led = false;
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, !get_config().disable_pico_led && pad_connessi() > 0);
+    }
+    if (rich_forma_usb) {
+        // "Posti fissi" cambiato: stessa scelta di bt_apply_usb_variant_policy() (bt.cpp), chiesta da
+        // qui per non aggiungere chiamate a quella funzione (resta copiata nel gestore L2CAP).
+        rich_forma_usb = false;
+        const int n = bt_connected_count();
+        if (get_config().psrx_posti_fissi) usb_request_variant_fisso();
+        else if (n == 0) usb_request_variant_minimal();
+        else if (n == 1) usb_request_variant_full();
+        else usb_request_variant_multi(static_cast<uint8_t>(n));
     }
     if (rich_abbina) {
         rich_abbina = false;

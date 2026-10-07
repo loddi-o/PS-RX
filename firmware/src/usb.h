@@ -108,4 +108,12 @@ static inline uint8_t usb_slot_hid_instance(uint8_t slot) { return slot; }
 static inline int usb_hid_instance_slot(uint8_t instance) { return (int) instance; }
 #endif
 
+// --- PS-RX -------------------------------------------------------------------
+// "Sempre 4 gamepad sull'USB" (audio + 4 gamepad, nessun ricollegamento quando arrivano i controller).
+void usb_request_variant_fisso(void);
+// Mouse del touchpad: un'interfaccia mouse HID in coda (cambia la forma USB, come la tastiera).
+void usb_request_mouse(bool enabled);
+// Istanza HID del mouse nella configurazione servita; 0xFF = nessun mouse.
+uint8_t usb_mouse_hid_instance(void);
+
 #endif //DS5_BRIDGE_USB_H

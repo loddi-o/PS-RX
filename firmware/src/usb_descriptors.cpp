@@ -591,6 +591,41 @@ uint8_t descriptor_configuration_multi_kbd[] = {
 };
 static_assert(sizeof(descriptor_configuration_multi_kbd) == CONFIG_DESC_LEN_MULTI_KBD,
               "descriptor_configuration_multi_kbd size mismatch");
+
+// PS-RX: variante FISSO ("sempre 4 gamepad sull'USB"): la run canonica del DualSense (audio 0-2,
+// gamepad del posto 0 all'interfaccia 3) + i gamepad dei posti 1..3 in coda, come in MULTI. L'host
+// vede sempre 4 gamepad e l'audio: collegare o scollegare un controller non ricollega l'USB. L'audio
+// funziona solo con un controller (regola di tier.cpp), come in DS5-Linux-Bridge. Con la tastiera,
+// questa sta subito dopo il posto 0 (istanza HID 1), come in MULTI: la mappa posto <-> istanza resta
+// quella di usb_slot_hid_instance().
+#define CONFIG_DESC_LEN_FISSO (CONFIG_DESC_LEN_BASE + (MULTI_SLOT_COUNT - 1) * DS5_GAMEPAD_TAIL_LEN)
+uint8_t descriptor_configuration_fisso[] = {
+    DS5_CFG_HDR_DESC(CONFIG_DESC_LEN_FISSO, ITF_NUM_TOTAL + MULTI_SLOT_COUNT - 1),
+    DS5_FULL_ITFS,
+    DS5_GAMEPAD_ITF_DESC(4, 0x88, 0x08), // posto 1
+#if MULTI_SLOT_COUNT >= 3
+    DS5_GAMEPAD_ITF_DESC(5, 0x89, 0x09), // posto 2
+#endif
+#if MULTI_SLOT_COUNT >= 4
+    DS5_GAMEPAD_ITF_DESC(6, 0x8A, 0x0A), // posto 3
+#endif
+};
+static_assert(sizeof(descriptor_configuration_fisso) == CONFIG_DESC_LEN_FISSO, "descriptor_configuration_fisso");
+
+#define CONFIG_DESC_LEN_FISSO_KBD (CONFIG_DESC_LEN_FISSO + DS5_KBD_ITF_DESC_LEN)
+uint8_t descriptor_configuration_fisso_kbd[] = {
+    DS5_CFG_HDR_DESC(CONFIG_DESC_LEN_FISSO_KBD, ITF_NUM_TOTAL + MULTI_SLOT_COUNT),
+    DS5_FULL_ITFS,
+    DS5_KBD_ITF_DESC(4),                 // tastiera (istanza HID 1)
+    DS5_GAMEPAD_ITF_DESC(5, 0x88, 0x08), // posto 1
+#if MULTI_SLOT_COUNT >= 3
+    DS5_GAMEPAD_ITF_DESC(6, 0x89, 0x09), // posto 2
+#endif
+#if MULTI_SLOT_COUNT >= 4
+    DS5_GAMEPAD_ITF_DESC(7, 0x8A, 0x0A), // posto 3
+#endif
+};
+static_assert(sizeof(descriptor_configuration_fisso_kbd) == CONFIG_DESC_LEN_FISSO_KBD, "descriptor_configuration_fisso_kbd");
 #endif // MULTI_SLOT_COUNT > 1
 
 // Runtime selector: which descriptor to present on the next GET_CONFIGURATION.
@@ -608,10 +643,12 @@ typedef enum {
     DESC_VARIANT_MINIMAL = 0, // no controller: dummy HID (+ kbd if enabled)
     DESC_VARIANT_FULL,        // one controller: audio + gamepad (+ kbd)
     DESC_VARIANT_MULTI,       // 2+ controllers: N gamepads, NO audio (+ kbd)
+    DESC_VARIANT_FISSO,       // PS-RX: sempre audio + 4 gamepad (+ kbd)
 } desc_variant_t;
 typedef struct {
     desc_variant_t variant;
     bool kbd;
+    bool mouse;               // PS-RX: mouse del touchpad (in coda, prima dell'interfaccia vendor)
     // MULTI only: how many gamepad interfaces to expose (2..MULTI_SLOT_COUNT,
     // the session's high-water controller count -- see the policy in bt.cpp).
     // 0 for the other variants so the plain field compare in
@@ -620,8 +657,8 @@ typedef struct {
 } usb_desc_target;
 // Field-wise volatile access is enough: all fields are only written from
 // main-loop context (BT event handlers, httpd POST handlers, usb_variant_task).
-static volatile usb_desc_target active_target  = {DESC_VARIANT_MINIMAL, false, 0};
-static volatile usb_desc_target desired_target = {DESC_VARIANT_MINIMAL, false, 0};
+static volatile usb_desc_target active_target  = {DESC_VARIANT_MINIMAL, false, false, 0};
+static volatile usb_desc_target desired_target = {DESC_VARIANT_MINIMAL, false, false, 0};
 
 bool usb_descriptor_variant_is_full(void) {
     return active_target.variant == DESC_VARIANT_FULL;
@@ -630,16 +667,24 @@ bool usb_descriptor_variant_is_full(void) {
 // gets a distinct value so no swap can be answered from a stale cache (see
 // tud_descriptor_device_cb).
 static uint16_t usb_active_bcd_device(void) {
+    uint16_t bcd;
     switch (active_target.variant) {
-        case DESC_VARIANT_MINIMAL: return 0x0101;
+        case DESC_VARIANT_MINIMAL: bcd = 0x0101; break;
         // Each exposure count is its own cacheable identity (0x0102 for two
         // pads .. 0x0104 for four): a grow bounce (say MULTI-2 -> MULTI-3)
         // changes the topology just like MINIMAL->FULL does, so it needs the
         // same cache-buster.
-        case DESC_VARIANT_MULTI:   return (uint16_t)(0x0100 + active_target.multi_slots);
+        case DESC_VARIANT_MULTI:   bcd = (uint16_t)(0x0100 + active_target.multi_slots); break;
+        case DESC_VARIANT_FISSO:   bcd = 0x0110; break;   // PS-RX
         case DESC_VARIANT_FULL:
-        default:                   return 0x0100;
+        default:                   bcd = 0x0100; break;
     }
+    // PS-RX: tastiera e mouse cambiano i numeri delle interfacce (anche quella di configurazione, a cui
+    // Windows aggancia WinUSB leggendo il descrittore MS OS 2.0 una volta per VID/PID/bcdDevice): ogni
+    // combinazione ha il suo bcdDevice.
+    if (active_target.kbd) bcd |= 0x0040;
+    if (active_target.mouse) bcd |= 0x0080;
+    return bcd;
 }
 // The boot keyboard is HID instance 1 in EVERY variant: in FULL/MULTI the
 // slot-0 gamepad is instance 0 (its interface is parsed first), and MINIMAL
@@ -657,6 +702,9 @@ bool usb_wake_kbd_active(void) { return active_target.kbd; }
 // MINIMAL none.
 uint8_t usb_active_gamepad_slots(void) {
     switch (active_target.variant) {
+#if MULTI_SLOT_COUNT > 1
+        case DESC_VARIANT_FISSO:   return MULTI_SLOT_COUNT;   // PS-RX
+#endif
 #if MULTI_SLOT_COUNT > 1
         case DESC_VARIANT_MULTI:   return active_target.multi_slots;
 #endif
@@ -761,6 +809,11 @@ void usb_request_variant_minimal(void) {
     desired_target.multi_slots = 0;
 }
 #if MULTI_SLOT_COUNT > 1
+// PS-RX: "sempre 4 gamepad sull'USB".
+void usb_request_variant_fisso(void) {
+    desired_target.variant = DESC_VARIANT_FISSO;
+    desired_target.multi_slots = 0;
+}
 void usb_request_variant_multi(uint8_t exposed_slots) {
     if (exposed_slots < 2) exposed_slots = 2;
     if (exposed_slots > MULTI_SLOT_COUNT) exposed_slots = MULTI_SLOT_COUNT;
@@ -772,6 +825,8 @@ void usb_request_variant_multi(uint8_t exposed_slots) {
 // usb_variant_task() through the same bounce a variant change uses; a no-op if
 // the enumerated state already matches.
 void usb_request_wake_kbd(bool enabled) { desired_target.kbd = enabled; }
+// PS-RX: mouse del touchpad (almeno un controller abbinato con "touchpad come mouse").
+void usb_request_mouse(bool enabled) { desired_target.mouse = enabled; }
 // One-time boot init, called after config_load() and BEFORE the first
 // tud_connect(): seed BOTH desired and active with the persisted kbd choice so
 // the very first enumeration already matches the config (no cosmetic bounce a
@@ -780,6 +835,17 @@ void usb_descriptor_init_from_config(void) {
     const bool kbd = get_config().wake_kbd_enabled != 0;
     desired_target.kbd = kbd;
     active_target.kbd  = kbd;
+    // PS-RX: posti fissi e mouse fin dalla prima enumerazione (niente ricollegamenti dopo l'avvio).
+    bool mouse = false;
+    for (const auto &p : get_config().psrx_pad) mouse = mouse || p.trackpad;
+    desired_target.mouse = mouse;
+    active_target.mouse = mouse;
+#if MULTI_SLOT_COUNT > 1
+    if (get_config().psrx_posti_fissi) {
+        desired_target.variant = DESC_VARIANT_FISSO;
+        active_target.variant = DESC_VARIANT_FISSO;
+    }
+#endif
 }
 void usb_set_host_suspended(bool s) {
     // Bus coming (back) up -- resume or mount. Re-stamp the host-settle
@@ -793,6 +859,7 @@ bool usb_variant_swap_in_progress(void) { return swap_state != SWAP_IDLE; }
 static bool desc_target_differs(void) {
     return desired_target.variant != active_target.variant ||
            desired_target.kbd != active_target.kbd ||
+           desired_target.mouse != active_target.mouse ||
            desired_target.multi_slots != active_target.multi_slots;
 }
 
@@ -861,6 +928,7 @@ void usb_variant_task(void) {
             // cached MINIMAL.
             active_target.variant     = desired_target.variant;
             active_target.kbd         = desired_target.kbd;
+            active_target.mouse       = desired_target.mouse;
             active_target.multi_slots = desired_target.multi_slots;
             // Audio alt-setting state resets with the bus: variants without an
             // audio function (MINIMAL/MULTI) never receive the SET_INTERFACE
@@ -899,7 +967,9 @@ static uint8_t const *descrittore_dlb(uint8_t index) {
     }
     uint8_t *desc_full;
 #if MULTI_SLOT_COUNT > 1
-    if (active_target.variant == DESC_VARIANT_MULTI) {
+    if (active_target.variant == DESC_VARIANT_FISSO) {
+        desc_full = active_target.kbd ? descriptor_configuration_fisso_kbd : descriptor_configuration_fisso;
+    } else if (active_target.variant == DESC_VARIANT_MULTI) {
         desc_full = active_target.kbd ? descriptor_configuration_multi_kbd
                                       : descriptor_configuration_multi;
     } else
@@ -959,6 +1029,19 @@ static uint8_t const *descrittore_dlb(uint8_t index) {
         return desc_full;
     }
 #endif
+#if MULTI_SLOT_COUNT > 1
+    if (active_target.variant == DESC_VARIANT_FISSO) {
+        // PS-RX: run canonica (posto 0) come FULL, poi i blocchi da 32 byte dei posti 1..3 dopo la
+        // tastiera (se c'e').
+        const uint16_t base = CONFIG_DESC_LEN_BASE + (active_target.kbd ? DS5_KBD_ITF_DESC_LEN : 0);
+        for (int k = 1; k < MULTI_SLOT_COUNT; k++) {
+            const uint16_t end = base + (uint16_t) (k * DS5_GAMEPAD_TAIL_LEN);
+            desc_full[end - 1] = bInterval;
+            desc_full[end - 8] = bInterval;
+            desc_full[end - 16] = report_len_lo;
+        }
+    }
+#endif
     // FULL: patch offsets are relative to the canonical run (header + 218
     // bytes); they land on the same bytes in both FULL arrays because the kbd
     // is appended strictly AFTER the gamepad interface.
@@ -981,26 +1064,67 @@ static uint8_t const *descrittore_dlb(uint8_t index) {
 //--------------------------------------------------------------------+
 #define PSRX_ITF_VENDOR_LEN 9
 #define PSRX_STRID_CONFIG   4
-static uint8_t cfg_psrx[512];
+#define PSRX_ITF_MOUSE_LEN  25
+static uint8_t cfg_psrx[640];
 static volatile uint8_t itf_vendor = 0;   // numero dell'interfaccia vendor nella variante servita
+static volatile uint8_t inst_mouse = 0xFF; // istanza HID del mouse (0xFF = nessun mouse)
+
+// Mouse del touchpad (PS-RX): tasti (3 bit), X, Y, rotellina; senza Report ID. 52 byte.
+uint8_t const desc_hid_report_mouse[] = {
+    0x05, 0x01, 0x09, 0x02, 0xA1, 0x01,       // Generic Desktop, Mouse, Collection (Application)
+    0x09, 0x01, 0xA1, 0x00,                   //   Pointer, Collection (Physical)
+    0x05, 0x09, 0x19, 0x01, 0x29, 0x03,       //     Buttons 1..3
+    0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 0x81, 0x02,
+    0x95, 0x01, 0x75, 0x05, 0x81, 0x01,       //     5 bit di riempimento
+    0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x09, 0x38, //     X, Y, Wheel
+    0x15, 0x81, 0x25, 0x7F, 0x75, 0x08, 0x95, 0x03, 0x81, 0x06,
+    0xC0, 0xC0,
+};
+static_assert(sizeof(desc_hid_report_mouse) == 52, "lunghezza del descrittore del mouse");
+
+uint8_t usb_mouse_hid_instance(void) { return inst_mouse; }
+
+// Istanze HID di un descrittore di configurazione (TinyUSB le numera in ordine, contando solo le HID).
+static uint8_t conta_hid(const uint8_t *cfg, uint16_t len) {
+    uint8_t n = 0;
+    for (uint16_t i = 0; i + 1 < len && cfg[i] != 0; i += cfg[i]) {
+        if (cfg[i + 1] == TUSB_DESC_INTERFACE && cfg[i + 3] == 0 && cfg[i + 5] == TUSB_CLASS_HID) n++;
+    }
+    return n;
+}
 
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
     const uint8_t *base = descrittore_dlb(index);
     const uint16_t len = static_cast<uint16_t>(base[2] | base[3] << 8);
     const uint8_t n_itf = base[4];
     if (len + PSRX_ITF_VENDOR_LEN > sizeof cfg_psrx) return base;
+    if (len + PSRX_ITF_MOUSE_LEN + PSRX_ITF_VENDOR_LEN > sizeof cfg_psrx) return base;
     memcpy(cfg_psrx, base, len);
+    uint16_t totale = len;
+    uint8_t itf = n_itf;
+    inst_mouse = 0xFF;
+    if (active_target.mouse) {
+        const uint8_t mouse[PSRX_ITF_MOUSE_LEN] = {
+            0x09, 0x04, itf, 0x00, 0x01, 0x03, 0x01, 0x02, 0x00,           // HID, boot, mouse
+            0x09, 0x21, 0x11, 0x01, 0x00, 0x01, 0x22, sizeof(desc_hid_report_mouse), 0x00,
+            0x07, 0x05, 0x86, 0x03, 0x04, 0x00, 0x01,                    // EP 0x86 IN, 4 byte, 1 ms
+        };
+        memcpy(cfg_psrx + totale, mouse, sizeof mouse);
+        totale += PSRX_ITF_MOUSE_LEN;
+        inst_mouse = conta_hid(base, len);
+        itf++;
+    }
     const uint8_t vendor[PSRX_ITF_VENDOR_LEN] = {
-        0x09, 0x04, n_itf, 0x00, 0x00,   // interfaccia n_itf, nessun endpoint
+        0x09, 0x04, itf, 0x00, 0x00,     // interfaccia vendor, nessun endpoint
         0xFF, 0x50, 0x00,                // classe vendor, sottoclasse 'P'
         PSRX_STRID_CONFIG,               // "PS-RX configurazione"
     };
-    memcpy(cfg_psrx + len, vendor, sizeof vendor);
-    const uint16_t totale = len + PSRX_ITF_VENDOR_LEN;
+    memcpy(cfg_psrx + totale, vendor, sizeof vendor);
+    totale += PSRX_ITF_VENDOR_LEN;
     cfg_psrx[2] = static_cast<uint8_t>(totale & 0xFF);
     cfg_psrx[3] = static_cast<uint8_t>(totale >> 8);
-    cfg_psrx[4] = static_cast<uint8_t>(n_itf + 1);
-    itf_vendor = n_itf;
+    cfg_psrx[4] = static_cast<uint8_t>(itf + 1);
+    itf_vendor = itf;
     return cfg_psrx;
 }
 
@@ -1417,6 +1541,7 @@ _Static_assert(sizeof(desc_hid_report_dummy) == 21, "dummy report descriptor len
 // Application return pointer to descriptor
 // Descriptor contents must exist long enough for transfer to complete
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t itf) {
+    if (itf == inst_mouse) return desc_hid_report_mouse;   // PS-RX: mouse del touchpad
 #ifdef ENABLE_WAKE_HID
     // With the boot keyboard enumerated, HID instance indices are STABLE
     // across variants:

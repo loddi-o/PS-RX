@@ -104,7 +104,8 @@
 #ifndef MULTI_SLOT_COUNT
 #define MULTI_SLOT_COUNT 1
 #endif
-#define CFG_TUD_HID               (MULTI_SLOT_COUNT + 1)
+// PS-RX: + 1 per il mouse del touchpad (gamepad + tastiera + mouse).
+#define CFG_TUD_HID               (MULTI_SLOT_COUNT + 2)
 #define CFG_TUD_CDC               0
 // No CDC-NCM: the config web UI is served over WiFi (ENABLE_WIFI_WOL), keeping
 // the USB face DualSense-only. Diagnostics go over UART0 (GP0 TX, 115200 8N1),

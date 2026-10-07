@@ -17,6 +17,7 @@
 #include "politica_rete.h"
 #include "politiche.h"
 #include "psrx_config.h"
+#include "trackpad.h"
 
 namespace {
 
@@ -588,6 +589,71 @@ void test_combo() {
     VERIFICA(c.aggiorna(COMBO_SPEGNI | 0x01));              // altri tasti non contano
 }
 
+// --- Touchpad come mouse ----------------------------------------------------------------
+
+StatoTouchpad tocca(int x, int y, bool click = false, bool secondo = false) {
+    StatoTouchpad t{};
+    t.dito[0] = {true, static_cast<uint16_t>(x), static_cast<uint16_t>(y)};
+    t.dito[1] = {secondo, 1500, 500};
+    t.click = click;
+    return t;
+}
+
+StatoTouchpad nessun_tocco(bool click = false) {
+    StatoTouchpad t{};
+    t.click = click;
+    return t;
+}
+
+void test_trackpad() {
+    printf("[test] touchpad come mouse\n");
+    {   // puntatore: 0,75 pixel per punto, con i resti che non si perdono
+        TrackpadMouse tp;
+        MovimentoMouse m = tp.aggiorna(tocca(1000, 500), false);
+        VERIFICA(m.dx == 0 && m.dy == 0);                  // appoggio: nessun salto
+        m = tp.aggiorna(tocca(1016, 492), false);
+        VERIFICA(m.dx == 12 && m.dy == -6);
+        int totale = 0;
+        for (int i = 0; i < 4; i++) totale += tp.aggiorna(tocca(1017 + i, 492), false).dx;
+        VERIFICA(totale == 3);                               // 4 punti x 0,75
+        m = tp.aggiorna(tocca(1700, 900), false);            // salto: dito nuovo, niente movimento
+        VERIFICA(m.dx == 0 && m.dy == 0);
+        tp.aggiorna(nessun_tocco(), false);
+        m = tp.aggiorna(tocca(1710, 900), false);            // nuovo appoggio dopo il rilascio
+        VERIFICA(m.dx == 0);
+    }
+    {   // rotellina nella striscia sinistra
+        TrackpadMouse tp;
+        tp.aggiorna(tocca(100, 200), false);
+        MovimentoMouse m = tp.aggiorna(tocca(100, 250), false);
+        VERIFICA(m.rotella == 0 && m.dx == 0 && m.dy == 0);
+        m = tp.aggiorna(tocca(100, 330), false);             // 130 punti in basso: 2 passi
+        VERIFICA(m.rotella == -2);
+        m = tp.aggiorna(tocca(300, 260), false);             // esce dalla striscia ma resta rotellina
+        VERIFICA(m.rotella == 1 && m.dx == 0);
+        TrackpadMouse inv;
+        inv.aggiorna(tocca(100, 200), false);
+        VERIFICA(inv.aggiorna(tocca(100, 330), true).rotella == 2);   // invertita
+    }
+    {   // click: sinistro con un dito, destro con due
+        TrackpadMouse tp;
+        VERIFICA(tp.aggiorna(tocca(1000, 500, true), false).tasti == 0x01);
+        VERIFICA(tp.aggiorna(tocca(1000, 500, true, true), false).tasti == 0x01);  // deciso all'inizio
+        VERIFICA(tp.aggiorna(tocca(1000, 500, false), false).tasti == 0);
+        VERIFICA(tp.aggiorna(tocca(1000, 500, true, true), false).tasti == 0x02);
+    }
+    {   // lettura dal report del DualSense
+        uint8_t r[63] = {};
+        r[32] = 0x03;                                          // tocco, id 3
+        r[33] = 0xE8; r[34] = 0x03 | (0x4 << 4); r[35] = 0x1F; // x = 1000, y = 0x1F4 = 500
+        r[36] = 0x80;
+        r[9] = 0x02;
+        const StatoTouchpad t = touchpad_da_report(r);
+        VERIFICA(t.dito[0].attivo && t.dito[0].x == 1000 && t.dito[0].y == 500);
+        VERIFICA(!t.dito[1].attivo && t.click);
+    }
+}
+
 } // namespace
 
 int esegui_test_logica() {
@@ -601,6 +667,7 @@ int esegui_test_logica() {
     test_caricamento();
     test_ds4();
     test_combo();
+    test_trackpad();
     printf("[test] %d controlli, %d falliti: %s\n", controlli, fallimenti, fallimenti ? "ERRORE" : "OK");
     return fallimenti;
 }

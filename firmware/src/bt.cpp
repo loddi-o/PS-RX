@@ -1506,11 +1506,30 @@ static bool bt_multi_allowed() {
 }
 
 #ifdef ENABLE_WAKE_HID
+// PS-RX: con "posti fissi" chiede la variante FISSO e restituisce true (fuori dalla politica, che resta
+// piccola dove e' copiata).
+static bool __noinline psrx_chiedi_posti_fissi() {
+#if BT_MAX_SLOTS > 1
+    if (!get_config().psrx_posti_fissi) return false;
+    usb_request_variant_fisso();
+    return true;
+#else
+    return false;
+#endif
+}
+
 static void bt_apply_usb_variant_policy() {
 #if BT_MAX_SLOTS > 1
     // High-water gamepad exposure for the current MULTI session; 0 = not in
     // MULTI. Grows with the fully-up count, never shrinks until 0 pads.
     static uint8_t multi_exposed = 0;
+#endif
+#if BT_MAX_SLOTS > 1
+    // PS-RX: "sempre 4 gamepad sull'USB": la forma USB non dipende dai controller collegati.
+    if (psrx_chiedi_posti_fissi()) {
+        multi_exposed = 0;
+        return;
+    }
 #endif
     int n = 0;
     for (auto &s : slots) {
@@ -1619,19 +1638,24 @@ bool bt_feature_snapshot_get(uint8_t reportId, vector<uint8_t> &out) {
     return !out.empty();
 }
 
+// PS-RX: report d'uscita per un DualShock 4 (fuori da bt_write, che resta piccola dove e' copiata).
+// false = niente da mandare (audio, configurazione del microfono).
+static bool __noinline __not_in_flash_func(psrx_ds4_uscita)(const uint8_t **data, uint16_t *len) {
+    static uint8_t buf[DS4_LUNGHEZZA_USCITA];
+    if ((*data)[0] != 0x31 || *len < 3 + 47) return false;
+    ds4_uscita(*data + 3, 4, buf);
+    *data = buf;
+    *len = DS4_LUNGHEZZA_USCITA;
+    return true;
+}
+
 void bt_write(uint8_t slot, const uint8_t *data, uint16_t len, bool kick) {
     if (slot >= BT_MAX_SLOTS) return;
     bt_slot &s = slots[slot];
     if (s.interrupt_cid == 0) return;
     // PS-RX: un DualShock 4 riceve solo lo stato (rumble, lightbar) nel suo report 0x11; audio e
     // configurazione del microfono del DualSense non gli servono.
-    if (psrx_ds4[slot]) {
-        static uint8_t ds4_uscita_buf[DS4_LUNGHEZZA_USCITA];
-        if (data[0] != 0x31 || len < 3 + 47) return;
-        ds4_uscita(data + 3, 4, ds4_uscita_buf);
-        data = ds4_uscita_buf;
-        len = DS4_LUNGHEZZA_USCITA;
-    }
+    if (psrx_ds4[slot] && !psrx_ds4_uscita(&data, &len)) return;
     if (static_cast<size_t>(len) + 1 > BT_SEND_MAX_PACKET_SIZE) {
         printf("[L2CAP bt_write] Error: packet too large: %u\n", len);
         return;

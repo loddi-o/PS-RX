@@ -9,6 +9,7 @@
 #include "ds4_posti.h"
 #include "bootsel_gesti.h"
 #include "log_psrx.h"
+#include "mouse.h"
 #include "pad.h"
 #include "posti.h"
 #include "salvataggio.h"
@@ -31,6 +32,7 @@ void psrx_task() {
     ds4_posti_task(ora);
     audio_pad_task();
     posti_task(ora);
+    mouse_task();
     pad_task(ora);
     servizio_usb_task();
     salvataggio_task();
