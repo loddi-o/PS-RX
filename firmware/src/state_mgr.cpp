@@ -50,6 +50,10 @@ static bool uac_mic_muted = false;
 static bool hid_mic_muted = false;
 static uint8_t state[BT_MAX_SLOTS][63]{};
 
+// PS-RX: con "colore secondo il posto" attivo i colori mandati dall'host non si applicano (la barra
+// luminosa resta quella del posto, scritta da state_imposta_colore()).
+volatile bool psrx_led_posto = false;
+
 static void apply_effective_mute() {
     const bool effective =
         uac_mic_muted ||
@@ -218,8 +222,17 @@ void state_update(uint8_t slot, const uint8_t *data, const uint8_t size) {
         sizeof(uint8_t)
     );
     copy_if_allowed(
-        update.AllowLedColor,
+        update.AllowLedColor && !psrx_led_posto,
         offsetof(SetStateData, LedRed),
         sizeof(update.LedRed) * 3
     );
+}
+
+// PS-RX: colore della barra luminosa di un posto (byte 44..46 di SetStateData, AllowLedColor gia'
+// acceso in state_init_data). Il chiamante manda lo stato al controller.
+void state_imposta_colore(uint8_t slot, uint8_t r, uint8_t g, uint8_t b) {
+    if (slot >= BT_MAX_SLOTS) return;
+    state[slot][offsetof(SetStateData, LedRed)] = r;
+    state[slot][offsetof(SetStateData, LedRed) + 1] = g;
+    state[slot][offsetof(SetStateData, LedRed) + 2] = b;
 }

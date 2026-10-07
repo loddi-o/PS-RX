@@ -184,6 +184,7 @@ target_sources(ds5-bridge PRIVATE
         src/psrx/log_psrx.cpp
         src/psrx/pad.cpp
         src/psrx/politiche.cpp
+        src/psrx/posti.cpp
         src/psrx/psrx.cpp
         src/psrx/salvataggio.cpp
         src/psrx/servizio_usb.cpp

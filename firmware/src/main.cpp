@@ -201,6 +201,31 @@ static void handle_hid_report_failure(uint8_t slot) {
   }
 }
 
+// PS-RX: frequenza verso il PC per posto. 0 = nessun limite (report appena arriva, come in
+// DS5-Linux-Bridge). Scritto dal ciclo principale (src/psrx/frequenza.cpp) secondo le impostazioni
+// del controller collegato in quel posto.
+volatile uint16_t psrx_intervallo_us[BT_MAX_SLOTS] = {};
+volatile bool psrx_posti_ridotti = false;
+static uint8_t psrx_ultimo_report[BT_MAX_SLOTS][HID_INPUT_REPORT_LEN];
+static bool psrx_ultimo_pronto[BT_MAX_SLOTS] = {};
+static uint64_t psrx_t_invio[BT_MAX_SLOTS] = {};
+
+static void psrx_invia_ridotti(uint8_t exposed) {
+  const uint64_t ora = time_us_64();
+  for (uint8_t s = 0; s < exposed && s < BT_MAX_SLOTS; s++) {
+    const uint16_t intervallo = psrx_intervallo_us[s];
+    if (!intervallo || !psrx_ultimo_pronto[s] || ora - psrx_t_invio[s] < intervallo) continue;
+    const uint8_t inst = usb_slot_hid_instance(s);
+    if (!tud_hid_n_ready(inst)) continue;
+    if (tud_hid_n_report(inst, 0x01, psrx_ultimo_report[s], HID_INPUT_REPORT_LEN)) {
+      psrx_ultimo_pronto[s] = false;
+      psrx_t_invio[s] = ora;
+    } else {
+      handle_hid_report_failure(s);
+    }
+  }
+}
+
 void interrupt_loop(bool drain_only = false) {
   // Only variants that expose gamepad interfaces emit gamepad reports: in
   // MINIMAL instance 0 is an inert dummy HID. (The keyboard's instance can
@@ -232,10 +257,19 @@ void interrupt_loop(bool drain_only = false) {
   uint8_t safe_report[HID_INPUT_REPORT_LEN];
   const bool should_send = realtime_hid_queue_pop(&slot, safe_report);
 
+  // PS-RX: posti con frequenza ridotta (impostazione per controller): il report piu' recente parte
+  // quando e' passato l'intervallo. Gli altri posti seguono il percorso di DS5-Linux-Bridge.
+  if (psrx_posti_ridotti) psrx_invia_ridotti(exposed);
+
   // Only send to TinyUSB if we actually grabbed fresh data
   if (should_send) {
     if (slot >= exposed)
       return; // slot not exposed by the active variant (e.g. mid-swap); drop
+    if (psrx_intervallo_us[slot]) {
+      memcpy(psrx_ultimo_report[slot], safe_report, HID_INPUT_REPORT_LEN);
+      psrx_ultimo_pronto[slot] = true;
+      return;
+    }
     const uint8_t inst = usb_slot_hid_instance(slot);
     if (!tud_hid_n_ready(inst)) {
       realtime_hid_queue_requeue_front(slot, safe_report);

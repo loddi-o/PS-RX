@@ -10,6 +10,7 @@
 
 #include "caricamento.h"
 #include "coda_uart.h"
+#include "combo.h"
 #include "conta_click.h"
 #include "ds4.h"
 #include "eventi.h"
@@ -573,6 +574,20 @@ void test_ds4() {
     }
 }
 
+// --- Combinazione di spegnimento ------------------------------------------------------
+
+void test_combo() {
+    printf("[test] combinazione Share/Create + Options + L2 + R2\n");
+    ComboSpegni c;
+    VERIFICA(!c.aggiorna(0x04 | 0x08 | 0x10));            // manca Options
+    VERIFICA(c.aggiorna(COMBO_SPEGNI));                     // completa: scatta
+    VERIFICA(!c.aggiorna(COMBO_SPEGNI));                    // tenuta: non riscatta
+    VERIFICA(!c.aggiorna(0x10));                            // rilascio parziale: non riarma
+    VERIFICA(!c.aggiorna(COMBO_SPEGNI));
+    VERIFICA(!c.aggiorna(0x01 | 0x02));                     // L1 R1: tutto il resto rilasciato
+    VERIFICA(c.aggiorna(COMBO_SPEGNI | 0x01));              // altri tasti non contano
+}
+
 } // namespace
 
 int esegui_test_logica() {
@@ -585,6 +600,7 @@ int esegui_test_logica() {
     test_conta_click();
     test_caricamento();
     test_ds4();
+    test_combo();
     printf("[test] %d controlli, %d falliti: %s\n", controlli, fallimenti, fallimenti ? "ERRORE" : "OK");
     return fallimenti;
 }

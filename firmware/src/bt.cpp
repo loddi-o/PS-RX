@@ -1789,6 +1789,12 @@ void bt_feature_slot_imposta(uint8_t slot, uint8_t id, const uint8_t *dati, uint
     slots[slot].feature_data[id].assign(dati, dati + lunghezza);
 }
 
+// PS-RX: chiude il collegamento di un posto (il DualShock 4 si spegne; per il DualSense si usa
+// bt_slot_power_off). L'abbinamento resta.
+void bt_disconnetti_posto(uint8_t slot) {
+    if (slot < BT_MAX_SLOTS) bt_disconnect_slot(&slots[slot]);
+}
+
 bool bt_slot_ds4(uint8_t slot) {
     return slot < BT_MAX_SLOTS && psrx_ds4[slot];
 }
