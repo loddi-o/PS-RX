@@ -11,12 +11,15 @@ Una sola istanza: se l'app e' gia' aperta, la nuova chiede alla vecchia di mostr
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 
 from PySide6.QtCore import QTimer
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
+
+from psrx.lingua import tr
 
 from . import VERSIONE
 from .finestra import Finestra
@@ -54,9 +57,12 @@ def _gia_aperta() -> bool:
 
 
 def main(argv=None) -> int:
-    a = argparse.ArgumentParser(prog='ps-rx', description='PS-RX: impostazioni e notifiche del ricevitore')
-    a.add_argument('--avvio', action='store_true', help='parti solo nell\'area di notifica')
-    a.add_argument('--simulatore', action='store_true', help='usa un ricevitore simulato')
+    from psrx import lingua
+    from . import opzioni
+    lingua.imposta(os.environ.get('PSRX_LINGUA') or opzioni.lingua_da_usare())
+    a = argparse.ArgumentParser(prog='ps-rx', description=tr('PS-RX: impostazioni e notifiche del ricevitore'))
+    a.add_argument('--avvio', action='store_true', help=tr("parti solo nell'area di notifica"))
+    a.add_argument('--simulatore', action='store_true', help=tr('usa un ricevitore simulato'))
     a.add_argument('--dopo-aggiornamento', action='store_true', help=argparse.SUPPRESS)
     args = a.parse_args(argv)
 

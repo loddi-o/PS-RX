@@ -246,6 +246,8 @@ void config_default() {
   config.body.polling_rate_mode = 2; // Real-time / 1000 Hz (0: 250, 1: 500, 2: RT)
   // PS-RX: fino a 4 controller sempre ammessi (in DS5-Linux-Bridge era un'opzione spenta).
   config.body.multi_enabled = 1;
+  // PS-RX: tastiera di risveglio attiva (Windows lascia sempre svegliare il PC da una tastiera USB).
+  config.body.wake_kbd_enabled = 1;
   config_valid();
 }
 

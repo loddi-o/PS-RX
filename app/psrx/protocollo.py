@@ -10,6 +10,8 @@ from __future__ import annotations
 import struct
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+from .lingua import Testi, tr
+from .lingua import tr
 
 RICHIESTA = 0x50
 PROTOCOLLO = 1
@@ -81,12 +83,12 @@ ERR_IMMAGINE = 12
 ERR_NON_PRONTO = 13
 ERR_NON_CONNESSO = 14
 
-TESTO_ERRORE = {
+TESTO_ERRORE = Testi({
     ERR_NESSUNO: 'nessun errore',
     ERR_COMANDO: 'comando sconosciuto',
     ERR_LUNGHEZZA: 'lunghezza dei dati sbagliata',
     ERR_VALORE: 'valore non ammesso',
-    ERR_OCCUPATO: 'il ricevitore sta ancora finendo l\'operazione precedente',
+    ERR_OCCUPATO: "il ricevitore sta ancora finendo l'operazione precedente",
     ERR_PAD_CONNESSO: 'spegni prima i controller (PS-RX scrive in memoria solo senza controller collegati)',
     ERR_NON_TROVATO: 'controller non trovato fra gli abbinati',
     ERR_PIENO: 'posti esauriti',
@@ -94,10 +96,10 @@ TESTO_ERRORE = {
     ERR_SEQUENZA: 'blocco fuori ordine o caricamento non iniziato',
     ERR_DIMENSIONE: 'firmware di dimensione non valida',
     ERR_VERIFICA: 'impronta SHA-256 diversa: firmware rovinato durante il caricamento',
-    ERR_IMMAGINE: 'il file non e\' un firmware per Raspberry Pi Pico 2 W',
+    ERR_IMMAGINE: "il file non e' un firmware per Raspberry Pi Pico 2 W",
     ERR_NON_PRONTO: 'nessun firmware pronto da installare',
     ERR_NON_CONNESSO: 'WiFi non connesso',
-}
+})
 
 # --- impostazioni globali ----------------------------------------------------------------
 IMP_MODALITA = 1
@@ -120,7 +122,7 @@ PAD_POLLING = 3
 PAD_TRACKPAD = 4
 PAD_INVERTI_SCORRIMENTO = 5
 
-MODALITA = {0: 'PlayStation', 1: 'Xbox', 2: 'Steam Controller'}
+MODALITA = Testi({0: 'PlayStation', 1: 'Xbox', 2: 'Steam Controller'})
 POLLING_HZ = {0: 1000, 1: 500, 2: 250, 3: 125}
 
 # --- modelli -------------------------------------------------------------------------------
@@ -129,7 +131,7 @@ MODELLO_DUALSENSE = 1
 MODELLO_EDGE = 2
 MODELLO_DUALSHOCK4 = 3
 MODELLO_DS4 = 3
-NOME_MODELLO = {0: '-', 1: 'DualSense', 2: 'DualSense Edge', 3: 'DualShock 4'}
+NOME_MODELLO = Testi({0: '-', 1: 'DualSense', 2: 'DualSense Edge', 3: 'DualShock 4'})
 
 # --- caricamento ------------------------------------------------------------------------------
 CAR_INATTIVO = 0
@@ -150,7 +152,7 @@ RETE_SPENTA = 0
 RETE_CONNESSIONE = 1
 RETE_CONNESSA = 2
 RETE_ERRORE = 3
-TESTO_RETE = {0: 'spento (radio al Bluetooth)', 1: 'connessione in corso', 2: 'connesso', 3: 'nessuna rete raggiungibile'}
+TESTO_RETE = Testi({0: 'spento (radio al Bluetooth)', 1: 'connessione in corso', 2: 'connesso', 3: 'nessuna rete raggiungibile'})
 
 CAP_AGGIORNAMENTO_APP = 1 << 0
 CAP_WOL = 1 << 1
@@ -183,18 +185,17 @@ SCAN_NESSUNA, SCAN_IN_CORSO, SCAN_FINITA, SCAN_ANNULLATA = range(4)
 PROVA_NESSUNA, PROVA_CONNESSIONE, PROVA_INDIRIZZO, PROVA_INTERNET, PROVA_FINITA = range(5)
 ESITO_IN_CORSO, ESITO_OK, ESITO_PASSWORD, ESITO_NON_TROVATA, ESITO_NESSUNA_RISPOSTA, ESITO_NESSUN_IP, \
     ESITO_NO_INTERNET, ESITO_ANNULLATA = range(8)
-TESTO_FASE_PROVA = {PROVA_CONNESSIONE: 'collegamento alla rete', PROVA_INDIRIZZO: 'indirizzo IP dal router',
-                    PROVA_INTERNET: 'verifica di internet'}
-TESTO_ESITO_PROVA = {
+TESTO_FASE_PROVA = Testi({PROVA_CONNESSIONE: 'collegamento alla rete', PROVA_INDIRIZZO: 'indirizzo IP dal router',
+                    PROVA_INTERNET: 'verifica di internet'})
+TESTO_ESITO_PROVA = Testi({
     ESITO_OK: 'tutto a posto: password giusta, indirizzo dal router e internet raggiungibile',
     ESITO_PASSWORD: 'password sbagliata',
-    ESITO_NON_TROVATA: 'rete non trovata: è spenta, troppo lontana, il nome è sbagliato o trasmette solo a 5 GHz '
-                       '(il Pico 2 W usa solo i 2,4 GHz)',
+    ESITO_NON_TROVATA: 'rete non trovata: è spenta, troppo lontana, il nome è sbagliato o trasmette solo a 5 GHz (il Pico 2 W usa solo i 2,4 GHz)',
     ESITO_NESSUNA_RISPOSTA: 'il router non ha completato il collegamento (riprova; controlla WPA2/WPA3)',
     ESITO_NESSUN_IP: 'collegato, ma il router non ha dato un indirizzo IP (DHCP spento o pieno?)',
     ESITO_NO_INTERNET: 'rete di casa raggiungibile, internet no (il Wake-on-LAN funziona lo stesso: resta in casa)',
     ESITO_ANNULLATA: 'prova interrotta: si è collegato un controller e il WiFi si è spento',
-}
+})
 
 DIM_INFO = struct.calcsize(FMT_INFO)
 DIM_PAD = struct.calcsize(FMT_PAD)
@@ -213,7 +214,7 @@ def mac_testo(b: bytes) -> str:
 def mac_da_testo(t: str) -> bytes:
     parti = t.replace('-', ':').split(':')
     if len(parti) != 6:
-        raise ValueError(f'MAC non valido: {t}')
+        raise ValueError(tr('MAC non valido: {0}', t))
     return bytes(int(x, 16) for x in parti)
 
 
@@ -330,13 +331,13 @@ class Caricamento:
 
     @property
     def descrizione(self) -> str:
-        testi = {CAR_INATTIVO: 'nessun firmware in caricamento',
-                 CAR_RICEZIONE: f'ricezione: {self.scritti}/{self.totali} blocchi',
-                 CAR_SCRITTURA: f'scrittura: {self.scritti}/{self.totali} blocchi',
-                 CAR_VERIFICA: 'verifica dell\'impronta SHA-256',
-                 CAR_PRONTO: 'firmware verificato, pronto da installare',
-                 CAR_INSTALLAZIONE: 'installazione in corso (non staccare il ricevitore)',
-                 CAR_ERRORE: f'errore: {TESTO_ERRORE.get(self.errore, self.errore)}'}
+        testi = {CAR_INATTIVO: tr('nessun firmware in caricamento'),
+                 CAR_RICEZIONE: tr('ricezione: {0}/{1} blocchi', self.scritti, self.totali),
+                 CAR_SCRITTURA: tr('scrittura: {0}/{1} blocchi', self.scritti, self.totali),
+                 CAR_VERIFICA: tr("verifica dell'impronta SHA-256"),
+                 CAR_PRONTO: tr('firmware verificato, pronto da installare'),
+                 CAR_INSTALLAZIONE: tr('installazione in corso (non staccare il ricevitore)'),
+                 CAR_ERRORE: tr('errore: {0}', TESTO_ERRORE.get(self.errore, self.errore))}
         return testi.get(self.stato, '?')
 
 
@@ -358,12 +359,12 @@ class ProvaRete:
     @property
     def descrizione(self) -> str:
         if self.fase == PROVA_NESSUNA:
-            return 'nessuna prova'
+            return tr('nessuna prova')
         if not self.finita:
-            return f'in corso: {TESTO_FASE_PROVA.get(self.fase, "?")}…'
-        testo = TESTO_ESITO_PROVA.get(self.esito, f'esito {self.esito}')
+            return tr('in corso: {0}…', TESTO_FASE_PROVA.get(self.fase, '?'))
+        testo = TESTO_ESITO_PROVA.get(self.esito, tr('esito {0}', self.esito))
         if self.esito == ESITO_OK:
-            testo += f' (IP {self.ip}, segnale {self.rssi} dBm, internet in {self.ms_internet} ms)'
+            testo += tr(' (IP {0}, segnale {1} dBm, internet in {2} ms)', self.ip, self.rssi, self.ms_internet)
         return testo
 
 
@@ -413,7 +414,7 @@ def leggi_prova_rete(b: bytes) -> ProvaRete:
 def leggi_info(b: bytes) -> Info:
     magic, protocollo, slot_max, _, capacita, staging, versione, base = struct.unpack_from(FMT_INFO, b)
     if magic != MAGIC:
-        raise ValueError('non e\' un PS-RX')
+        raise ValueError(tr("non e' un PS-RX"))
     return Info(protocollo, slot_max, capacita, staging, _stringa(versione), _stringa(base))
 
 
@@ -474,15 +475,16 @@ def leggi_caricamento(b: bytes) -> Caricamento:
 
 def testo_evento(e: Evento, nome: str = '') -> tuple:
     """(titolo, testo) della notifica per un evento."""
-    chi = nome or f'Controller {e.posto + 1}'
-    batteria = 'batteria sconosciuta' if e.batteria is None else f'batteria {e.batteria}%'
+    chi = nome or tr('Controller {0}', e.posto + 1)
+    batteria = tr('batteria sconosciuta') if e.batteria is None else tr('batteria {0}%', e.batteria)
     if e.tipo == EVENTO_COLLEGATO:
-        return (f'{chi} collegato',
-                f'Posto {e.posto + 1} · {NOME_MODELLO.get(e.modello, "?")} · modalità {MODALITA.get(e.modalita, "?")} · {batteria}')
+        return (tr('{0} collegato', chi),
+                tr('Posto {0} · {1} · modalità {2} · {3}', e.posto + 1, NOME_MODELLO.get(e.modello, '?'),
+                   MODALITA.get(e.modalita, '?'), batteria))
     if e.tipo == EVENTO_SCOLLEGATO:
-        return (f'{chi} scollegato', f'Posto {e.posto + 1}')
+        return (tr('{0} scollegato', chi), tr('Posto {0}', e.posto + 1))
     if e.tipo == EVENTO_BATTERIA:
         if e.critico:
-            return ('Batteria quasi scarica', f'{chi}: {batteria}, collega il cavo')
-        return ('Batteria in esaurimento', f'{chi}: {batteria}')
-    return ('PS-RX', f'evento {e.tipo}')
+            return (tr('Batteria quasi scarica'), tr('{0}: {1}, collega il cavo', chi, batteria))
+        return (tr('Batteria in esaurimento'), tr('{0}: {1}', chi, batteria))
+    return ('PS-RX', tr('evento {0}', e.tipo))

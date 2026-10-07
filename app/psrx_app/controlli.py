@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
+from psrx.lingua import tr
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel, QSpinBox, QVBoxLayout,
                                QWidget)
 
@@ -61,14 +62,14 @@ class Controllo(QWidget):
         col.setSpacing(2)
         tipo = voce['tipo']
         if tipo == 'booleano':
-            self.w = QCheckBox(voce['titolo'])
+            self.w = QCheckBox(tr(voce['titolo']))
             self.w.toggled.connect(lambda v: self._utente(1 if v else 0))
             col.addWidget(self.w)
         else:
             if tipo == 'scelta':
                 self.w = QComboBox()
                 for valore, testo in voce['opzioni']:
-                    self.w.addItem(testo, valore)
+                    self.w.addItem(tr(testo), valore)
                 self.w.activated.connect(lambda i: self._utente(self.w.itemData(i)))
             else:
                 self.w = QSpinBox()
@@ -76,9 +77,9 @@ class Controllo(QWidget):
                 self.w.setSingleStep(voce.get('passo', 1))
                 self.w.setKeyboardTracking(False)
                 self.w.valueChanged.connect(self._utente)
-            col.addLayout(riga(QLabel(voce['titolo']), self.w))
+            col.addLayout(riga(QLabel(tr(voce['titolo'])), self.w))
         if voce.get('nota'):
-            col.addWidget(nota(voce['nota']))
+            col.addWidget(nota(tr(voce['nota'])))
         self.setEnabled(False)
 
     def _utente(self, valore: int) -> None:

@@ -149,7 +149,7 @@ static uint8_t imposta(uint8_t id, uint16_t valore) {
 }
 
 static uint8_t predefinite() {
-    const bool tastiera = get_config().wake_kbd_enabled;
+    const bool tastiera = get_config().wake_kbd_enabled != 0;
     // Reti WiFi, destinazioni del WoL, nomi e impostazioni dei controller restano: si azzerano solo
     // le impostazioni del ricevitore.
     const Config_body vecchia = get_config();
@@ -161,7 +161,8 @@ static uint8_t predefinite() {
     memcpy(c.wol_target_mac, vecchia.wol_target_mac, sizeof c.wol_target_mac);
     memcpy(c.wol_target_mac2, vecchia.wol_target_mac2, sizeof c.wol_target_mac2);
     config_imposta(c);
-    if (tastiera) usb_request_wake_kbd(false);
+    // tastiera di risveglio: torna al predefinito (attiva), con il cambio di forma USB se serve
+    if (tastiera != (get_config().wake_kbd_enabled != 0)) usb_request_wake_kbd(get_config().wake_kbd_enabled != 0);
     usb_request_xbox(false);      // modalita' PlayStation
     usb_request_steam(false);
     rich_forma_usb = true;        // posti dinamici

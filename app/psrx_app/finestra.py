@@ -20,6 +20,7 @@ from .lavoratore import Istantanea, Ponte, testo_errore
 from .scheda_gamepad import SchedaGamepad
 from .scheda_rete import SchedaRete
 from .scheda_sistema import SchedaSistema
+from psrx.lingua import tr
 
 
 class Finestra(QMainWindow):
@@ -33,17 +34,17 @@ class Finestra(QMainWindow):
         self._ricerca_automatica = False
         self.procedura = None
         self._bootsel_visto = False   # procedura gia' proposta per il Pico in BOOTSEL collegato adesso
-        self.setWindowTitle('PS-RX' + (' (simulato)' if simulato else ''))
+        self.setWindowTitle('PS-RX' + (tr(' (simulato)') if simulato else ''))
         self.setWindowIcon(icona.icona())
         self.resize(900, 760)
 
         centro = QWidget()
         col = QVBoxLayout(centro)
         col.setContentsMargins(0, 8, 0, 0)
-        self.intestazione = QLabel('Ricerca del ricevitore…')
+        self.intestazione = QLabel(tr('Ricerca del ricevitore…'))
         self.intestazione.setWordWrap(True)
-        self.nuovo = QPushButton('Prepara un nuovo ricevitore…')
-        self.nuovo.setToolTip('Installa PS-RX su un Raspberry Pi Pico 2 W nuovo o in modalità BOOTSEL')
+        self.nuovo = QPushButton(tr('Prepara un nuovo ricevitore…'))
+        self.nuovo.setToolTip(tr('Installa PS-RX su un Raspberry Pi Pico 2 W nuovo o in modalità BOOTSEL'))
         self.nuovo.clicked.connect(self.apri_procedura)
         self.nuovo.setVisible(False)
         testa = QHBoxLayout()
@@ -55,9 +56,9 @@ class Finestra(QMainWindow):
         self.gamepad = SchedaGamepad(self)
         self.rete = SchedaRete(self)
         self.sistema = SchedaSistema(self)
-        self.schede.addTab(self.gamepad, 'Gamepad')
-        self.schede.addTab(self.rete, 'Rete')
-        self.schede.addTab(self.sistema, 'Sistema')
+        self.schede.addTab(self.gamepad, tr('Gamepad'))
+        self.schede.addTab(self.rete, tr('Rete'))
+        self.schede.addTab(self.sistema, tr('Sistema'))
         col.addWidget(self.schede)
         self.setCentralWidget(centro)
         self.statusBar()
@@ -67,11 +68,11 @@ class Finestra(QMainWindow):
             self.vassoio = QSystemTrayIcon(icona.icona(icona.GRIGIO), self)
             self.vassoio.setToolTip('PS-RX')
             menu = QMenu()
-            menu.addAction('Apri PS-RX', self.mostra)
-            self.azione_abbina = menu.addAction('Abbina un nuovo controller',
-                                                lambda: self.esegui(lambda c: c.abbina(), 'Abbinamento aperto per 30 secondi'))
+            menu.addAction(tr('Apri PS-RX'), self.mostra)
+            self.azione_abbina = menu.addAction(tr('Abbina un nuovo controller'),
+                                                lambda: self.esegui(lambda c: c.abbina(), tr('Abbinamento aperto per 30 secondi')))
             menu.addSeparator()
-            menu.addAction('Esci', self.esci)
+            menu.addAction(tr('Esci'), self.esci)
             self.vassoio.setContextMenu(menu)
             self.vassoio.activated.connect(self._su_vassoio)
             self.vassoio.show()
@@ -102,13 +103,13 @@ class Finestra(QMainWindow):
         voce = schema.PER_ID[ident]
         if voce.get('riconnette'):
             collegati = self.ist.stato.pad_connessi if self.ist and self.ist.stato else 0
-            domanda = 'Il ricevitore si ricollega all\'USB per cambiare forma'
-            domanda += (f': per circa un secondo i {collegati} controller collegati non arrivano al PC. Continuare?'
-                        if collegati else '. Continuare?')
-            if not self.conferma(voce['titolo'], domanda):
+            domanda = tr("Il ricevitore si ricollega all'USB per cambiare forma")
+            domanda += (tr(': per circa un secondo i {0} controller collegati non arrivano al PC. Continuare?', collegati)
+                        if collegati else tr('. Continuare?'))
+            if not self.conferma(tr(voce['titolo']), domanda):
                 self._rimostra()
                 return
-        testo = f'{voce["titolo"]}: {schema.testo_valore(voce, valore)}'
+        testo = tr(voce['titolo']) + ': ' + schema.testo_valore(voce, valore)
         self.ponte.esegui(lambda c: c.imposta(ident, valore), lambda _: self.messaggio(testo),
                           lambda e: (self.messaggio(testo_errore(e), errore=True), self._rimostra()))
 
@@ -132,25 +133,22 @@ class Finestra(QMainWindow):
     def _su_istantanea(self, ist: Optional[Istantanea]) -> None:
         self.ist = ist
         if ist is None or ist.stato is None:
-            self.intestazione.setText('<b>Ricevitore non trovato.</b> Collega il PS-RX a una porta USB '
-                                      '(se è aperto da un\'altra app, chiudila). Hai un Pico 2 W nuovo? Usa il '
-                                      'pulsante qui accanto.')
+            self.intestazione.setText(tr("<b>Ricevitore non trovato.</b> Collega il PS-RX a una porta USB (se è aperto da un'altra app, chiudila). Hai un Pico 2 W nuovo? Usa il pulsante qui accanto."))
             self.nuovo.setVisible(True)
             if self.vassoio:
                 self.vassoio.setIcon(icona.icona(icona.GRIGIO))
-                self.vassoio.setToolTip('PS-RX: non collegato')
+                self.vassoio.setToolTip(tr('PS-RX: non collegato'))
         else:
             st = ist.stato
             n = st.pad_connessi
-            testo = (f'<b>PS-RX collegato</b> · modalità {st.nome_modalita} · '
-                     f'{n} controller {"collegato" if n == 1 else "collegati"}')
+            testo = (tr('<b>PS-RX collegato</b> · modalità {0} · {1} controller collegato', st.nome_modalita, n) if n == 1 else tr('<b>PS-RX collegato</b> · modalità {0} · {1} controller collegati', st.nome_modalita, n))
             if st.finestra_abbinamento:
-                testo += ' · <b>abbinamento in corso</b>'
+                testo += tr(' · <b>abbinamento in corso</b>')
             self.intestazione.setText(testo)
             self.nuovo.setVisible(False)
             if self.vassoio:
                 self.vassoio.setIcon(icona.icona(icona.BLU))
-                self.vassoio.setToolTip(f'PS-RX: {n} controller, modalità {st.nome_modalita}')
+                self.vassoio.setToolTip(tr('PS-RX: {0} controller, modalità {1}', n, st.nome_modalita))
         for s in (self.gamepad, self.rete, self.sistema):
             s.aggiorna(ist)
 
@@ -189,7 +187,7 @@ class Finestra(QMainWindow):
         if presente and not self._bootsel_visto:
             self._bootsel_visto = True
             if self.vassoio and not self.isVisible():
-                self.vassoio.showMessage('PS-RX', 'Trovato un Raspberry Pi Pico pronto per il firmware.',
+                self.vassoio.showMessage('PS-RX', tr('Trovato un Raspberry Pi Pico pronto per il firmware.'),
                                          QSystemTrayIcon.Information, 5000)
             self.apri_procedura()
         elif not presente:
@@ -206,9 +204,18 @@ class Finestra(QMainWindow):
         if not automatica or c is None or not c.qualcosa or not self.vassoio:
             return
         cosa = ' e '.join(x for x, s in (('firmware', c.firmware_nuovo), ('app', c.app_nuova)) if s)
-        self.vassoio.showMessage('PS-RX: aggiornamento disponibile',
-                                 f'Versione {c.release.versione} ({cosa}). Apri l\'app → Sistema → Aggiornamenti.',
+        self.vassoio.showMessage(tr('PS-RX: aggiornamento disponibile'),
+                                 tr("Versione {0} ({1}). Apri l'app → Sistema → Aggiornamenti.", c.release.versione, cosa),
                                  QSystemTrayIcon.Information, 8000)
+
+    def riavvia_app(self) -> None:
+        """Riapre l'app (exe) e chiude questa: la nuova aspetta che questa sia chiusa."""
+        import subprocess
+        import sys
+        if self.server is not None:
+            self.server.close()
+        subprocess.Popen([sys.executable, '--dopo-aggiornamento'], close_fds=True)
+        self.esci()
 
     def riavvia(self) -> None:
         """Aggiornamento dell'app avviato: libera l'istanza unica ed esce (l'installer riapre l'app)."""
@@ -240,8 +247,7 @@ class Finestra(QMainWindow):
             self.hide()
             if not self._avvisato_vassoio:
                 self._avvisato_vassoio = True
-                self.vassoio.showMessage('PS-RX', 'L\'app resta qui per le notifiche. Per chiuderla: tasto destro '
-                                         '→ Esci.', QSystemTrayIcon.Information, 4000)
+                self.vassoio.showMessage('PS-RX', tr("L'app resta qui per le notifiche. Per chiuderla: tasto destro → Esci."), QSystemTrayIcon.Information, 4000)
             return
         e.accept()
         self.esci()

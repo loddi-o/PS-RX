@@ -22,7 +22,7 @@ class PicoSimulato:
         self.richieste = 0
         self.stati_app = 0          # letture di STATO non silenziose (app aperta)
         self.errore = (p.ERR_NESSUNO, 0)
-        self.impostazioni: Dict[int, int] = {1: 0, 2: 0, 3: 0, 4: 0, 5: 64, 6: 30, 7: 0, 8: 0, 9: 0, 10: 0, 11: 1}
+        self.impostazioni: Dict[int, int] = {1: 0, 2: 0, 3: 0, 4: 0, 5: 64, 6: 30, 7: 0, 8: 0, 9: 1, 10: 0, 11: 1}
         mac1, mac2 = p.mac_da_testo('12:34:56:78:9A:BC'), p.mac_da_testo('A0:AB:51:00:11:22')
         self.abbinati: List[dict] = [
             {'mac': mac1, 'nome': '', 'audio': 1, 'microfono': 1, 'polling': 0, 'trackpad': 0, 'inverti': 0},

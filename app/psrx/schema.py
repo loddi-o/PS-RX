@@ -7,6 +7,7 @@ Unico posto con etichette, limiti e note: le interfacce costruiscono i controlli
 from __future__ import annotations
 
 from . import protocollo as p
+from .lingua import tr
 
 # Impostazioni del ricevitore (sezione Sistema). 'riconnette': cambiarla ricollega l'USB del ricevitore
 # (i controller restano collegati, ma il PC li vede sparire e ricomparire per un attimo).
@@ -82,9 +83,11 @@ IMPOSTAZIONI = [
         'id': p.IMP_TASTIERA_RISVEGLIO, 'chiave': 'tastiera_risveglio', 'tipo': 'booleano', 'sezione': 'sistema',
         'riconnette': True,
         'titolo': 'Sveglia il PC dalla sospensione via USB',
-        'predefinito': 0,
-        'nota': 'Aggiunge una piccola tastiera USB che preme un tasto quando premi PS a PC sospeso. Alcuni '
-                'anticheat la notano: tienila spenta se non ti serve (il Wake-on-LAN funziona comunque).',
+        'predefinito': 1,
+        'nota': 'Aggiunge una piccola tastiera USB che preme un tasto quando premi PS a PC sospeso: è il modo più '
+                'affidabile per svegliare il PC dalla sospensione, perché Windows lascia sempre svegliare il PC da '
+                'una tastiera. Alcuni anticheat notano la tastiera: se ti dà problemi spegnila (resta il '
+                'Wake-on-LAN).',
     },
     {
         'id': p.IMP_REGISTRO, 'chiave': 'registro', 'tipo': 'booleano', 'sezione': 'sistema', 'riconnette': False,
@@ -155,7 +158,17 @@ def testo_valore(voce: dict, valore) -> str:
     if valore is None:
         return '?'
     if voce['tipo'] == 'booleano':
-        return 'sì' if valore else 'no'
+        return tr('sì') if valore else 'no'
     if voce['tipo'] == 'scelta':
-        return dict(voce['opzioni']).get(valore, str(valore))
+        return tr(dict(voce['opzioni']).get(valore, str(valore)))
     return str(valore)
+
+
+def tradotta(voce: dict) -> dict:
+    """Copia della voce con titolo, nota e opzioni nella lingua attuale (plugin Decky)."""
+    v = dict(voce)
+    v['titolo'] = tr(voce['titolo'])
+    v['nota'] = tr(voce['nota']) if voce.get('nota') else ''
+    if 'opzioni' in voce:
+        v['opzioni'] = [(k, tr(testo)) for k, testo in voce['opzioni']]
+    return v

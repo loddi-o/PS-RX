@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple
 
 from . import VERSIONE_APP
+from .lingua import tr
 
 REPO = 'loddi-o/PS-RX'
 URL_ULTIMA = f'https://api.github.com/repos/{REPO}/releases/latest'
@@ -94,12 +95,12 @@ def ultima_release() -> Release:
             dati = json.load(r)
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            raise ErroreAggiornamento('nessuna release pubblicata su GitHub') from e
+            raise ErroreAggiornamento(tr('nessuna release pubblicata su GitHub')) from e
         if e.code == 403:
-            raise ErroreAggiornamento('GitHub ha limitato le richieste: riprova tra un\'ora') from e
-        raise ErroreAggiornamento(f'GitHub ha risposto con l\'errore {e.code}') from e
+            raise ErroreAggiornamento(tr("GitHub ha limitato le richieste: riprova tra un'ora")) from e
+        raise ErroreAggiornamento(tr("GitHub ha risposto con l'errore {0}", e.code)) from e
     except (urllib.error.URLError, OSError, ValueError) as e:
-        raise ErroreAggiornamento(f'GitHub non raggiungibile ({e})') from e
+        raise ErroreAggiornamento(tr('GitHub non raggiungibile ({0})', e)) from e
     return da_json(dati)
 
 
@@ -130,7 +131,7 @@ def scarica(f: File, cartella: str, avanzamento: Callable[[int, int], None] = la
             totali = int(r.headers.get('Content-Length') or f.dimensione or 0)
             while True:
                 if interrotto():
-                    raise ErroreAggiornamento('download annullato')
+                    raise ErroreAggiornamento(tr('download annullato'))
                 pezzo = r.read(64 * 1024)
                 if not pezzo:
                     break
@@ -140,16 +141,16 @@ def scarica(f: File, cartella: str, avanzamento: Callable[[int, int], None] = la
                 avanzamento(fatti, totali)
     except (urllib.error.URLError, OSError) as e:
         _togli(temporaneo)
-        raise ErroreAggiornamento(f'download non riuscito ({e})') from e
+        raise ErroreAggiornamento(tr('download non riuscito ({0})', e)) from e
     except ErroreAggiornamento:
         _togli(temporaneo)
         raise
     if f.dimensione and fatti != f.dimensione:
         _togli(temporaneo)
-        raise ErroreAggiornamento(f'download incompleto ({fatti} di {f.dimensione} byte)')
+        raise ErroreAggiornamento(tr('download incompleto ({0} di {1} byte)', fatti, f.dimensione))
     if f.sha256 and impronta.hexdigest() != f.sha256.lower():
         _togli(temporaneo)
-        raise ErroreAggiornamento('impronta SHA-256 diversa da quella pubblicata: file rovinato')
+        raise ErroreAggiornamento(tr('impronta SHA-256 diversa da quella pubblicata: file rovinato'))
     os.replace(temporaneo, destinazione)
     return destinazione
 
@@ -191,8 +192,8 @@ def file_firmware(rel: Release) -> Optional[File]:
 
 
 def riepilogo(c: Controllo) -> List[str]:
-    righe = [f'Ultima release: {c.release.titolo} ({c.release.versione})']
+    righe = [tr('Ultima release: {0} ({1})', c.release.titolo, c.release.versione)]
     fw = c.firmware_installato or 'sconosciuto'
-    righe.append(f'Firmware: installato {fw}' + (' -> aggiornamento disponibile' if c.firmware_nuovo else ', aggiornato'))
-    righe.append(f'App: installata {c.app_installata}' + (' -> aggiornamento disponibile' if c.app_nuova else ', aggiornata'))
+    righe.append(tr('Firmware: installato {0}', fw) + (tr(' -> aggiornamento disponibile') if c.firmware_nuovo else tr(', aggiornato')))
+    righe.append(tr('App: installata {0}', c.app_installata) + (tr(' -> aggiornamento disponibile') if c.app_nuova else tr(', aggiornata')))
     return righe

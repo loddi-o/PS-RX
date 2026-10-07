@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 from typing import Callable, List, Optional
+from .lingua import tr
 
 INFO = 'INFO_UF2.TXT'
 NOME_FILE = 'ps-rx.uf2'
@@ -140,14 +141,14 @@ def scrivi_uf2_come_root(uf2: str, avanzamento: Callable[[int, int], None] = lam
         return
     dischi = dischi_bootloader_linux()
     if not dischi:
-        raise FileNotFoundError('nessun Pico in modalita\' BOOTSEL')
+        raise FileNotFoundError(tr("nessun Pico in modalita' BOOTSEL"))
     disco = dischi[0]
     partizione = disco + '1' if os.path.exists(disco + '1') else disco
     cartella = tempfile.mkdtemp(prefix='ps-rx-pico-')
     subprocess.run(['mount', '-t', 'vfat', partizione, cartella], check=True, capture_output=True, timeout=20)
     try:
         if not _e_rp2350(cartella):
-            raise FileNotFoundError('il disco montato non e\' il bootloader dell\'RP2350')
+            raise FileNotFoundError(tr("il disco montato non e' il bootloader dell'RP2350"))
         scrivi_uf2(cartella, uf2, avanzamento)
         subprocess.run(['sync'], timeout=20)
     finally:
@@ -167,7 +168,7 @@ def attendi_psrx(apri: Callable, timeout_s: float = 40.0, interrotto: Callable[[
             return apri()
         except Scollegato:
             time.sleep(0.5)
-    raise TimeoutError('il Pico non si e\' presentato come PS-RX')
+    raise TimeoutError(tr("il Pico non si e' presentato come PS-RX"))
 
 
 def firmware_incluso() -> Optional[str]:

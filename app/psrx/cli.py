@@ -28,6 +28,7 @@ from . import schema
 from .errori import ErrorePsrx, PermessoNegato, Scollegato
 from .firmware import FirmwareNonValido, leggi as leggi_firmware
 from .servizio import Interrotto, Psrx
+from .lingua import tr
 
 
 def _durata(s: int) -> str:
@@ -37,21 +38,20 @@ def _durata(s: int) -> str:
 def stampa_stato(ps: Psrx) -> None:
     info = ps.info()
     st = ps.stato()
-    print(f'PS-RX {info.versione} (protocollo {info.protocollo}, base {info.base}), acceso da {_durata(st.uptime_s)}')
-    print(f'Modalità: {st.nome_modalita}; USB: {st.usb_gamepad} gamepad esposti'
-          f'{" (sospeso)" if st.usb_sospeso else ""}{", posti fissi" if st.posti_fissi else ""}')
+    print(tr('PS-RX {0} (protocollo {1}, base {2}), acceso da {3}', info.versione, info.protocollo, info.base, _durata(st.uptime_s)))
+    print(tr('Modalità: {0}; USB: {1} gamepad esposti{2}{3}', st.nome_modalita, st.usb_gamepad, ' (sospeso)' if st.usb_sospeso else '', tr(', posti fissi') if st.posti_fissi else ''))
     rete = p.TESTO_RETE.get(st.rete_stato, '?')
     if st.rete_stato == p.RETE_CONNESSA:
-        rete += f', IP {st.rete_ip}, segnale {st.rete_rssi} dBm'
-    wol = 'mai' if st.ms_da_ultimo_wol is None else f'{_durata(st.ms_da_ultimo_wol // 1000)} fa'
-    print(f'WiFi: {rete}; ultimo Wake-on-LAN: {wol}')
-    audio = [n for n, a in (('altoparlante', st.altoparlante), ('microfono', st.microfono)) if a]
-    print(f'Audio: {", ".join(audio) or "non in uso"}{" (microfono muto)" if st.microfono_muto else ""}')
+        rete += tr(', IP {0}, segnale {1} dBm', st.rete_ip, st.rete_rssi)
+    wol = tr('mai') if st.ms_da_ultimo_wol is None else tr('{0} fa', _durata(st.ms_da_ultimo_wol // 1000))
+    print(tr('WiFi: {0}; ultimo Wake-on-LAN: {1}', rete, wol))
+    audio = [tr(n) for n, a in (('altoparlante', st.altoparlante), ('microfono', st.microfono)) if a]
+    print(tr('Audio: {0}{1}', ', '.join(audio) or tr('non in uso'), tr(' (microfono muto)') if st.microfono_muto else ''))
     if st.finestra_abbinamento:
-        print('Finestra di abbinamento aperta')
+        print(tr('Finestra di abbinamento aperta'))
     if st.salvataggio_in_sospeso:
-        print('Impostazioni in attesa di essere salvate (succede senza controller collegati)')
-    print(f'Memoria libera: {st.heap_libero // 1024} KB' if st.heap_libero else 'Memoria libera: -')
+        print(tr('Impostazioni in attesa di essere salvate (succede senza controller collegati)'))
+    print(tr('Memoria libera: {0} KB', st.heap_libero // 1024) if st.heap_libero else tr('Memoria libera: -'))
     print('Controller:')
     nomi = {a.mac: a.nome for a in ps.abbinati()}
     for pad in st.pad:
@@ -59,22 +59,21 @@ def stampa_stato(ps: Psrx) -> None:
             continue
         batt = f'{pad.batteria}%{" in carica" if pad.in_carica else ""}' if pad.batteria_valida else '?'
         segnale = '-' if pad.rssi is None else str(pad.rssi)
-        print(f'  posto {pad.posto + 1}: {pad.nome_modello} {pad.mac} {nomi.get(pad.mac) or ""} batteria {batt}, '
-              f'segnale {segnale}, {pad.report_al_secondo} report/s, polling {p.POLLING_HZ[pad.polling]} Hz')
+        print(tr('  posto {0}: {1} {2} {3} batteria {4}, segnale {5}, {6} report/s, polling {7} Hz', pad.posto + 1, pad.nome_modello, pad.mac, nomi.get(pad.mac) or '', batt, segnale, pad.report_al_secondo, p.POLLING_HZ[pad.polling]))
 
 
 def comando_carica(ps: Psrx, percorso: str) -> None:
     img = leggi_firmware(percorso, ps.info().staging_max)
-    print(f'{img.nome}: {img.dimensione} byte, versione {img.versione or "?"}')
+    print(tr('{0}: {1} byte, versione {2}', img.nome, img.dimensione, img.versione or '?'))
 
     def avanzamento(fase: str, fatto: int, totale: int) -> None:
-        testo = {'attesa_pad': 'spegni i controller per continuare',
-                 'caricamento': f'caricamento {fatto}/{totale}',
-                 'verifica': 'verifica', 'installazione': 'installazione: il ricevitore si riavvia'}[fase]
+        testo = {'attesa_pad': tr('spegni i controller per continuare'),
+                 'caricamento': tr('caricamento {0}/{1}', fatto, totale),
+                 'verifica': 'verifica', 'installazione': tr('installazione: il ricevitore si riavvia')}[fase]
         print(f'\r{testo:<60}', end='', flush=True)
 
     ps.carica_firmware(img, avanzamento)
-    print('\nfatto: il ricevitore si riavvia col firmware nuovo (circa 15 s, non staccarlo)')
+    print(tr('\nfatto: il ricevitore si riavvia col firmware nuovo (circa 15 s, non staccarlo)'))
 
 
 def comando_aggiornamenti(ps: Psrx, installa: bool) -> int:
@@ -86,7 +85,7 @@ def comando_aggiornamenti(ps: Psrx, installa: bool) -> int:
     try:
         c = ag.controlla(installato)
     except ag.ErroreAggiornamento as e:
-        print(f'ricerca non riuscita: {e}')
+        print(tr('ricerca non riuscita: {0}', e))
         return 1
     for riga in ag.riepilogo(c):
         print(riga)
@@ -95,14 +94,14 @@ def comando_aggiornamenti(ps: Psrx, installa: bool) -> int:
         return 0
     f = ag.file_firmware(c.release)
     if f is None:
-        print('la release non contiene il firmware')
+        print(tr('la release non contiene il firmware'))
         return 1
     if not c.firmware_nuovo:
-        print('il firmware installato è già il più recente')
+        print(tr('il firmware installato è già il più recente'))
         return 0
     import tempfile
     percorso = ag.scarica(f, os.path.join(tempfile.gettempdir(), 'ps-rx'),
-                          lambda fatti, totali: print(f'\rdownload {fatti * 100 // max(totali, 1)}%', end='', flush=True))
+                          lambda fatti, totali: print(tr('\rdownload {0}%', fatti * 100 // max(totali, 1)), end='', flush=True))
     print()
     comando_carica(ps, percorso)
     return 0
@@ -112,31 +111,31 @@ def comando_installa_pico(file: str) -> int:
     from . import aggiornamenti as ag
     from . import pico_nuovo
     import tempfile
-    print('collega il Pico 2 W (se e\' gia\' stato usato, tieni premuto BOOTSEL mentre lo colleghi)...')
+    print(tr("collega il Pico 2 W (se e' gia' stato usato, tieni premuto BOOTSEL mentre lo colleghi)..."))
     fine = time.monotonic() + 120
     while not pico_nuovo.presente():
         if time.monotonic() > fine:
-            print('nessun Pico in modalita\' BOOTSEL')
+            print(tr("nessun Pico in modalita' BOOTSEL"))
             return 1
         time.sleep(0.5)
     if not file:
         rel = ag.ultima_release()
         f = rel.file.get('firmware')
         if f is None:
-            print('l\'ultima release non contiene il firmware .uf2')
+            print(tr("l'ultima release non contiene il firmware .uf2"))
             return 1
         file = ag.scarica(f, os.path.join(tempfile.gettempdir(), 'ps-rx'))
     img = leggi_firmware(file)
-    print(f'copia di {img.nome} (versione {img.versione or "?"}) nel Pico...')
+    print(tr('copia di {0} (versione {1}) nel Pico...', img.nome, img.versione or '?'))
     unita = pico_nuovo.trova()
     if unita:
         pico_nuovo.scrivi_uf2(unita[0], file)
     else:
         pico_nuovo.scrivi_uf2_come_root(file)   # Linux: chiavetta non montata (serve root)
-    print('attendo il ricevitore PS-RX...')
+    print(tr('attendo il ricevitore PS-RX...'))
     t = pico_nuovo.attendi_psrx(_apri_usb)
     t.chiudi()
-    print('fatto: il ricevitore e\' pronto (python -m psrx abbina per il primo controller)')
+    print(tr("fatto: il ricevitore e' pronto (python -m psrx abbina per il primo controller)"))
     return 0
 
 
@@ -146,8 +145,10 @@ def _apri_usb():
 
 
 def main(argv=None) -> int:
-    a = argparse.ArgumentParser(prog='python -m psrx', description='Gestione del ricevitore PS-RX via USB')
-    a.add_argument('--simulatore', action='store_true', help='usa un ricevitore simulato')
+    from . import lingua
+    lingua.imposta(lingua.di_sistema())
+    a = argparse.ArgumentParser(prog='python -m psrx', description=tr('Gestione del ricevitore PS-RX via USB'))
+    a.add_argument('--simulatore', action='store_true', help=tr('usa un ricevitore simulato'))
     sub = a.add_subparsers(dest='comando', required=True)
     sub.add_parser('stato')
     sub.add_parser('impostazioni')
@@ -155,7 +156,7 @@ def main(argv=None) -> int:
     s.add_argument('chiave')
     s.add_argument('valore', type=int)
     sub.add_parser('abbinati')
-    s = sub.add_parser('pad', help='impostazione per controller')
+    s = sub.add_parser('pad', help=tr('impostazione per controller'))
     s.add_argument('mac')
     s.add_argument('chiave', choices=sorted(schema.PAD_PER_CHIAVE))
     s.add_argument('valore', type=int)
@@ -176,8 +177,8 @@ def main(argv=None) -> int:
     s.add_argument('--wpa3', action='store_true')
     s = sub.add_parser('rete-cancella')
     s.add_argument('posto', type=int)
-    sub.add_parser('reti-vicine', help='cerca le reti WiFi visibili dal ricevitore (solo 2,4 GHz)')
-    s = sub.add_parser('rete-prova', help='prova una rete salvata (password, indirizzo, internet)')
+    sub.add_parser('reti-vicine', help=tr('cerca le reti WiFi visibili dal ricevitore (solo 2,4 GHz)'))
+    s = sub.add_parser('rete-prova', help=tr('prova una rete salvata (password, indirizzo, internet)'))
     s.add_argument('posto', type=int, help='1-5')
     s = sub.add_parser('wol')
     s.add_argument('mac1', nargs='?', default='')
@@ -189,17 +190,17 @@ def main(argv=None) -> int:
     s.add_argument('file')
     sub.add_parser('bootsel')
     sub.add_parser('regola-udev')
-    sub.add_parser('aggiornamenti', help='cerca una nuova versione su GitHub')
-    sub.add_parser('aggiorna-firmware', help='scarica da GitHub e installa l\'ultimo firmware')
-    s = sub.add_parser('installa-pico', help='firmware su un Pico 2 W nuovo o in BOOTSEL')
-    s.add_argument('file', nargs='?', default='', help='firmware .uf2 (senza: l\'ultimo da GitHub)')
+    sub.add_parser('aggiornamenti', help=tr('cerca una nuova versione su GitHub'))
+    sub.add_parser('aggiorna-firmware', help=tr("scarica da GitHub e installa l'ultimo firmware"))
+    s = sub.add_parser('installa-pico', help=tr('firmware su un Pico 2 W nuovo o in BOOTSEL'))
+    s.add_argument('file', nargs='?', default='', help=tr("firmware .uf2 (senza: l'ultimo da GitHub)"))
     args = a.parse_args(argv)
 
     if args.comando == 'installa-pico':
         try:
             return comando_installa_pico(args.file)
         except (OSError, TimeoutError, FirmwareNonValido) as e:
-            print(f'installazione non riuscita: {e}')
+            print(tr('installazione non riuscita: {0}', e))
             return 1
     if args.comando == 'regola-udev':
         from .permessi import REGOLA
@@ -222,16 +223,14 @@ def main(argv=None) -> int:
         elif c == 'imposta':
             voce = schema.PER_CHIAVE.get(args.chiave)
             if voce is None:
-                print(f'impostazione sconosciuta: {args.chiave} (vedi "impostazioni")')
+                print(tr('impostazione sconosciuta: {0} (vedi "impostazioni")', args.chiave))
                 return 2
             ps.imposta(voce['id'], args.valore)
             print(f'{voce["titolo"]} = {schema.testo_valore(voce, args.valore)}')
         elif c == 'abbinati':
             for ab in ps.abbinati():
-                stato = f'collegato (posto {ab.posto + 1})' if ab.posto is not None else 'non collegato'
-                print(f'{ab.mac}  {ab.nome or "(senza nome)":<16} {stato}; audio {"sì" if ab.audio else "no"}, '
-                      f'microfono {"sì" if ab.microfono else "no"}, {p.POLLING_HZ[ab.polling]} Hz, '
-                      f'touchpad come mouse {"sì" if ab.trackpad else "no"}')
+                stato = tr('collegato (posto {0})', ab.posto + 1) if ab.posto is not None else tr('non collegato')
+                print(tr('{0}  {1:<16} {2}; audio {3}, microfono {4}, {5} Hz, touchpad come mouse {6}', ab.mac, ab.nome or tr('(senza nome)'), stato, tr('sì') if ab.audio else 'no', tr('sì') if ab.microfono else 'no', p.POLLING_HZ[ab.polling], tr('sì') if ab.trackpad else 'no'))
         elif c == 'pad':
             voce = schema.PAD_PER_CHIAVE[args.chiave]
             ps.imposta_pad(args.mac, voce['id'], args.valore)
@@ -243,7 +242,7 @@ def main(argv=None) -> int:
             ps.dimentica_tutti()
         elif c == 'abbina':
             ps.abbina()
-            print('finestra di abbinamento di 30 s: tieni Create + PS (DualSense) o Share + PS (DualShock 4)')
+            print(tr('finestra di abbinamento di 30 s: tieni Create + PS (DualSense) o Share + PS (DualShock 4)'))
         elif c == 'spegni':
             ps.spegni_pad(None if args.posto is None else args.posto - 1)
         elif c == 'reti':
@@ -252,8 +251,7 @@ def main(argv=None) -> int:
                 if rete.ssid:
                     print(f'{rete.indice + 1}: {rete.ssid} ({"WPA3" if rete.wpa3 else "WPA2"}'
                           f'{", aperta" if not rete.ha_password else ""})')
-            print(f'Wake-on-LAN: {", ".join(m for m in r.wol_mac if m) or "nessuna destinazione"}'
-                  f'{" (disattivato)" if r.wol_spento else ""}')
+            print(tr('Wake-on-LAN: {0}{1}', ', '.join((m for m in r.wol_mac if m)) or tr('nessuna destinazione'), tr(' (disattivato)') if r.wol_spento else ''))
         elif c == 'rete':
             ps.salva_rete(args.posto - 1, args.ssid, args.password, args.wpa3)
         elif c == 'rete-cancella':
@@ -267,9 +265,9 @@ def main(argv=None) -> int:
                     break
                 time.sleep(0.5)
             if not viste.reti:
-                print('nessuna rete rilevata (il ricevitore vede solo le reti a 2,4 GHz)')
+                print(tr('nessuna rete rilevata (il ricevitore vede solo le reti a 2,4 GHz)'))
             for r in viste.reti:
-                print(f'{r.ssid:<33} {r.rssi:>4} dBm  canale {r.canale:>2}  {"aperta" if r.aperta else "protetta"}')
+                print(tr('{0:<33} {1:>4} dBm  canale {2:>2}  {3}', r.ssid, r.rssi, r.canale, tr('aperta') if r.aperta else tr('protetta')))
         elif c == 'rete-prova':
             ps.prova_rete(args.posto - 1)
             while True:
@@ -283,18 +281,18 @@ def main(argv=None) -> int:
             ps.destinazioni_wol(args.mac1, args.mac2)
         elif c == 'wol-prova':
             ps.prova_wol()
-            print('pacchetti magici inviati')
+            print(tr('pacchetti magici inviati'))
         elif c == 'eventi':
             from .notifiche import Sorvegliante
             sorvegliante = Sorvegliante(ps)
-            print('in ascolto (Ctrl+C per uscire)')
+            print(tr('in ascolto (Ctrl+C per uscire)'))
             while True:
                 for titolo, testo, critica in sorvegliante.controlla():
                     print(f'{"!! " if critica else ""}{titolo}: {testo}')
                 time.sleep(2)
         elif c == 'registro':
             attivo, testo = ps.registro()
-            print(testo if attivo else 'registro spento: python -m psrx imposta registro 1')
+            print(testo if attivo else tr('registro spento: python -m psrx imposta registro 1'))
         elif c == 'carica':
             comando_carica(ps, args.file)
         elif c == 'bootsel':
@@ -303,16 +301,16 @@ def main(argv=None) -> int:
             return comando_aggiornamenti(ps, c == 'aggiorna-firmware')
         return 0
     except PermessoNegato as e:
-        print(f'manca il permesso sul nodo USB {e}: python -m psrx regola-udev | sudo tee {""}/etc/udev/rules.d/70-ps-rx.rules')
+        print(tr('manca il permesso sul nodo USB {0}: python -m psrx regola-udev | sudo tee {1}/etc/udev/rules.d/70-ps-rx.rules', e, ''))
         return 1
     except Scollegato as e:
-        print(f'ricevitore PS-RX non trovato ({e}). È collegato via USB?')
+        print(tr('ricevitore PS-RX non trovato ({0}). È collegato via USB?', e))
         return 1
     except ErrorePsrx as e:
-        print(f'il ricevitore ha rifiutato: {e}')
+        print(tr('il ricevitore ha rifiutato: {0}', e))
         return 1
     except FirmwareNonValido as e:
-        print(f'firmware non valido: {e}')
+        print(tr('firmware non valido: {0}', e))
         return 1
     except (Interrotto, KeyboardInterrupt):
         print()

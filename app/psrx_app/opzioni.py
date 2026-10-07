@@ -29,6 +29,29 @@ def scrivi(chiave: str, valore) -> None:
     _impostazioni().setValue(chiave, valore)
 
 
+def lingua_installer() -> str:
+    """Lingua scelta nell'installer (HKLM\\Software\\PS-RX, valore Lingua: 'it' o 'en'), '' se non c'e'."""
+    if not AVVIO_DISPONIBILE:
+        return ''
+    import winreg
+    for vista in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'Software\PS-RX', 0, winreg.KEY_READ | vista) as k:
+                return str(winreg.QueryValueEx(k, 'Lingua')[0])
+        except OSError:
+            continue
+    return ''
+
+
+def lingua_da_usare() -> str:
+    """Scelta nell'app ('it' / 'en'), altrimenti quella dell'installer, altrimenti quella di sistema."""
+    from psrx import lingua
+    scelta = str(leggi('lingua', 'auto'))
+    if scelta in ('it', 'en'):
+        return scelta
+    return lingua.normalizza(lingua_installer()) if lingua_installer() else lingua.di_sistema()
+
+
 def comando_avvio() -> str:
     """Riga di comando per l'avvio con Windows: l'exe, oppure pythonw con lo script di avvio (sviluppo)."""
     if getattr(sys, 'frozen', False):
