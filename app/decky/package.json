@@ -1,6 +1,6 @@
 {
   "name": "ps-rx-decky",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "PS-RX: controller, rete, impostazioni e aggiornamento del ricevitore (via USB)",
   "type": "module",
   "scripts": {
