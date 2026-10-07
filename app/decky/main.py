@@ -30,9 +30,10 @@ import zipfile
 
 import decky
 
-from psrx import VERSIONE_APP, aggiornamenti as ag, permessi, pico_nuovo, protocollo as p, schema
+from psrx import VERSIONE_APP, aggiornamenti as ag, lingua, permessi, pico_nuovo, protocollo as p, schema
 from psrx.errori import ErrorePsrx, PermessoNegato, Scollegato
 from psrx.firmware import FirmwareNonValido, leggi as leggi_firmware
+from psrx.lingua import tr
 from psrx.notifiche import Sorvegliante
 from psrx.servizio import Interrotto, Psrx
 
@@ -45,9 +46,9 @@ FILE_IMPOSTAZIONI = 'impostazioni.json'
 
 def _errore(e: Exception) -> dict:
     if isinstance(e, Scollegato):
-        return {'errore': 'Ricevitore PS-RX non trovato sull\'USB.'}
+        return {'errore': tr('Ricevitore PS-RX non trovato sull\'USB.')}
     if isinstance(e, PermessoNegato):
-        return {'errore': 'Permesso negato sul nodo USB del ricevitore.'}
+        return {'errore': tr('Permesso negato sul nodo USB del ricevitore.')}
     if isinstance(e, ErrorePsrx):
         return {'errore': str(e), 'codice': e.codice}
     return {'errore': f'{type(e).__name__}: {e}'}
@@ -98,6 +99,11 @@ class Plugin:
         except OSError as e:
             decky.logger.error(f'PS-RX: opzioni non salvate: {e}')
 
+    async def imposta_lingua(self, codice: str) -> dict:
+        """Lingua di Steam dal pannello: errori, notifiche e impostazioni arrivano gia' tradotti."""
+        lingua.imposta(lingua.normalizza(str(codice or '')))
+        return {'ok': True, 'lingua': lingua.attuale()}
+
     async def notifiche(self) -> bool:
         return bool(self.opzioni.get('notifiche', True))
 
@@ -123,9 +129,9 @@ class Plugin:
             return
         esito = await self.aggiornamenti()
         if esito.get('firmware_nuovo') or esito.get('plugin_nuovo'):
-            cosa = ' e '.join(x for x, s in (('firmware', esito['firmware_nuovo']), ('plugin', esito['plugin_nuovo'])) if s)
-            await decky.emit('psrx_notifica', 'PS-RX: aggiornamento disponibile',
-                             f'Versione {esito["versione"]} ({cosa}): menu di PS-RX, sezione Sistema.', False)
+            cosa = tr(' e ').join(x for x, s in (('firmware', esito['firmware_nuovo']), ('plugin', esito['plugin_nuovo'])) if s)
+            await decky.emit('psrx_notifica', tr('PS-RX: aggiornamento disponibile'),
+                             tr('Versione {0} ({1}): menu di PS-RX, sezione Sistema.', esito['versione'], cosa), False)
 
     async def aggiornamenti(self) -> dict:
         firmware = None
@@ -146,7 +152,7 @@ class Plugin:
 
     async def installa_firmware_github(self) -> dict:
         if self.controllo is None or not self.controllo.firmware_nuovo:
-            return {'errore': 'cerca prima gli aggiornamenti'}
+            return {'errore': tr('cerca prima gli aggiornamenti')}
         f = ag.file_firmware(self.controllo.release)
         try:
             percorso = await asyncio.to_thread(ag.scarica, f, CARTELLA_DOWNLOAD)
@@ -159,15 +165,15 @@ class Plugin:
 
     async def aggiorna_plugin(self) -> dict:
         if self.controllo is None or not self.controllo.app_nuova:
-            return {'errore': 'cerca prima gli aggiornamenti'}
+            return {'errore': tr('cerca prima gli aggiornamenti')}
         cartella = getattr(decky, 'DECKY_PLUGIN_DIR', '')
         if not cartella or not os.path.isdir(cartella):
-            return {'errore': 'cartella del plugin non trovata'}
+            return {'errore': tr('cartella del plugin non trovata')}
         try:
             zip_ = await asyncio.to_thread(ag.scarica, self.controllo.release.file['decky'], CARTELLA_DOWNLOAD)
             await asyncio.to_thread(estrai_plugin, zip_, cartella)
         except (ag.ErroreAggiornamento, OSError, zipfile.BadZipFile, ValueError) as e:
-            return {'errore': f'aggiornamento del plugin non riuscito: {e}'}
+            return {'errore': tr('aggiornamento del plugin non riuscito: {0}', e)}
         decky.logger.info(f'PS-RX: plugin aggiornato a {self.controllo.release.versione}, riavvio Decky Loader')
         # Riavvio di Decky Loader poco dopo, per lasciare il tempo alla risposta di arrivare al pannello.
         self.loop.call_later(2, lambda: subprocess.Popen(['systemctl', 'restart', 'plugin_loader']))
@@ -181,9 +187,9 @@ class Plugin:
         """Ultimo firmware da GitHub (o quello incluso nel plugin se non c'e' internet) copiato nel Pico in
         BOOTSEL; il plugin gira come root e monta da se' la chiavetta. Poi si aspetta il PS-RX."""
         if self.caricatore is not None:
-            return {'errore': 'un aggiornamento e\' gia\' in corso'}
+            return {'errore': tr('un aggiornamento è già in corso')}
         if not await asyncio.to_thread(pico_nuovo.presente):
-            return {'errore': 'nessun Pico in modalita\' BOOTSEL: collegalo tenendo premuto BOOTSEL'}
+            return {'errore': tr('nessun Pico in modalità BOOTSEL: collegalo tenendo premuto BOOTSEL')}
         origine = ''
         try:
             rel = await asyncio.to_thread(ag.ultima_release)
@@ -191,12 +197,12 @@ class Plugin:
             if f is None:
                 raise ag.ErroreAggiornamento('release senza firmware')
             percorso = await asyncio.to_thread(ag.scarica, f, CARTELLA_DOWNLOAD)
-            origine = f'{rel.versione} da GitHub'
+            origine = tr('{0} da GitHub', rel.versione)
         except ag.ErroreAggiornamento:
             percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'firmware', 'ps-rx-firmware.uf2')
             if not os.path.exists(percorso):
-                return {'errore': 'GitHub non raggiungibile e nessun firmware incluso nel plugin'}
-            origine = 'incluso nel plugin'
+                return {'errore': tr('GitHub non raggiungibile e nessun firmware incluso nel plugin')}
+            origine = tr('incluso nel plugin')
         try:
             img = await asyncio.to_thread(leggi_firmware, percorso)
             await asyncio.to_thread(pico_nuovo.scrivi_uf2_come_root, percorso)
@@ -204,7 +210,7 @@ class Plugin:
             t = await asyncio.to_thread(pico_nuovo.attendi_psrx, ag_apri_usb)
             t.chiudi()
         except (OSError, FirmwareNonValido, TimeoutError, subprocess.SubprocessError) as e:
-            return {'errore': f'installazione non riuscita: {e}'}
+            return {'errore': tr('installazione non riuscita: {0}', e)}
         decky.logger.info(f'PS-RX: firmware {img.versione} ({origine}) installato su un Pico nuovo')
         return {'ok': True, 'versione': img.versione or '', 'origine': origine}
 
@@ -268,14 +274,14 @@ class Plugin:
     async def impostazioni(self) -> dict:
         try:
             valori = await self._usb(self.ps.impostazioni)
-            return {'schema': schema.IMPOSTAZIONI, 'valori': {str(k): v for k, v in valori.items()}}
+            return {'schema': [schema.tradotta(v) for v in schema.IMPOSTAZIONI], 'valori': {str(k): v for k, v in valori.items()}}
         except Exception as e:  # noqa: BLE001
             return _errore(e)
 
     async def abbinati(self) -> dict:
         try:
             lista = await self._usb(self.ps.abbinati)
-            return {'schema': schema.IMPOSTAZIONI_PAD,
+            return {'schema': [schema.tradotta(v) for v in schema.IMPOSTAZIONI_PAD],
                     'abbinati': [{'mac': a.mac, 'nome': a.nome, 'posto': a.posto,
                                   'valori': {str(v['id']): int(getattr(a, v['chiave']))
                                              for v in schema.IMPOSTAZIONI_PAD}} for a in lista]}
@@ -384,20 +390,20 @@ class Plugin:
         try:
             info = await self._usb(self.ps.info)
             self.firmware = await asyncio.to_thread(leggi_firmware, percorso, info.staging_max)
-            return {'nome': self.firmware.nome, 'versione': self.firmware.versione or 'sconosciuta',
+            return {'nome': self.firmware.nome, 'versione': self.firmware.versione or tr('sconosciuta'),
                     'dimensione': self.firmware.dimensione}
         except FirmwareNonValido as e:
             self.firmware = None
-            return {'errore': f'File non valido: {e}'}
+            return {'errore': tr('File non valido: {0}', e)}
         except Exception as e:  # noqa: BLE001
             self.firmware = None
             return _errore(e)
 
     async def carica_firmware(self) -> dict:
         if self.firmware is None:
-            return {'errore': 'scegli prima il file del firmware'}
+            return {'errore': tr('scegli prima il file del firmware')}
         if self.caricatore is not None:
-            return {'errore': 'caricamento gia\' in corso'}
+            return {'errore': tr('caricamento già in corso')}
         self.ferma_caricamento.clear()
         self.caricatore = self.loop.create_task(self._carica(self.firmware))
         return {'ok': True}
@@ -415,11 +421,11 @@ class Plugin:
             try:
                 ps.carica_firmware(img, lambda fase, fatto, totale: self._emetti(fase, fatto, totale, ''),
                                    self.ferma_caricamento.is_set)
-                return True, 'Firmware installato: il ricevitore si riavvia.'
+                return True, tr('Firmware installato: il ricevitore si riavvia.')
             except Interrotto:
-                return False, 'Caricamento annullato.'
+                return False, tr('Caricamento annullato.')
             except Exception as e:  # noqa: BLE001
-                return False, 'Aggiornamento non riuscito: ' + _errore(e)['errore']
+                return False, tr('Aggiornamento non riuscito: {0}', _errore(e)['errore'])
             finally:
                 ps.chiudi()
 

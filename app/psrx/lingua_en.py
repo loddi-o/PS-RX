@@ -519,4 +519,22 @@ EN = {
     'Il touchpad muove il puntatore e il suo click è il tasto sinistro; la striscia a sinistra fa da rotellina.':
         'The touchpad moves the pointer and its click is the left button; the left strip works as a scroll wheel.',
     'Inverti la rotellina': 'Invert the scroll wheel',
+    # plugin Decky (backend)
+    "Ricevitore PS-RX non trovato sull'USB.": 'PS-RX receiver not found on USB.',
+    'Permesso negato sul nodo USB del ricevitore.': 'Permission denied on the receiver USB node.',
+    '{0} da GitHub': '{0} from GitHub',
+    'cerca prima gli aggiornamenti': 'check for updates first',
+    'cartella del plugin non trovata': 'plugin folder not found',
+    'un aggiornamento è già in corso': 'an update is already in progress',
+    'nessun Pico in modalità BOOTSEL: collegalo tenendo premuto BOOTSEL':
+        'no Pico in BOOTSEL mode: connect it while holding BOOTSEL',
+    'incluso nel plugin': 'bundled with the plugin',
+    'scegli prima il file del firmware': 'choose the firmware file first',
+    'caricamento già in corso': 'upload already in progress',
+    ' e ': ' and ',
+    'Versione {0} ({1}): menu di PS-RX, sezione Sistema.': 'Version {0} ({1}): PS-RX menu, System section.',
+    'aggiornamento del plugin non riuscito: {0}': 'plugin update failed: {0}',
+    'Firmware installato: il ricevitore si riavvia.': 'Firmware installed: the receiver is restarting.',
+    'GitHub non raggiungibile e nessun firmware incluso nel plugin': 'GitHub unreachable and no firmware bundled with the plugin',
+    'Caricamento annullato.': 'Upload cancelled.',
 }

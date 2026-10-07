@@ -30,6 +30,7 @@ import {
 } from "@decky/api";
 import { useEffect, useRef, useState } from "react";
 import { FaGamepad } from "react-icons/fa";
+import { linguaSteam, t } from "./lingua";
 
 // --- tipi (risposte del backend main.py) ---------------------------------------------
 interface Errore { errore?: string; codice?: number }
@@ -58,6 +59,7 @@ interface Firmware extends Errore { nome: string; versione: string; dimensione: 
 interface Avanzamento { fase: string; fatto: number; totale: number; messaggio: string }
 
 // --- chiamate al backend ---------------------------------------------------------------
+const impostaLinguaBackend = callable<[string], Errore>("imposta_lingua");
 const leggiStato = callable<[], Stato>("stato");
 const leggiImpostazioni = callable<[], Impostazioni>("impostazioni");
 const leggiAbbinati = callable<[], Abbinati>("abbinati");
@@ -92,12 +94,12 @@ async function provaUnaRete(indice: number, ssid: string, avanzamento: (t: strin
     if (e.errore) { avviso("PS-RX", e.errore); return; }
     avanzamento(e.descrizione ?? "");
     if (e.finita) {
-      toaster.toast({ title: e.ok ? `WiFi "${ssid}" a posto` : `WiFi "${ssid}": problema`, body: e.descrizione ?? "",
+      toaster.toast({ title: e.ok ? t("WiFi \"{0}\" a posto", ssid) : t("WiFi \"{0}\": problema", ssid), body: e.descrizione ?? "",
                       critical: !e.ok });
       return;
     }
   }
-  avviso("PS-RX", "La prova del WiFi non ha dato risposta in tempo.");
+  avviso("PS-RX", t("La prova del WiFi non ha dato risposta in tempo."));
 }
 const bootsel = callable<[], Errore>("bootsel");
 const preparaFirmware = callable<[string], Firmware>("prepara_firmware");
@@ -140,7 +142,7 @@ function durata(s: number): string {
 // --- controllo generico costruito dallo schema -------------------------------------------------
 function ControlloVoce(props: { voce: Voce; valore: number; cambia: (v: number) => void }) {
   const { voce: v, valore, cambia } = props;
-  const nota = v.riconnette ? `${v.nota} (Ricollega l'USB del ricevitore.)` : v.nota;
+  const nota = v.riconnette ? t("{0} (Ricollega l'USB del ricevitore.)", v.nota) : v.nota;
   if (v.tipo === "booleano") {
     return (
       <PanelSectionRow>
@@ -203,11 +205,11 @@ function ModaleController(props: { ab: Abbinato; schema: Voce[]; closeModal?: ()
     <ModalRoot closeModal={props.closeModal}>
       <div className={staticClasses.Title}>{ab.nome || ab.mac}</div>
       <PanelSectionRow>
-        <TextField label="Nome (al massimo 15 caratteri)" value={nome} onChange={(e) => setNome(e.target.value.slice(0, 15))} />
+        <TextField label={t("Nome (al massimo 15 caratteri)")} value={nome} onChange={(e) => setNome(e.target.value.slice(0, 15))} />
       </PanelSectionRow>
       <PanelSectionRow>
-        <ButtonItem layout="below" onClick={async () => { await esegui(rinomina(ab.mac, nome), "Nome salvato."); props.fatto(); }}>
-          Salva il nome
+        <ButtonItem layout="below" onClick={async () => { await esegui(rinomina(ab.mac, nome), t("Nome salvato.")); props.fatto(); }}>
+          {t("Salva il nome")}
         </ButtonItem>
       </PanelSectionRow>
       {schema.map((v) => (
@@ -215,11 +217,11 @@ function ModaleController(props: { ab: Abbinato; schema: Voce[]; closeModal?: ()
       ))}
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={() => showModal(
-          <ConfirmModal strTitle="Dimenticare il controller?"
-            strDescription={`${ab.nome || ab.mac}: per riusarlo andrà abbinato di nuovo e le sue impostazioni si perdono.`}
-            strOKButtonText="Dimentica" strCancelButtonText="Annulla"
-            onOK={async () => { await esegui(dimentica(ab.mac), "Controller dimenticato."); props.fatto(); props.closeModal?.(); }} />)}>
-          Dimentica questo controller
+          <ConfirmModal strTitle={t("Dimenticare il controller?")}
+            strDescription={t("{0}: per riusarlo andrà abbinato di nuovo e le sue impostazioni si perdono.", ab.nome || ab.mac)}
+            strOKButtonText={t("Dimentica")} strCancelButtonText={t("Annulla")}
+            onOK={async () => { await esegui(dimentica(ab.mac), t("Controller dimenticato.")); props.fatto(); props.closeModal?.(); }} />)}>
+          {t("Dimentica questo controller")}
         </ButtonItem>
       </PanelSectionRow>
     </ModalRoot>
@@ -232,19 +234,19 @@ function ModaleRete(props: { rete: Rete; ssid?: string; closeModal?: () => void;
   const [pw, setPw] = useState("");
   const [wpa3, setWpa3] = useState(rete.wpa3);
   return (
-    <ConfirmModal strTitle={`Rete ${rete.indice + 1}`} strOKButtonText="Salva" strCancelButtonText="Annulla"
+    <ConfirmModal strTitle={t("Rete {0}", rete.indice + 1)} strOKButtonText={t("Salva")} strCancelButtonText={t("Annulla")}
       closeModal={props.closeModal}
       onOK={async () => {
         const mantieni = !pw && ssid === rete.ssid && rete.ha_password;
-        await esegui(salvaRete(rete.indice, ssid, pw, wpa3, mantieni), `Rete ${ssid} salvata.`);
+        await esegui(salvaRete(rete.indice, ssid, pw, wpa3, mantieni), t("Rete {0} salvata.", ssid));
         props.fatto();
       }}>
-      <TextField label="Nome della rete (SSID)" value={ssid} onChange={(e) => setSsid(e.target.value.slice(0, 32))} />
-      <TextField label={rete.ha_password ? "Password (vuota = mantieni quella salvata)" : "Password (vuota = rete aperta)"}
+      <TextField label={t("Nome della rete (SSID)")} value={ssid} onChange={(e) => setSsid(e.target.value.slice(0, 32))} />
+      <TextField label={rete.ha_password ? t("Password (vuota = mantieni quella salvata)") : t("Password (vuota = rete aperta)")}
         bIsPassword value={pw} onChange={(e) => setPw(e.target.value.slice(0, 63))} />
-      <ToggleField label="WPA3" description="Solo se il router lo richiede: WPA2 va bene per quasi tutte le reti."
+      <ToggleField label={t("WPA3")} description={t("Solo se il router lo richiede: WPA2 va bene per quasi tutte le reti.")}
         checked={wpa3} onChange={setWpa3} />
-      <Field description="Solo reti a 2,4 GHz: il Pico 2 W non vede i 5 GHz. Se il router ha due nomi (per esempio Casa e Casa_5G) scegli quello a 2,4 GHz. Dopo il salvataggio usa Prova." />
+      <Field description={t("Solo reti a 2,4 GHz: il Pico 2 W non vede i 5 GHz. Se il router ha due nomi (per esempio Casa e Casa_5G) scegli quello a 2,4 GHz. Dopo il salvataggio usa Prova.")} />
     </ConfirmModal>
   );
 }
@@ -253,10 +255,10 @@ function ModaleWol(props: { mac: string[]; closeModal?: () => void; fatto: () =>
   const [m1, setM1] = useState(props.mac[0] ?? "");
   const [m2, setM2] = useState(props.mac[1] ?? "");
   return (
-    <ConfirmModal strTitle="PC da svegliare" strOKButtonText="Salva" strCancelButtonText="Annulla"
-      strDescription="MAC della scheda di rete cablata del PC (formato AA:BB:CC:DD:EE:FF). Vuoto = nessuno."
+    <ConfirmModal strTitle={t("PC da svegliare")} strOKButtonText={t("Salva")} strCancelButtonText={t("Annulla")}
+      strDescription={t("MAC della scheda di rete cablata del PC (formato AA:BB:CC:DD:EE:FF). Vuoto = nessuno.")}
       closeModal={props.closeModal}
-      onOK={async () => { await esegui(destinazioniWol(m1.trim(), m2.trim()), "Destinazioni salvate."); props.fatto(); }}>
+      onOK={async () => { await esegui(destinazioniWol(m1.trim(), m2.trim()), t("Destinazioni salvate.")); props.fatto(); }}>
       <TextField label="PC 1" value={m1} onChange={(e) => setM1(e.target.value.slice(0, 17))} />
       <TextField label="PC 2" value={m2} onChange={(e) => setM2(e.target.value.slice(0, 17))} />
     </ConfirmModal>
@@ -282,35 +284,35 @@ function SezioneGamepad(props: { st: Stato }) {
   const nomi: Record<string, string> = {};
   (ab?.abbinati ?? []).forEach((a) => { if (a.nome) nomi[a.mac] = a.nome; });
   return (
-    <PanelSection title={`Gamepad · modalità ${st.nome_modalita}`}>
+    <PanelSection title={t("Gamepad · modalità {0}", st.nome_modalita)}>
       {st.pad.length === 0 && (
-        <PanelSectionRow><Field label="Controller" description="nessuno collegato" /></PanelSectionRow>
+        <PanelSectionRow><Field label={t("Controller")} description={t("nessuno collegato")} /></PanelSectionRow>
       )}
       {st.pad.map((pad) => (
         <PanelSectionRow key={pad.posto}>
           <ButtonItem layout="below"
-            label={`${pad.posto + 1}. ${nomi[pad.mac] || pad.modello}: batteria ${pad.batteria_valida ? `${pad.batteria}%` : "?"}` +
-              `${pad.in_carica ? " (in carica)" : ""}`}
-            description={`${pad.modello} · ${pad.report} report/s · ${pad.hz} Hz · segnale ${pad.rssi ?? "-"}`}
-            onClick={() => esegui(spegniPad(pad.posto), `Posto ${pad.posto + 1} spento.`)}>
-            Spegni
+            label={t("{0}. {1}: batteria {2}", pad.posto + 1, nomi[pad.mac] || pad.modello, pad.batteria_valida ? `${pad.batteria}%` : "?") +
+              (pad.in_carica ? t(" (in carica)") : "")}
+            description={t("{0} · {1} report/s · {2} Hz · segnale {3}", pad.modello, pad.report, pad.hz, pad.rssi ?? "-")}
+            onClick={() => esegui(spegniPad(pad.posto), t("Posto {0} spento.", pad.posto + 1))}>
+            {t("Spegni")}
           </ButtonItem>
         </PanelSectionRow>
       ))}
       <PanelSectionRow>
         <ButtonItem layout="below"
-          description={st.finestra_abbinamento ? "Abbinamento in corso: tieni Create + PS (DualSense) o Share + PS (DualShock 4)."
-            : "Finestra di 30 s: poi tieni Create + PS (DualSense) o Share + PS (DualShock 4) sul controller."}
-          onClick={() => esegui(abbina(), "Abbinamento aperto per 30 secondi.")}>
-          Abbina un nuovo controller
+          description={st.finestra_abbinamento ? t("Abbinamento in corso: tieni Create + PS (DualSense) o Share + PS (DualShock 4).")
+            : t("Finestra di 30 s: poi tieni Create + PS (DualSense) o Share + PS (DualShock 4) sul controller.")}
+          onClick={() => esegui(abbina(), t("Abbinamento aperto per 30 secondi."))}>
+          {t("Abbina un nuovo controller")}
         </ButtonItem>
       </PanelSectionRow>
       {(ab?.abbinati ?? []).map((a) => (
         <PanelSectionRow key={a.mac}>
           <ButtonItem layout="below" label={a.nome || a.mac}
-            description={`${a.mac} · ${a.posto !== null ? `posto ${a.posto + 1}` : "non collegato"}`}
+            description={`${a.mac} · ${a.posto !== null ? t("posto {0}", a.posto + 1) : t("non collegato")}`}
             onClick={() => showModal(<ModaleController ab={a} schema={ab?.schema ?? []} fatto={carica} />)}>
-            Impostazioni
+            {t("Impostazioni")}
           </ButtonItem>
         </PanelSectionRow>
       ))}
@@ -333,7 +335,7 @@ function SezioneRete(props: { st: Stato }) {
         const v = await retiViste();
         if (v.errore) { avviso("PS-RX", v.errore); break; }
         if (v.finita) {
-          if (v.annullata) avviso("PS-RX", "Ricerca interrotta: riprova senza controller collegati.");
+          if (v.annullata) avviso("PS-RX", t("Ricerca interrotta: riprova senza controller collegati."));
           setViste(v.reti ?? []);
           break;
         }
@@ -344,76 +346,76 @@ function SezioneRete(props: { st: Stato }) {
   const usa = (v: ReteVista) => {
     const elenco = reti?.reti ?? [];
     const posto = elenco.find((r) => r.ssid === v.ssid) ?? elenco.find((r) => !r.ssid);
-    if (!posto) { avviso("PS-RX", "Già 5 reti salvate: eliminane una."); return; }
+    if (!posto) { avviso("PS-RX", t("Già 5 reti salvate: eliminane una.")); return; }
     showModal(<ModaleRete rete={posto} ssid={v.ssid} fatto={carica} />);
   };
   const carica = async () => { const r = await leggiReti(); if (!r.errore) setReti(r); };
   useEffect(() => { carica(); }, []);
-  const wol = st.ms_da_ultimo_wol === null ? "mai" : `${durata(Math.floor(st.ms_da_ultimo_wol / 1000))} fa`;
+  const wol = st.ms_da_ultimo_wol === null ? t("mai") : t("{0} fa", durata(Math.floor(st.ms_da_ultimo_wol / 1000)));
   return (
-    <PanelSection title="Rete">
+    <PanelSection title={t("Rete")}>
       <PanelSectionRow>
-        <Field label="WiFi del ricevitore"
-          description={st.rete_connessa ? `connesso · IP ${st.rete_ip} · segnale ${st.rete_rssi} dBm` :
-            (st.pad_connessi ? "spento: con i controller collegati la radio è tutta al Bluetooth" : st.rete)} />
+        <Field label={t("WiFi del ricevitore")}
+          description={st.rete_connessa ? t("connesso · IP {0} · segnale {1} dBm", st.rete_ip, st.rete_rssi) :
+            (st.pad_connessi ? t("spento: con i controller collegati la radio è tutta al Bluetooth") : st.rete)} />
       </PanelSectionRow>
-      <PanelSectionRow><Field label="Ultimo Wake-on-LAN" description={wol} /></PanelSectionRow>
+      <PanelSectionRow><Field label={t("Ultimo Wake-on-LAN")} description={wol} /></PanelSectionRow>
       {(reti?.reti ?? []).map((r) => (
         <PanelSectionRow key={r.indice}>
-          <ButtonItem layout="below" label={r.ssid ? `${r.indice + 1}. ${r.ssid}` : `${r.indice + 1}. (vuota)`}
-            description={r.ssid ? `${r.wpa3 ? "WPA3" : "WPA2"} · password ${r.ha_password ? "salvata" : "nessuna"}` : ""}
+          <ButtonItem layout="below" label={r.ssid ? `${r.indice + 1}. ${r.ssid}` : t("{0}. (vuota)", r.indice + 1)}
+            description={r.ssid ? t("{0} · password {1}", r.wpa3 ? "WPA3" : "WPA2", r.ha_password ? t("salvata") : t("nessuna")) : ""}
             onClick={() => showModal(<ModaleRete rete={r} fatto={carica} />)}>
-            {r.ssid ? "Modifica" : "Aggiungi"}
+            {r.ssid ? t("Modifica") : t("Aggiungi")}
           </ButtonItem>
           {r.ssid && (
             <ButtonItem layout="below" disabled={st.pad_connessi > 0 || prova !== null}
               description={prova?.indice === r.indice ? prova.testo :
-                (st.pad_connessi > 0 ? "Spegni i controller: con un controller il WiFi è spento." : "Password, indirizzo dal router e internet.")}
+                (st.pad_connessi > 0 ? t("Spegni i controller: con un controller il WiFi è spento.") : t("Password, indirizzo dal router e internet."))}
               onClick={async () => {
-                setProva({ indice: r.indice, testo: "in corso..." });
+                setProva({ indice: r.indice, testo: t("in corso...") });
                 await provaUnaRete(r.indice, r.ssid, (t) => setProva({ indice: r.indice, testo: t }));
                 setProva(null);
               }}>
-              Prova
+              {t("Prova")}
             </ButtonItem>
           )}
           {r.ssid && (
-            <ButtonItem layout="below" onClick={async () => { await esegui(cancellaRete(r.indice), `Rete ${r.ssid} eliminata.`); carica(); }}>
-              Elimina
+            <ButtonItem layout="below" onClick={async () => { await esegui(cancellaRete(r.indice), t("Rete {0} eliminata.", r.ssid)); carica(); }}>
+              {t("Elimina")}
             </ButtonItem>
           )}
         </PanelSectionRow>
       ))}
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={cercando || st.pad_connessi > 0} onClick={cerca}
-          description={st.pad_connessi > 0 ? "Spegni i controller: con un controller il WiFi è spento." :
-            "Reti visibili dal ricevitore (solo 2,4 GHz). Scegline una per salvarla."}>
-          {cercando ? "Ricerca..." : "Cerca reti"}
+          description={st.pad_connessi > 0 ? t("Spegni i controller: con un controller il WiFi è spento.") :
+            t("Reti visibili dal ricevitore (solo 2,4 GHz). Scegline una per salvarla.")}>
+          {cercando ? t("Ricerca...") : t("Cerca reti")}
         </ButtonItem>
       </PanelSectionRow>
       {viste !== null && viste.length === 0 && (
-        <PanelSectionRow><Field description="Nessuna rete rilevata: il router trasmette a 2,4 GHz?" /></PanelSectionRow>
+        <PanelSectionRow><Field description={t("Nessuna rete rilevata: il router trasmette a 2,4 GHz?")} /></PanelSectionRow>
       )}
       {(viste ?? []).map((v) => (
         <PanelSectionRow key={v.ssid}>
           <ButtonItem layout="below" label={v.ssid}
-            description={`${"▮".repeat(v.tacche)}${"▯".repeat(4 - v.tacche)} ${v.rssi} dBm · canale ${v.canale} · ${v.aperta ? "aperta" : "protetta"}`}
+            description={t("{0}{1} {2} dBm · canale {3} · {4}", "▮".repeat(v.tacche), "▯".repeat(4 - v.tacche), v.rssi, v.canale, v.aperta ? t("aperta") : t("protetta"))}
             onClick={() => usa(v)}>
-            Usa questa rete
+            {t("Usa questa rete")}
           </ButtonItem>
         </PanelSectionRow>
       ))}
       <PanelSectionRow>
-        <ButtonItem layout="below" label="PC da svegliare"
-          description={(reti?.wol_mac ?? []).filter(Boolean).join(", ") || "nessuno"}
+        <ButtonItem layout="below" label={t("PC da svegliare")}
+          description={(reti?.wol_mac ?? []).filter(Boolean).join(", ") || t("nessuno")}
           onClick={() => showModal(<ModaleWol mac={reti?.wol_mac ?? []} fatto={carica} />)}>
-          Modifica
+          {t("Modifica")}
         </ButtonItem>
       </PanelSectionRow>
       <PanelSectionRow>
-        <ButtonItem layout="below" description="Serve il WiFi connesso, quindi nessun controller collegato."
-          onClick={() => esegui(provaWol(), "Pacchetto Wake-on-LAN inviato.")}>
-          Prova il Wake-on-LAN
+        <ButtonItem layout="below" description={t("Serve il WiFi connesso, quindi nessun controller collegato.")}
+          onClick={() => esegui(provaWol(), t("Pacchetto Wake-on-LAN inviato."))}>
+          {t("Prova il Wake-on-LAN")}
         </ButtonItem>
       </PanelSectionRow>
       <ImpostazioniSezione sezione="rete" />
@@ -445,10 +447,10 @@ function SezioneFirmware(props: { st: Stato }) {
   const attivo = st.caricatore_attivo;
   let testo = "";
   if (av && attivo) {
-    if (av.fase === "attesa_pad") testo = "Spegni i controller: il firmware si carica e si installa solo senza controller collegati.";
-    else if (av.fase === "caricamento") testo = `Caricamento: ${av.fatto} di ${av.totale} blocchi`;
-    else if (av.fase === "verifica") testo = "Il ricevitore verifica il firmware (SHA-256)...";
-    else if (av.fase === "installazione") testo = "Installazione: il ricevitore si riavvia (non staccarlo).";
+    if (av.fase === "attesa_pad") testo = t("Spegni i controller: il firmware si carica e si installa solo senza controller collegati.");
+    else if (av.fase === "caricamento") testo = t("Caricamento: {0} di {1} blocchi", av.fatto, av.totale);
+    else if (av.fase === "verifica") testo = t("Il ricevitore verifica il firmware (SHA-256)...");
+    else if (av.fase === "installazione") testo = t("Installazione: il ricevitore si riavvia (non staccarlo).");
   } else if (st.caricamento_testo) {
     testo = st.caricamento_testo;
   }
@@ -456,17 +458,17 @@ function SezioneFirmware(props: { st: Stato }) {
     <>
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={attivo} onClick={scegli}
-          description={fw ? `${fw.nome}: versione ${fw.versione}, ${Math.round(fw.dimensione / 1024)} KB` : `installata: ${st.versione}`}>
-          Scegli il firmware (.uf2 o .bin)...
+          description={fw ? t("{0}: versione {1}, {2} KB", fw.nome, fw.versione, Math.round(fw.dimensione / 1024)) : t("installata: {0}", st.versione)}>
+          {t("Scegli il firmware (.uf2 o .bin)...")}
         </ButtonItem>
       </PanelSectionRow>
       <PanelSectionRow>
         {attivo ? (
-          <ButtonItem layout="below" onClick={() => annullaCaricamento()}>Annulla l'aggiornamento</ButtonItem>
+          <ButtonItem layout="below" onClick={() => annullaCaricamento()}>{t("Annulla l'aggiornamento")}</ButtonItem>
         ) : (
-          <ButtonItem layout="below" disabled={!fw} description="Carica, verifica e installa: servono i controller spenti."
+          <ButtonItem layout="below" disabled={!fw} description={t("Carica, verifica e installa: servono i controller spenti.")}
             onClick={() => { setAv(null); esegui(caricaFirmware()); }}>
-            Aggiorna il ricevitore
+            {t("Aggiorna il ricevitore")}
           </ButtonItem>
         )}
       </PanelSectionRow>
@@ -476,7 +478,7 @@ function SezioneFirmware(props: { st: Stato }) {
         </PanelSectionRow>
       )}
       {testo && !(attivo && av?.fase === "caricamento") && (
-        <PanelSectionRow><Field label="Aggiornamento" description={testo} /></PanelSectionRow>
+        <PanelSectionRow><Field label={t("Aggiornamento")} description={testo} /></PanelSectionRow>
       )}
     </>
   );
@@ -497,31 +499,31 @@ function SezioneAggiornamenti() {
     <>
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={cercando} onClick={cerca}
-          description={agg && !agg.errore ? `Ultima versione ${agg.versione}: firmware ${agg.firmware_nuovo ? "da aggiornare" : "aggiornato"}` +
-            ` (${agg.firmware_installato || "ricevitore non collegato"}), plugin ${agg.plugin_nuovo ? "da aggiornare" : "aggiornato"} (${agg.plugin_installato}).`
-            : "Controlla le release su GitHub."}>
-          {cercando ? "Ricerca..." : "Cerca aggiornamenti"}
+          description={agg && !agg.errore ? t("Ultima versione {0}: firmware {1}", agg.versione, agg.firmware_nuovo ? t("da aggiornare") : t("aggiornato")) +
+            t(" ({0}), plugin {1} ({2}).", agg.firmware_installato || t("ricevitore non collegato"), agg.plugin_nuovo ? t("da aggiornare") : t("aggiornato"), agg.plugin_installato)
+            : t("Controlla le release su GitHub.")}>
+          {cercando ? t("Ricerca...") : t("Cerca aggiornamenti")}
         </ButtonItem>
       </PanelSectionRow>
       {agg?.firmware_nuovo && (
         <PanelSectionRow>
-          <ButtonItem layout="below" description="Scarica da GitHub e installa: servono i controller spenti."
-            onClick={() => esegui(installaFirmwareGithub(), "Download del firmware avviato.")}>
-            Installa il firmware {agg.versione}
+          <ButtonItem layout="below" description={t("Scarica da GitHub e installa: servono i controller spenti.")}
+            onClick={() => esegui(installaFirmwareGithub(), t("Download del firmware avviato."))}>
+            {t("Installa il firmware {0}", agg.versione)}
           </ButtonItem>
         </PanelSectionRow>
       )}
       {agg?.plugin_nuovo && (
         <PanelSectionRow>
-          <ButtonItem layout="below" description="Scarica il plugin nuovo e riavvia Decky Loader (pochi secondi)."
-            onClick={() => esegui(aggiornaPlugin(), "Plugin aggiornato: Decky Loader si riavvia.")}>
-            Aggiorna il plugin a {agg.versione}
+          <ButtonItem layout="below" description={t("Scarica il plugin nuovo e riavvia Decky Loader (pochi secondi).")}
+            onClick={() => esegui(aggiornaPlugin(), t("Plugin aggiornato: Decky Loader si riavvia."))}>
+            {t("Aggiorna il plugin a {0}", agg.versione)}
           </ButtonItem>
         </PanelSectionRow>
       )}
       {automatico !== null && (
         <PanelSectionRow>
-          <ToggleField label="Cerca aggiornamenti all'avvio" description="Al massimo una volta al giorno, con una notifica."
+          <ToggleField label={t("Cerca aggiornamenti all'avvio")} description={t("Al massimo una volta al giorno, con una notifica.")}
             checked={automatico} onChange={async (on) => { setAutomatico(on); await impostaCercaAggiornamenti(on); }} />
         </PanelSectionRow>
       )}
@@ -541,22 +543,22 @@ function SezioneNuovoPico() {
     return () => { vivo = false; window.clearInterval(t); };
   }, []);
   const installa = async () => {
-    setLavoro("Download del firmware e copia nel Pico (circa 30 s)...");
+    setLavoro(t("Download del firmware e copia nel Pico (circa 30 s)..."));
     const r = await installaPico();
     setLavoro("");
     if (r.errore) avviso("PS-RX", r.errore);
-    else avviso("PS-RX", `Ricevitore pronto: PS-RX ${r.versione} (${r.origine}). Ora abbina un controller.`);
+    else avviso("PS-RX", t("Ricevitore pronto: PS-RX {0} ({1}). Ora abbina un controller.", r.versione, r.origine));
   };
   return (
-    <PanelSection title="Nuovo ricevitore">
+    <PanelSection title={t("Nuovo ricevitore")}>
       <PanelSectionRow>
-        <Field description={presente ? "Trovato un Raspberry Pi Pico in modalità BOOTSEL." :
-          "Collega un Pico 2 W nuovo (compare da solo) o uno già usato tenendo premuto BOOTSEL mentre lo colleghi."} />
+        <Field description={presente ? t("Trovato un Raspberry Pi Pico in modalità BOOTSEL.") :
+          t("Collega un Pico 2 W nuovo (compare da solo) o uno già usato tenendo premuto BOOTSEL mentre lo colleghi.")} />
       </PanelSectionRow>
       <PanelSectionRow>
-        <ButtonItem layout="below" disabled={!presente || !!lavoro} description={lavoro || "Installa l'ultimo firmware PS-RX."}
+        <ButtonItem layout="below" disabled={!presente || !!lavoro} description={lavoro || t("Installa l'ultimo firmware PS-RX.")}
           onClick={installa}>
-          Installa PS-RX sul Pico
+          {t("Installa PS-RX sul Pico")}
         </ButtonItem>
       </PanelSectionRow>
     </PanelSection>
@@ -567,17 +569,17 @@ function SezioneSistema(props: { st: Stato }) {
   const { st } = props;
   const [notifiche, setNotifiche] = useState<boolean | null>(null);
   useEffect(() => { leggiNotifiche().then(setNotifiche); }, []);
-  const audio = [st.altoparlante ? "altoparlante" : "", st.microfono ? "microfono" : ""].filter(Boolean);
+  const audio = [st.altoparlante ? t("altoparlante") : "", st.microfono ? t("microfono") : ""].filter(Boolean);
   return (
-    <PanelSection title="Sistema">
+    <PanelSection title={t("Sistema")}>
       <PanelSectionRow>
         <Field label={`PS-RX ${st.versione}`}
-          description={`acceso da ${durata(st.uptime_s)} · ${st.usb_gamepad} sull'USB · audio: ${audio.join(", ") || "non in uso"}` +
-            `${st.salvataggio_in_sospeso ? " · modifiche in attesa di salvataggio (a controller spenti)" : ""}`} />
+          description={t("acceso da {0} · {1} sull'USB · audio: {2}", durata(st.uptime_s), st.usb_gamepad, audio.join(", ") || t("non in uso")) +
+            (st.salvataggio_in_sospeso ? t(" · modifiche in attesa di salvataggio (a controller spenti)") : "")} />
       </PanelSectionRow>
       {notifiche !== null && (
         <PanelSectionRow>
-          <ToggleField label="Notifiche" description="Controller collegato (posto, modello, modalità, batteria) e batteria in esaurimento."
+          <ToggleField label={t("Notifiche")} description={t("Controller collegato (posto, modello, modalità, batteria) e batteria in esaurimento.")}
             checked={notifiche} onChange={async (on) => { setNotifiche(on); await impostaNotifiche(on); }} />
         </PanelSectionRow>
       )}
@@ -586,33 +588,33 @@ function SezioneSistema(props: { st: Stato }) {
       <SezioneAggiornamenti />
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={st.pad_connessi > 0}
-          description="Il ricevitore si riavvia come chiavetta RP2350 (solo senza controller)."
-          onClick={() => esegui(bootsel(), "Ricevitore in modalità BOOTSEL.")}>
-          Modalità aggiornamento (BOOTSEL)
+          description={t("Il ricevitore si riavvia come chiavetta RP2350 (solo senza controller).")}
+          onClick={() => esegui(bootsel(), t("Ricevitore in modalità BOOTSEL."))}>
+          {t("Modalità aggiornamento (BOOTSEL)")}
         </ButtonItem>
       </PanelSectionRow>
       <PanelSectionRow>
-        <ButtonItem layout="below" description="Di solito non serve: le modifiche si salvano da sole a controller spenti."
-          onClick={() => esegui(salvaOra(), "Impostazioni salvate.")}>
-          Salva ora
+        <ButtonItem layout="below" description={t("Di solito non serve: le modifiche si salvano da sole a controller spenti.")}
+          onClick={() => esegui(salvaOra(), t("Impostazioni salvate."))}>
+          {t("Salva ora")}
         </ButtonItem>
       </PanelSectionRow>
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={() => showModal(
-          <ConfirmModal strTitle="Impostazioni di fabbrica"
-            strDescription="Reti WiFi, Wake-on-LAN, controller abbinati e loro impostazioni restano."
-            strOKButtonText="Ripristina" strCancelButtonText="Annulla"
-            onOK={() => esegui(predefinite(), "Impostazioni di fabbrica ripristinate.")} />)}>
-          Impostazioni di fabbrica
+          <ConfirmModal strTitle={t("Impostazioni di fabbrica")}
+            strDescription={t("Reti WiFi, Wake-on-LAN, controller abbinati e loro impostazioni restano.")}
+            strOKButtonText={t("Ripristina")} strCancelButtonText={t("Annulla")}
+            onOK={() => esegui(predefinite(), t("Impostazioni di fabbrica ripristinate."))} />)}>
+          {t("Impostazioni di fabbrica")}
         </ButtonItem>
       </PanelSectionRow>
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={async () => {
           const r = await leggiRegistro();
-          const testo = r.errore ?? (r.attivo ? r.testo ?? "" : "Registro spento: attiva \"Registro diagnostico\".");
+          const testo = r.errore ?? (r.attivo ? r.testo ?? "" : t("Registro spento: attiva \"Registro diagnostico\"."));
           showModal(<ModaleRegistro testo={testo} />);
         }}>
-          Mostra il registro
+          {t("Mostra il registro")}
         </ButtonItem>
       </PanelSectionRow>
     </PanelSection>
@@ -637,7 +639,7 @@ function Contenuto() {
     return (
       <>
         <PanelSection title="PS-RX">
-          <PanelSectionRow><Field label="Ricevitore" description={errore || "ricerca..."} /></PanelSectionRow>
+          <PanelSectionRow><Field label={t("Ricevitore")} description={errore || t("ricerca...")} /></PanelSectionRow>
         </PanelSection>
         <SezioneNuovoPico />
       </>
@@ -653,6 +655,7 @@ function Contenuto() {
 }
 
 export default definePlugin(() => {
+  impostaLinguaBackend(linguaSteam());   // impostazioni, errori e notifiche del backend nella lingua di Steam
   // Registrato al caricamento del plugin, non nel pannello: le notifiche arrivano anche a menu chiuso.
   const notifica = addEventListener<[string, string, boolean]>("psrx_notifica", (titolo, testo, critica) => {
     toaster.toast({ title: titolo, body: testo, critical: critica, playSound: critica });

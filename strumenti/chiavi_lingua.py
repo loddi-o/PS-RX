@@ -19,7 +19,8 @@ sys.path.insert(0, APP)
 
 
 def da_chiamate(percorso: str) -> list:
-    albero = ast.parse(open(percorso, encoding='utf-8').read())
+    with open(percorso, encoding='utf-8') as f:
+        albero = ast.parse(f.read())
     chiavi = []
     for n in ast.walk(albero):
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in ('tr', 't') and n.args:
@@ -37,7 +38,7 @@ def da_chiamate(percorso: str) -> list:
 def tutte() -> list:
     from psrx import schema
     chiavi = []
-    for f in sorted(glob.glob(os.path.join(APP, 'psrx', '*.py')) + glob.glob(os.path.join(APP, 'psrx_app', '*.py'))):
+    for f in sorted(glob.glob(os.path.join(APP, 'psrx', '*.py')) + glob.glob(os.path.join(APP, 'psrx_app', '*.py')) + [os.path.join(APP, 'decky', 'main.py')]):
         if os.path.basename(f) in ('lingua.py', 'lingua_en.py'):
             continue
         chiavi += da_chiamate(f)

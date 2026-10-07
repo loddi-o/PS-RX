@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(REPO, 'strumenti'))
 from psrx import lingua, protocollo as p  # noqa: E402
 from psrx.lingua_en import EN  # noqa: E402
 import chiavi_lingua  # noqa: E402
+import chiavi_ts  # noqa: E402
 
 
 def segnaposto(testo):
@@ -43,6 +44,14 @@ class TestLingua(unittest.TestCase):
         lingua.imposta('it')
         self.assertEqual(lingua.tr('Posto {0}', 3), 'Posto 3')
         self.assertEqual(p.TESTO_ERRORE[p.ERR_COMANDO], 'comando sconosciuto')
+
+    def test_plugin_decky(self):
+        decky = os.path.join(REPO, 'app', 'decky', 'src')
+        en = chiavi_ts.dizionario(os.path.join(decky, 'lingua.ts'))
+        mancanti = [c for c in chiavi_ts.chiavi(os.path.join(decky, 'index.tsx')) if c not in en]
+        self.assertEqual(mancanti, [], 'testi del plugin senza traduzione in src/lingua.ts')
+        for it, testo_en in en.items():
+            self.assertEqual(segnaposto(it), segnaposto(testo_en), it)
 
     def test_testo_mancante_resta_italiano(self):
         lingua.imposta('en')
