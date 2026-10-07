@@ -26,6 +26,7 @@
 #include "psrx.h"
 #include "psrx/ds4.h"
 #include "psrx/ds4_posti.h"
+#include "psrx/xbox.h"
 
 #if ENABLE_BATT_LED
 #include "battery_led.h"
@@ -726,6 +727,8 @@ int main() {
     bt_pump();
     tud_task();
     interrupt_loop(true); // early: drain the realtime HID queue only
+    // PS-RX: modalita' Xbox, report XInput dei posti cambiati (subito dopo il servizio USB, come sopra).
+    if (psrx_xbox_attivo) xbox_invia();
     wake_task();
 #ifdef ENABLE_WAKE_HID
     usb_variant_task();

@@ -115,5 +115,9 @@ void usb_request_variant_fisso(void);
 void usb_request_mouse(bool enabled);
 // Istanza HID del mouse nella configurazione servita; 0xFF = nessun mouse.
 uint8_t usb_mouse_hid_instance(void);
+// Modalita' Xbox (interfacce XInput al posto di audio e gamepad HID): cambia la forma USB.
+void usb_request_xbox(bool enabled);
+// Interfacce XInput servite (0 fuori dalla modalita' Xbox). In modalita' Xbox usb_active_gamepad_slots() = 0.
+uint8_t usb_xbox_posti(void);
 
 #endif //DS5_BRIDGE_USB_H

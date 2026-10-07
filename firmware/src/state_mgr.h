@@ -18,6 +18,8 @@ void state_slot_reset(uint8_t slot);
 // PS-RX: colore della barra luminosa (vedi state_mgr.cpp) e blocco dei colori dell'host.
 void state_imposta_colore(uint8_t slot, uint8_t r, uint8_t g, uint8_t b);
 extern volatile bool psrx_led_posto;
+// PS-RX: vibrazione classica (modalita' Xbox): forte = motore sinistro, debole = destro.
+void state_imposta_vibrazione(uint8_t slot, uint8_t forte, uint8_t debole);
 // Copy the cached 63-byte state for `slot` into `data` (which must be at
 // least `size` bytes). Despite the historical name, this is a *getter* — host
 // inputs go through state_update(), not here.

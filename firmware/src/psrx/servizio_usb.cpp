@@ -132,6 +132,7 @@ static uint8_t imposta(uint8_t id, uint16_t valore) {
     // DS5-Linux-Bridge nel ciclo principale.
     if (id == IMP_LED_PICO_SPENTO) rich_led = true;
     if (id == IMP_POSTI_FISSI) rich_forma_usb = true;
+    if (id == IMP_MODALITA) usb_request_xbox(valore == PSRX_MODALITA_XBOX);
     if (id == IMP_TASTIERA_RISVEGLIO) usb_request_wake_kbd(valore != 0);
     if (id == IMP_REGISTRO) weblog_set_enabled(valore != 0);
     salvataggio_segna_modifica();
@@ -153,6 +154,8 @@ static uint8_t predefinite() {
     memcpy(c.wol_target_mac2, vecchia.wol_target_mac2, sizeof c.wol_target_mac2);
     config_imposta(c);
     if (tastiera) usb_request_wake_kbd(false);
+    usb_request_xbox(false);      // modalita' PlayStation
+    rich_forma_usb = true;        // posti dinamici
     weblog_set_enabled(false);
     rich_led = true;
     salvataggio_segna_modifica();
@@ -250,7 +253,7 @@ static uint16_t stato(uint8_t *out, bool silenzioso) {
     StatoPsrx s{};
     s.versione = 1;
     s.modalita = c.psrx_modalita;
-    s.usb_gamepad = usb_active_gamepad_slots();
+    s.usb_gamepad = static_cast<uint8_t>(usb_active_gamepad_slots() + usb_xbox_posti());
     s.usb_flag = (tud_mounted() ? 1u : 0u) | (usb_host_suspended() ? 2u : 0u) | (usb_wake_kbd_active() ? 4u : 0u);
     s.audio_flag = (spk_active ? 1u : 0u) | (audio_mic_attivo() ? 2u : 0u) | (g_firmware_mic_muted ? 4u : 0u);
     s.pad_connessi = static_cast<uint8_t>(pad_connessi());

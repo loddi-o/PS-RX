@@ -18,6 +18,7 @@
 #include "politiche.h"
 #include "psrx_config.h"
 #include "trackpad.h"
+#include "xinput.h"
 
 namespace {
 
@@ -654,6 +655,47 @@ void test_trackpad() {
     }
 }
 
+// --- Modalita' Xbox: DualSense -> XInput --------------------------------------------------------
+
+int16_t leggi16(const uint8_t *p) { return static_cast<int16_t>(p[0] | p[1] << 8); }
+
+void test_xinput() {
+    printf("[test] modalita' Xbox (XInput)\n");
+    uint8_t ds[63] = {};
+    ds[0] = 128; ds[1] = 128; ds[2] = 128; ds[3] = 128; ds[7] = 0x08;   // fermo, croce rilasciata
+    uint8_t x[XINPUT_REPORT_LEN];
+    xinput_da_dualsense(ds, x, true);
+    VERIFICA(x[0] == 0x00 && x[1] == 0x14 && x[2] == 0 && x[3] == 0);
+    VERIFICA(leggi16(x + 6) == 0 && leggi16(x + 8) == 0 && leggi16(x + 10) == 0 && leggi16(x + 12) == 0);
+    // estremi: sinistra/alto e destra/basso; Y invertita (XInput: positivo in alto)
+    ds[0] = 0; ds[1] = 0; ds[2] = 255; ds[3] = 255;
+    xinput_da_dualsense(ds, x, true);
+    VERIFICA(leggi16(x + 6) == -32768 && leggi16(x + 8) == 32767);
+    VERIFICA(leggi16(x + 10) == 32766 && leggi16(x + 12) == -32766);
+    // tasti
+    ds[7] = 0x20 | 0x40 | 0x10 | 0x80 | 0x02;   // croce, cerchio, quadrato, triangolo, croce direzionale a destra
+    ds[8] = 0x01 | 0x02 | 0x20 | 0x10 | 0x40 | 0x80;   // L1 R1 Options Create L3 R3
+    ds[9] = 0x01;                                // PS
+    ds[4] = 200; ds[5] = 17;
+    xinput_da_dualsense(ds, x, true);
+    VERIFICA(x[2] == (0x08 | 0x10 | 0x20 | 0x40 | 0x80));
+    VERIFICA(x[3] == (0x01 | 0x02 | 0x04 | 0x10 | 0x20 | 0x40 | 0x80));
+    VERIFICA(x[4] == 200 && x[5] == 17);
+    // diagonale su-sinistra; click del touchpad = Back solo se il touchpad non fa da mouse
+    ds[7] = 7; ds[8] = 0; ds[9] = 0x02;
+    xinput_da_dualsense(ds, x, true);
+    VERIFICA(x[2] == (0x01 | 0x04 | 0x20));
+    xinput_da_dualsense(ds, x, false);
+    VERIFICA(x[2] == (0x01 | 0x04));
+    // vibrazione
+    const uint8_t vib[8] = {0x00, 0x08, 0x00, 0xC8, 0x40, 0, 0, 0};
+    const uint8_t led[3] = {0x01, 0x03, 0x06};
+    uint8_t forte = 0, debole = 0;
+    VERIFICA(xinput_vibrazione(vib, sizeof vib, &forte, &debole) && forte == 0xC8 && debole == 0x40);
+    VERIFICA(!xinput_vibrazione(led, sizeof led, &forte, &debole));
+    VERIFICA(!xinput_vibrazione(vib, 4, &forte, &debole));
+}
+
 } // namespace
 
 int esegui_test_logica() {
@@ -668,6 +710,7 @@ int esegui_test_logica() {
     test_ds4();
     test_combo();
     test_trackpad();
+    test_xinput();
     printf("[test] %d controlli, %d falliti: %s\n", controlli, fallimenti, fallimenti ? "ERRORE" : "OK");
     return fallimenti;
 }

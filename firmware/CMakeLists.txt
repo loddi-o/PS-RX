@@ -191,6 +191,8 @@ target_sources(ds5-bridge PRIVATE
         src/psrx/servizio_usb.cpp
         src/psrx/trackpad.cpp
         src/psrx/uart_asincrona.cpp
+        src/psrx/xbox.cpp
+        src/psrx/xinput.cpp
 )
 target_link_libraries(ds5-bridge
         pico_sha256

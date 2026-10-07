@@ -24,7 +24,8 @@ void audio_pad_task() {
         if (p && p->audio_spento) audio = false;
         if (p && p->microfono_spento) microfono = false;
     }
-    const bool bloccato = !audio;
+    // In modalita' Xbox l'USB non ha audio: il controller resta senza flusso audio (piu' banda all'input).
+    const bool bloccato = !audio || get_config().psrx_modalita == PSRX_MODALITA_XBOX;
     if (bloccato != psrx_audio_bloccato) {
         psrx_audio_bloccato = bloccato;
         psrx_log("audio del controller nel posto %u: %s", posto + 1, bloccato ? "spento" : "attivo");

@@ -236,3 +236,11 @@ void state_imposta_colore(uint8_t slot, uint8_t r, uint8_t g, uint8_t b) {
     state[slot][offsetof(SetStateData, LedRed) + 1] = g;
     state[slot][offsetof(SetStateData, LedRed) + 2] = b;
 }
+
+void state_imposta_vibrazione(uint8_t slot, uint8_t forte, uint8_t debole) {
+    if (slot >= BT_MAX_SLOTS) return;
+    uint8_t *st = state[slot];
+    st[0] |= 0x03;   // EnableRumbleEmulation + UseRumbleNotHaptics (come state_update)
+    st[offsetof(SetStateData, RumbleEmulationRight)] = debole;
+    st[offsetof(SetStateData, RumbleEmulationLeft)] = forte;
+}

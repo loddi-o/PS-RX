@@ -30,6 +30,7 @@
 #include "slots.h"
 #include "psrx/servizio_usb.h"
 #include "psrx/protocollo.h"
+#include "psrx/xbox.h"
 
 bool ds_mode() {
     if (get_config().controller_mode == 2) {
@@ -155,13 +156,21 @@ tusb_desc_device_t desc_device =
 // device-descriptor callback (above that code) can read the active variant.
 bool usb_descriptor_variant_is_full(void);
 static uint16_t usb_active_bcd_device(void);
+static bool usb_xbox_servita(void);
+uint8_t usb_xbox_posti(void);
 #endif
 
 // Invoked when received GET DEVICE DESCRIPTOR
 // Application return pointer to descriptor
 uint8_t const *tud_descriptor_device_cb(void) {
+    desc_device.idVendor = 0x054C;
     desc_device.idProduct = ds_mode() ? 0x0CE6 : 0x0DF2;
 #ifdef ENABLE_WAKE_HID
+    // PS-RX: modalita' Xbox, dispositivo composito con VID pid.codes (vedi psrx/xbox.h).
+    if (usb_xbox_servita()) {
+        desc_device.idVendor = XBOX_VID;
+        desc_device.idProduct = XBOX_PID;
+    }
     // S3-wake wedge fix. Per Microsoft's USB docs, the
     // Windows hub driver CACHES a device's descriptors keyed on
     // {VID, PID, bcdDevice (device release number)}. On resume from S3 Windows
@@ -654,11 +663,12 @@ typedef struct {
     // 0 for the other variants so the plain field compare in
     // desc_target_differs() can't see a stale count.
     uint8_t multi_slots;
+    bool xbox;                // PS-RX: modalita' Xbox (interfacce XInput al posto di audio e HID; mai tastiera)
 } usb_desc_target;
 // Field-wise volatile access is enough: all fields are only written from
 // main-loop context (BT event handlers, httpd POST handlers, usb_variant_task).
-static volatile usb_desc_target active_target  = {DESC_VARIANT_MINIMAL, false, false, 0};
-static volatile usb_desc_target desired_target = {DESC_VARIANT_MINIMAL, false, false, 0};
+static volatile usb_desc_target active_target  = {DESC_VARIANT_MINIMAL, false, false, 0, false};
+static volatile usb_desc_target desired_target = {DESC_VARIANT_MINIMAL, false, false, 0, false};
 
 bool usb_descriptor_variant_is_full(void) {
     return active_target.variant == DESC_VARIANT_FULL;
@@ -666,8 +676,12 @@ bool usb_descriptor_variant_is_full(void) {
 // Windows caches descriptors keyed on {VID, PID, bcdDevice}; every variant
 // gets a distinct value so no swap can be answered from a stale cache (see
 // tud_descriptor_device_cb).
+static bool usb_xbox_servita(void) { return active_target.xbox; }
+
 static uint16_t usb_active_bcd_device(void) {
     uint16_t bcd;
+    // PS-RX: modalita' Xbox, un valore per numero di interfacce XInput (altro VID/PID, nessun conflitto).
+    if (active_target.xbox) return (uint16_t) (0x0200 + usb_xbox_posti() + (active_target.mouse ? 0x80 : 0));
     switch (active_target.variant) {
         case DESC_VARIANT_MINIMAL: bcd = 0x0101; break;
         // Each exposure count is its own cacheable identity (0x0102 for two
@@ -701,6 +715,7 @@ bool usb_wake_kbd_active(void) { return active_target.kbd; }
 // variant): MULTI exposes the latched high-water count, FULL exactly one,
 // MINIMAL none.
 uint8_t usb_active_gamepad_slots(void) {
+    if (active_target.xbox) return 0;   // PS-RX: nessun gamepad HID in modalita' Xbox (vedi usb_xbox_posti)
     switch (active_target.variant) {
 #if MULTI_SLOT_COUNT > 1
         case DESC_VARIANT_FISSO:   return MULTI_SLOT_COUNT;   // PS-RX
@@ -710,6 +725,19 @@ uint8_t usb_active_gamepad_slots(void) {
 #endif
         case DESC_VARIANT_FULL:    return 1;
         case DESC_VARIANT_MINIMAL:
+        default:                   return 0;
+    }
+}
+
+// PS-RX: interfacce XInput servite in modalita' Xbox (stessa regola dei gamepad HID: segue la variante).
+uint8_t usb_xbox_posti(void) {
+    if (!active_target.xbox) return 0;
+    switch (active_target.variant) {
+#if MULTI_SLOT_COUNT > 1
+        case DESC_VARIANT_FISSO:   return MULTI_SLOT_COUNT;
+        case DESC_VARIANT_MULTI:   return active_target.multi_slots;
+#endif
+        case DESC_VARIANT_FULL:    return 1;
         default:                   return 0;
     }
 }
@@ -827,6 +855,7 @@ void usb_request_variant_multi(uint8_t exposed_slots) {
 void usb_request_wake_kbd(bool enabled) { desired_target.kbd = enabled; }
 // PS-RX: mouse del touchpad (almeno un controller abbinato con "touchpad come mouse").
 void usb_request_mouse(bool enabled) { desired_target.mouse = enabled; }
+void usb_request_xbox(bool enabled) { desired_target.xbox = enabled; }
 // One-time boot init, called after config_load() and BEFORE the first
 // tud_connect(): seed BOTH desired and active with the persisted kbd choice so
 // the very first enumeration already matches the config (no cosmetic bounce a
@@ -834,7 +863,11 @@ void usb_request_mouse(bool enabled) { desired_target.mouse = enabled; }
 void usb_descriptor_init_from_config(void) {
     const bool kbd = get_config().wake_kbd_enabled != 0;
     desired_target.kbd = kbd;
-    active_target.kbd  = kbd;
+    // PS-RX: modalita' Xbox fin dalla prima enumerazione; in modalita' Xbox niente tastiera.
+    const bool xbox = get_config().psrx_modalita == PSRX_MODALITA_XBOX;
+    desired_target.xbox = xbox;
+    active_target.xbox = xbox;
+    active_target.kbd  = kbd && !xbox;
     // PS-RX: posti fissi e mouse fin dalla prima enumerazione (niente ricollegamenti dopo l'avvio).
     bool mouse = false;
     for (const auto &p : get_config().psrx_pad) mouse = mouse || p.trackpad;
@@ -858,7 +891,8 @@ bool usb_variant_swap_in_progress(void) { return swap_state != SWAP_IDLE; }
 
 static bool desc_target_differs(void) {
     return desired_target.variant != active_target.variant ||
-           desired_target.kbd != active_target.kbd ||
+           (desired_target.kbd && !desired_target.xbox) != active_target.kbd ||
+           desired_target.xbox != active_target.xbox ||
            desired_target.mouse != active_target.mouse ||
            desired_target.multi_slots != active_target.multi_slots;
 }
@@ -927,8 +961,9 @@ void usb_variant_task(void) {
             // MINIMAL->FULL swap enumerate cleanly instead of reusing a stale
             // cached MINIMAL.
             active_target.variant     = desired_target.variant;
-            active_target.kbd         = desired_target.kbd;
+            active_target.kbd         = desired_target.kbd && !desired_target.xbox;
             active_target.mouse       = desired_target.mouse;
+            active_target.xbox        = desired_target.xbox;
             active_target.multi_slots = desired_target.multi_slots;
             // Audio alt-setting state resets with the bus: variants without an
             // audio function (MINIMAL/MULTI) never receive the SET_INTERFACE
@@ -1093,8 +1128,26 @@ static uint8_t conta_hid(const uint8_t *cfg, uint16_t len) {
     return n;
 }
 
+// PS-RX, modalita' Xbox: intestazione + un blocco XInput per posto. Senza controller resta il segnaposto
+// HID inerte di DS5-Linux-Bridge: con la sola interfaccia di configurazione il dispositivo non sarebbe
+// composito e Windows non leggerebbe le funzioni del descrittore MS OS 2.0.
+static uint8_t cfg_xbox[9 + MULTI_SLOT_COUNT * XBOX_ITF_LEN];
+
+static const uint8_t *descrittore_xbox(void) {
+    const uint8_t n = usb_xbox_posti();
+    if (n == 0) return descriptor_configuration_minimal;
+    const uint16_t totale = (uint16_t) (9 + n * XBOX_ITF_LEN);
+    const uint8_t intestazione[9] = {DS5_CFG_HDR_DESC(0, 0)};
+    memcpy(cfg_xbox, intestazione, sizeof intestazione);
+    cfg_xbox[2] = (uint8_t) (totale & 0xFF);
+    cfg_xbox[3] = (uint8_t) (totale >> 8);
+    cfg_xbox[4] = n;
+    for (uint8_t k = 0; k < n; k++) xbox_descrittore_interfaccia(cfg_xbox + 9 + k * XBOX_ITF_LEN, k);
+    return cfg_xbox;
+}
+
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
-    const uint8_t *base = descrittore_dlb(index);
+    const uint8_t *base = active_target.xbox ? descrittore_xbox() : descrittore_dlb(index);
     const uint16_t len = static_cast<uint16_t>(base[2] | base[3] << 8);
     const uint8_t n_itf = base[4];
     if (len + PSRX_ITF_VENDOR_LEN > sizeof cfg_psrx) return base;
@@ -1588,6 +1641,13 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
     }else {
         string_desc_arr[2] = "DualSense Edge Wireless Controller";
     }
+    string_desc_arr[1] = "Sony Interactive Entertainment";
+#ifdef ENABLE_WAKE_HID
+    if (usb_xbox_servita()) {   // PS-RX
+        string_desc_arr[1] = "PS-RX";
+        string_desc_arr[2] = "PS-RX (Xbox 360)";
+    }
+#endif
 
     switch (index) {
         case STRID_LANGID:
@@ -1690,7 +1750,20 @@ uint8_t const desc_bos[] = {
     TUD_BOS_MS_OS_20_DESCRIPTOR(MS_OS_20_DESC_LEN, MS_OS_20_VENDOR_CODE)
 };
 
+// PS-RX, modalita' Xbox: BOS con la lunghezza del set MS OS 2.0 della modalita' Xbox (byte 29-30:
+// intestazione BOS 5 + capability 4 + UUID 16 + versione di Windows 4).
+static_assert(sizeof(desc_bos) == 33, "BOS");
+static uint8_t desc_bos_xbox[sizeof(desc_bos)];
+static uint16_t ms_os_xbox_len(void);
+
 uint8_t const *tud_descriptor_bos_cb(void) {
+    if (active_target.xbox) {
+        memcpy(desc_bos_xbox, desc_bos, sizeof desc_bos);
+        const uint16_t len = ms_os_xbox_len();
+        desc_bos_xbox[29] = (uint8_t) (len & 0xFF);
+        desc_bos_xbox[30] = (uint8_t) (len >> 8);
+        return desc_bos_xbox;
+    }
     return desc_bos;
 }
 
@@ -1773,6 +1846,52 @@ uint8_t desc_ms_os_20[] = {
 TU_VERIFY_STATIC(sizeof(desc_ms_os_20) == MS_OS_20_DESC_LEN,
                  "MS OS 2.0 descriptor length mismatch");
 
+// PS-RX, modalita' Xbox: set MS OS 2.0 costruito a richiesta. Una funzione per interfaccia XInput con
+// compatible ID "XUSB10" (Windows ci aggancia xusb22, il driver XInput), poi la funzione di configurazione
+// copiata dal set della modalita' PlayStation. Nessuna funzione audio (non c'e').
+#define MS_OS_20_XUSB_FUNC_LEN (MS_OS_20_FUNC_SUBSET_HDR_LEN + MS_OS_20_COMPAT_ID_LEN)
+#define MS_OS_20_VENDOR_FUNC_OFFSET (MS_OS_20_SET_HEADER_LEN + MS_OS_20_CONFIG_SUBSET_LEN + MS_OS_20_AUDIO_FUNC_LEN)
+static uint8_t ms_os_xbox[MS_OS_20_SET_HEADER_LEN + MS_OS_20_CONFIG_SUBSET_LEN +
+                          MULTI_SLOT_COUNT * MS_OS_20_XUSB_FUNC_LEN + MS_OS_20_VENDOR_FUNC_LEN];
+
+static uint16_t ms_os_xbox_len(void) {
+    return (uint16_t) (MS_OS_20_SET_HEADER_LEN + MS_OS_20_CONFIG_SUBSET_LEN +
+                       usb_xbox_posti() * MS_OS_20_XUSB_FUNC_LEN + MS_OS_20_VENDOR_FUNC_LEN);
+}
+
+static uint16_t prepara_ms_os_xbox(void) {
+    const uint16_t totale = ms_os_xbox_len();
+    uint8_t *p = ms_os_xbox;
+    auto metti16 = [&p](uint16_t v) { *p++ = (uint8_t) (v & 0xFF); *p++ = (uint8_t) (v >> 8); };
+    metti16(MS_OS_20_SET_HEADER_LEN);
+    metti16(MS_OS_20_SET_HEADER_DESCRIPTOR);
+    metti16(0x0000);
+    metti16(0x0603);                         // Windows 8.1 o successivi
+    metti16(totale);
+    metti16(MS_OS_20_CONFIG_SUBSET_LEN);
+    metti16(MS_OS_20_SUBSET_HEADER_CONFIGURATION);
+    *p++ = 0x00;
+    *p++ = 0x00;
+    metti16((uint16_t) (totale - MS_OS_20_SET_HEADER_LEN));
+    const uint8_t n = usb_xbox_posti();
+    for (uint8_t k = 0; k < n; k++) {
+        metti16(MS_OS_20_FUNC_SUBSET_HDR_LEN);
+        metti16(MS_OS_20_SUBSET_HEADER_FUNCTION);
+        *p++ = k;                            // bFirstInterface: interfaccia XInput del posto k
+        *p++ = 0x00;
+        metti16(MS_OS_20_XUSB_FUNC_LEN);
+        metti16(MS_OS_20_COMPAT_ID_LEN);
+        metti16(MS_OS_20_FEATURE_COMPATBLE_ID);
+        static const uint8_t id[16] = {'X', 'U', 'S', 'B', '1', '0', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        memcpy(p, id, sizeof id);
+        p += sizeof id;
+    }
+    memcpy(p, desc_ms_os_20 + MS_OS_20_VENDOR_FUNC_OFFSET, MS_OS_20_VENDOR_FUNC_LEN);
+    p[4] = itf_vendor;                       // bFirstInterface della funzione di configurazione
+    p += MS_OS_20_VENDOR_FUNC_LEN;
+    return (uint16_t) (p - ms_os_xbox);
+}
+
 // Vendor-class control transfer hook. Windows reads BOS, sees the MS OS 2.0
 // platform capability, then issues this vendor request to fetch the
 // descriptor set itself.
@@ -1783,6 +1902,10 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
     if (stage != CONTROL_STAGE_SETUP) return true;
     if (request->bRequest == MS_OS_20_VENDOR_CODE && request->wIndex == 7) {
         // wIndex == 7 -> MS_OS_20_DESCRIPTOR_INDEX
+        if (active_target.xbox) {   // PS-RX
+            const uint16_t len = prepara_ms_os_xbox();
+            return tud_control_xfer(rhport, request, ms_os_xbox, len);
+        }
         desc_ms_os_20[MS_OS_20_VENDOR_ITF_OFFSET] = itf_vendor;
         return tud_control_xfer(rhport, request, (void *)(uintptr_t)desc_ms_os_20,
                                 sizeof(desc_ms_os_20));

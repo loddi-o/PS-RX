@@ -34,7 +34,8 @@ CRITICHE = [
 MODIFICATE = {
     'on_bt_data': "ramo del DualShock 4 (report 0x11) valutato solo quando il report non e' 0x31",
     'bt_write': "un DualShock 4 riceve lo stato tradotto nel suo report 0x11; per il DualSense un controllo in piu'",
-    'usb_variant_task': "il bersaglio USB ha anche il mouse del touchpad (un campo in piu' da confrontare e copiare)",
+    'usb_variant_task': "il bersaglio USB ha anche il mouse del touchpad e la modalita' Xbox (campi in piu' da "
+                        "confrontare e copiare; in modalita' Xbox niente tastiera)",
     'state_update':"con 'colore secondo il posto' attivo i colori dell'host non si copiano (un AND in piu')",
     'state_push_slot_to_bt': "stessa funzione, ora anche fuori linea: la chiama posti.cpp per il colore del posto",
     'l2cap_packet_handler':"solo il ramo di apertura del canale: contiene bt_write e init_feature (inline), che "

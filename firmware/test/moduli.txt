@@ -6,3 +6,4 @@ eventi.cpp
 politica_rete.cpp
 politiche.cpp
 trackpad.cpp
+xinput.cpp
