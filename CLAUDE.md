@@ -104,6 +104,15 @@ SteamOS), modalità Steam, plugin Decky su SteamOS.
 **Installazione dell'utente:** non aggiornare app o firmware sul suo PC o sul suo Pico se non lo chiede; per le
 release si pubblica soltanto.
 
+## Icone
+
+- Set creato con Claude Design; tutte le varianti (1a-carosello, 1b-ibrido, 1c-schede, 1d-stl) in
+  `grafica/icone/`. In uso: **1a-carosello**.
+- App: PNG in `app/psrx_app/risorse/` (finestra 16/32/48/256/1024, area di notifica `vassoio-attivo` e
+  `vassoio-spento` a 16/32). `icona.salva_ico()` crea il `.ico` dell'exe con tutte le misure di Windows.
+- Installer: `app/installer/installer-banner.png` (410×797) e `installer-logo.png` (138×140).
+- Per cambiare set si copiano i file della variante in quelle due cartelle.
+
 ## Release
 
 Stesse regole di PS250:

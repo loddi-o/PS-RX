@@ -13,7 +13,7 @@ $app = Join-Path $repo 'app'
 $lavoro = Join-Path $env:USERPROFILE '.ds5-build\build-app'
 New-Item -ItemType Directory -Force $lavoro | Out-Null
 
-# Icona dell'exe disegnata dall'app stessa (nessun file binario nella repo).
+# Icona dell'exe (tutte le misure di Windows) dai PNG in app\psrx_app\risorse.
 $ico = Join-Path $lavoro 'ps-rx.ico'
 $env:QT_QPA_PLATFORM = 'offscreen'
 python -c "import sys; sys.path.insert(0, r'$app'); from PySide6.QtGui import QGuiApplication; a = QGuiApplication([]); from psrx_app.icona import salva_ico; sys.exit(0 if salva_ico(r'$ico') else 1)"
@@ -35,6 +35,8 @@ $args_ = @('--noconfirm', '--clean', '--onedir', '--windowed', '--name', 'PS-RX'
            '--specpath', $lavoro)
 foreach ($m in $fuori) { $args_ += @('--exclude-module', $m) }
 if (Test-Path $fwIncluso) { $args_ += @('--add-data', "$fwIncluso;firmware") }
+# Icone della finestra e dell'area di notifica (psrx_app/icona.py le cerca accanto al modulo).
+$args_ += @('--add-data', "$(($app -replace '\\', '/'))/psrx_app/risorse;psrx_app/risorse")
 python -m PyInstaller @args_ (Join-Path $app 'ps-rx.pyw')
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller non riuscito' }
 

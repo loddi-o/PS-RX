@@ -65,7 +65,7 @@ class Finestra(QMainWindow):
 
         self.vassoio: Optional[QSystemTrayIcon] = None
         if QSystemTrayIcon.isSystemTrayAvailable():
-            self.vassoio = QSystemTrayIcon(icona.icona(icona.GRIGIO), self)
+            self.vassoio = QSystemTrayIcon(icona.vassoio(False), self)
             self.vassoio.setToolTip('PS-RX')
             menu = QMenu()
             menu.addAction(tr('Apri PS-RX'), self.mostra)
@@ -136,7 +136,7 @@ class Finestra(QMainWindow):
             self.intestazione.setText(tr("<b>Ricevitore non trovato.</b> Collega il PS-RX a una porta USB (se è aperto da un'altra app, chiudila). Hai un Pico 2 W nuovo? Usa il pulsante qui accanto."))
             self.nuovo.setVisible(True)
             if self.vassoio:
-                self.vassoio.setIcon(icona.icona(icona.GRIGIO))
+                self.vassoio.setIcon(icona.vassoio(False))
                 self.vassoio.setToolTip(tr('PS-RX: non collegato'))
         else:
             st = ist.stato
@@ -147,7 +147,7 @@ class Finestra(QMainWindow):
             self.intestazione.setText(testo)
             self.nuovo.setVisible(False)
             if self.vassoio:
-                self.vassoio.setIcon(icona.icona(icona.BLU))
+                self.vassoio.setIcon(icona.vassoio(True))
                 self.vassoio.setToolTip(tr('PS-RX: {0} controller, modalità {1}', n, st.nome_modalita))
         for s in (self.gamepad, self.rete, self.sistema):
             s.aggiorna(ist)

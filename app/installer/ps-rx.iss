@@ -29,6 +29,10 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputBaseFilename=PS-RX-Setup-{#Versione}
 SetupIconFile={#Icona}
+; Immagini della procedura (set "1a-carosello", originali in grafica\icone): Windows le riduce secondo il DPI.
+WizardImageFile=installer-banner.png
+WizardSmallImageFile=installer-logo.png
+WizardImageStretch=yes
 UninstallDisplayIcon={app}\PS-RX.exe
 UninstallDisplayName=PS-RX
 Compression=lzma2/max
