@@ -63,8 +63,10 @@ try {
     if ($Prova) { Write-Host '[PS-RX] prova: niente commit ne'' pubblicazione'; return }
 
     # 4. commit, tag, release
-    git add $init $pkg
-    git commit -m "Versione $Versione`n`nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+    if (git status --porcelain $init $pkg) {
+        git add $init $pkg
+        git commit -m "Versione $Versione`n`nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+    }
     git tag -a $tag -m "PS-RX $Versione"
     git push origin main $tag
     $precedenti = gh release list --repo loddi-o/PS-RX --json tagName --jq '.[].tagName'
