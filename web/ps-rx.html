@@ -156,7 +156,220 @@ pre { white-space: pre-wrap; font-size: 12px; max-height: 50vh; overflow: auto; 
 // Schema delle impostazioni (generato da app/psrx/schema.py)
 // SCHEMA-INIZIO
 const SCHEMA = {"impostazioni":[{"id":1,"chiave":"modalita","tipo":"scelta","sezione":"sistema","riconnette":true,"titolo":"Modalità del ricevitore","opzioni":[[0,"PlayStation"],[1,"Xbox"],[2,"Steam Controller 2026 (sperimentale)"]],"predefinito":0,"nota":"Come il PC vede i controller. PlayStation: DualSense (anche il DualShock 4), con tutto. Xbox: controller Xbox 360 (XInput), senza giroscopio e audio; il touchpad funziona solo come mouse. Steam: ogni controller diventa un nuovo Steam Controller (2026), con giroscopio e il touchpad diviso nei due trackpad; funziona solo con Steam aperto."},{"id":2,"chiave":"posti_fissi","tipo":"booleano","sezione":"sistema","riconnette":true,"titolo":"Sempre 4 gamepad sull'USB","predefinito":0,"nota":"Attivo: il PC vede sempre 4 gamepad e collegare un controller non interrompe gli altri. Spento: il PC vede solo quelli accesi, ma quando se ne collega uno nuovo gli altri si fermano per circa 1 s."},{"id":3,"chiave":"led_posto","tipo":"booleano","sezione":"gamepad","riconnette":false,"titolo":"Colore della barra luminosa secondo il posto","predefinito":0,"nota":"Come la PS5: 1 blu, 2 rosso, 3 verde, 4 rosa. Ignora i colori decisi dai giochi."},{"id":11,"chiave":"spegni_con_pc","tipo":"booleano","sezione":"gamepad","riconnette":false,"titolo":"Spegni i controller quando il PC si spegne o va in sospensione","predefinito":1,"nota":"Il ricevitore capisce lo stato del PC dall'USB (Windows e Linux), senza WiFi. Per riaccenderlo basta premere PS: se il PC è sospeso e permette il risveglio via USB lo sveglia così, altrimenti (o a PC spento) usa il Wake-on-LAN. A PC acceso il Wake-on-LAN non parte e il WiFi si spegne subito. Serve che la porta USB resti alimentata a PC spento o sospeso."},{"id":4,"chiave":"wol_spento","tipo":"booleano","sezione":"rete","riconnette":false,"titolo":"Disattiva il Wake-on-LAN","predefinito":0,"nota":"Senza Wake-on-LAN il WiFi si spegne appena si collega un controller."},{"id":5,"chiave":"buffer_audio","tipo":"intero","min":16,"max":128,"passo":8,"sezione":"sistema","riconnette":false,"titolo":"Buffer audio del controller","predefinito":64,"nota":"Più alto = meno scatti in cuffia, con un po' di ritardo solo sull'audio. Non tocca i tasti."},{"id":6,"chiave":"inattivita","tipo":"intero","min":5,"max":60,"passo":5,"sezione":"sistema","riconnette":false,"titolo":"Spegni il controller dopo (minuti di inattività)","predefinito":30,"nota":"Il controller si spegne se resta fermo per questo tempo."},{"id":7,"chiave":"mai_disconnettere","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"Non spegnere mai i controller per inattività","predefinito":0,"nota":""},{"id":8,"chiave":"led_pico_spento","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"LED del ricevitore spento","predefinito":0,"nota":"Di solito il LED del Pico resta acceso finché c'è almeno un controller collegato."},{"id":9,"chiave":"tastiera_risveglio","tipo":"booleano","sezione":"sistema","riconnette":true,"titolo":"Sveglia il PC dalla sospensione via USB","predefinito":1,"nota":"Aggiunge una piccola tastiera USB che preme un tasto quando premi PS a PC sospeso: è il modo più affidabile per svegliare il PC dalla sospensione, perché Windows lascia sempre svegliare il PC da una tastiera. Alcuni anticheat notano la tastiera: se ti dà problemi spegnila (resta il Wake-on-LAN)."},{"id":10,"chiave":"registro","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"Registro diagnostico","predefinito":0,"nota":"Tiene in RAM le ultime righe di log del ricevitore, da leggere nell'app."}],"impostazioni_pad":[{"id":1,"chiave":"audio","tipo":"booleano","predefinito":1,"titolo":"Audio (altoparlante e cuffie del controller)","nota":"Solo con un controller collegato: con due o più il Bluetooth non regge l'audio. Spento: Windows non mostra più altoparlante e microfono del controller (il ricevitore si ricollega all'USB, circa 1 s) e il Bluetooth ha più banda. Non disponibile sul DualShock 4."},{"id":2,"chiave":"microfono","tipo":"booleano","predefinito":1,"titolo":"Microfono (integrato o delle cuffie)","nota":"Trasmette solo quando un'app usa il microfono. Richiede l'audio attivo."},{"id":3,"chiave":"polling","tipo":"scelta","predefinito":0,"opzioni":[[0,"1000 Hz"],[1,"500 Hz"],[2,"250 Hz"],[3,"125 Hz"]],"titolo":"Frequenza verso il PC","nota":"Quante volte al secondo il PC riceve lo stato di questo controller. 1000 Hz = latenza minima."},{"id":4,"chiave":"trackpad","tipo":"booleano","predefinito":0,"titolo":"Touchpad come mouse","nota":"Il touchpad muove il puntatore e il suo click è il tasto sinistro; la striscia a sinistra fa da rotellina."},{"id":5,"chiave":"inverti_scorrimento","tipo":"booleano","predefinito":0,"titolo":"Inverti la rotellina","nota":""}]};
+const SCHEMA_EN = {"Modalità del ricevitore":"Receiver mode","Come il PC vede i controller. PlayStation: DualSense (anche il DualShock 4), con tutto. Xbox: controller Xbox 360 (XInput), senza giroscopio e audio; il touchpad funziona solo come mouse. Steam: ogni controller diventa un nuovo Steam Controller (2026), con giroscopio e il touchpad diviso nei due trackpad; funziona solo con Steam aperto.":"How the PC sees the controllers. PlayStation: DualSense (the DualShock 4 too), with everything. Xbox: Xbox 360 controller (XInput), without gyro and audio; the touchpad only works as a mouse. Steam: each controller becomes a new Steam Controller (2026), with gyro and the touchpad split into the two trackpads; it only works with Steam open.","PlayStation":"PlayStation","Xbox":"Xbox","Steam Controller 2026 (sperimentale)":"Steam Controller 2026 (experimental)","Sempre 4 gamepad sull'USB":"Always 4 gamepads on USB","Attivo: il PC vede sempre 4 gamepad e collegare un controller non interrompe gli altri. Spento: il PC vede solo quelli accesi, ma quando se ne collega uno nuovo gli altri si fermano per circa 1 s.":"On: the PC always sees 4 gamepads and connecting a controller does not interrupt the others. Off: the PC only sees the ones turned on, but when a new one connects the others pause for about 1 s.","Colore della barra luminosa secondo il posto":"Light bar color by slot","Come la PS5: 1 blu, 2 rosso, 3 verde, 4 rosa. Ignora i colori decisi dai giochi.":"Like the PS5: 1 blue, 2 red, 3 green, 4 pink. Ignores the colors set by games.","Spegni i controller quando il PC si spegne o va in sospensione":"Turn off the controllers when the PC shuts down or sleeps","Il ricevitore capisce lo stato del PC dall'USB (Windows e Linux), senza WiFi. Per riaccenderlo basta premere PS: se il PC è sospeso e permette il risveglio via USB lo sveglia così, altrimenti (o a PC spento) usa il Wake-on-LAN. A PC acceso il Wake-on-LAN non parte e il WiFi si spegne subito. Serve che la porta USB resti alimentata a PC spento o sospeso.":"The receiver understands the PC's state from USB (Windows and Linux), without WiFi. To turn it back on just press PS: if the PC is asleep and allows USB wake-up it wakes it that way, otherwise (or with the PC off) it uses Wake-on-LAN. With the PC on, Wake-on-LAN is not sent and the WiFi turns off right away. The USB port must stay powered while the PC is off or asleep.","Disattiva il Wake-on-LAN":"Disable Wake-on-LAN","Senza Wake-on-LAN il WiFi si spegne appena si collega un controller.":"Without Wake-on-LAN the WiFi turns off as soon as a controller connects.","Buffer audio del controller":"Controller audio buffer","Più alto = meno scatti in cuffia, con un po' di ritardo solo sull'audio. Non tocca i tasti.":"Higher = fewer glitches in the headset, with a little delay on the audio only. It does not affect buttons.","Spegni il controller dopo (minuti di inattività)":"Turn the controller off after (minutes of inactivity)","Il controller si spegne se resta fermo per questo tempo.":"The controller turns off if left idle for this long.","Non spegnere mai i controller per inattività":"Never turn off controllers for inactivity","LED del ricevitore spento":"Receiver LED off","Di solito il LED del Pico resta acceso finché c'è almeno un controller collegato.":"Normally the Pico's LED stays on while at least one controller is connected.","Sveglia il PC dalla sospensione via USB":"Wake the PC from sleep over USB","Aggiunge una piccola tastiera USB che preme un tasto quando premi PS a PC sospeso: è il modo più affidabile per svegliare il PC dalla sospensione, perché Windows lascia sempre svegliare il PC da una tastiera. Alcuni anticheat notano la tastiera: se ti dà problemi spegnila (resta il Wake-on-LAN).":"Adds a small USB keyboard that presses a key when you press PS while the PC sleeps: it is the most reliable way to wake the PC from sleep, because Windows always lets a keyboard wake the PC. Some anti-cheat systems notice the keyboard: if it causes problems turn it off (Wake-on-LAN remains).","Registro diagnostico":"Diagnostic log","Tiene in RAM le ultime righe di log del ricevitore, da leggere nell'app.":"Keeps the receiver's last log lines in RAM, to read in the app.","Audio (altoparlante e cuffie del controller)":"Audio (controller's speaker and headset)","Solo con un controller collegato: con due o più il Bluetooth non regge l'audio. Spento: Windows non mostra più altoparlante e microfono del controller (il ricevitore si ricollega all'USB, circa 1 s) e il Bluetooth ha più banda. Non disponibile sul DualShock 4.":"Only with one controller connected: with two or more, Bluetooth cannot carry the audio. Off: Windows no longer shows the controller's speaker and microphone (the receiver reconnects to USB, about 1 s) and Bluetooth has more bandwidth. Not available on the DualShock 4.","Microfono (integrato o delle cuffie)":"Microphone (built-in or headset)","Trasmette solo quando un'app usa il microfono. Richiede l'audio attivo.":"Transmits only when an app uses the microphone. Requires audio on.","Frequenza verso il PC":"Rate to the PC","Quante volte al secondo il PC riceve lo stato di questo controller. 1000 Hz = latenza minima.":"How many times per second the PC receives this controller's state. 1000 Hz = lowest latency.","1000 Hz":"1000 Hz","500 Hz":"500 Hz","250 Hz":"250 Hz","125 Hz":"125 Hz","Touchpad come mouse":"Touchpad as mouse","Il touchpad muove il puntatore e il suo click è il tasto sinistro; la striscia a sinistra fa da rotellina.":"The touchpad moves the pointer and its click is the left button; the left strip works as a scroll wheel.","Inverti la rotellina":"Invert the scroll wheel"};
 // SCHEMA-FINE
+
+// ---------------------------------------------------------------------------------------------------
+// Italiano e inglese: i testi italiani sono la chiave; con il browser in un'altra lingua si usa l'inglese.
+// Una voce per riga (un test controlla che non manchi nulla). I testi dello schema sono in SCHEMA_EN.
+const EN = {
+  "Nessun ricevitore collegato a questa pagina.": "No receiver connected to this page.",
+  "Collega il ricevitore": "Connect the receiver",
+  "Come funziona": "How it works",
+  "Collega il PS-RX a una porta USB e premi \"Collega il ricevitore\": il browser chiede quale dispositivo usare. Serve Chrome o Edge (WebUSB). Se l'app PS-RX è aperta, chiudila: il dispositivo si apre da un programma alla volta.": "Plug the PS-RX into a USB port and press \"Connect the receiver\": the browser asks which device to use. Chrome or Edge is required (WebUSB). If the PS-RX app is open, close it: the device can be opened by one program at a time.",
+  "Gamepad": "Gamepad",
+  "Rete": "Network",
+  "Sistema": "System",
+  "Posti": "Slots",
+  "Abbina un nuovo controller": "Pair a new controller",
+  "Spegni tutti": "Turn all off",
+  "Dopo il pulsante (o un click sul BOOTSEL del Pico) tieni premuti Create + PS (DualSense) o Share + PS (DualShock 4) finché la luce lampeggia veloce.": "After the button (or a click on the Pico's BOOTSEL) hold Create + PS (DualSense) or Share + PS (DualShock 4) until the light flashes quickly.",
+  "Controller abbinati": "Paired controllers",
+  "Tutti i controller": "All controllers",
+  "Ultimi eventi": "Recent events",
+  "WiFi del ricevitore": "Receiver WiFi",
+  "Il WiFi è acceso solo senza controller collegati, per il Wake-on-LAN. Al primo controller il ricevitore manda 3 pacchetti (entro 30 s al massimo), poi lo spegne.": "The WiFi is on only with no controllers connected, for Wake-on-LAN. At the first controller the receiver sends 3 packets (within 30 s at most), then turns it off.",
+  "Reti salvate (fino a 5)": "Saved networks (up to 5)",
+  "Nome della rete": "Network name",
+  "Sicurezza": "Security",
+  "Cerca reti": "Scan for networks",
+  "Nome della rete (SSID)": "Network name (SSID)",
+  "Password": "Password",
+  "Solo reti a 2,4 GHz": "2.4 GHz networks only",
+  ": il Pico 2 W non vede i 5 GHz. Se il router ha due nomi (per esempio \"Casa\" e \"Casa_5G\") scegli quello a 2,4 GHz.": ": the Pico 2 W cannot see 5 GHz. If the router has two names (for example \"Home\" and \"Home_5G\") choose the 2.4 GHz one.",
+  "Salva": "Save",
+  "Annulla": "Cancel",
+  "Prova ora": "Test now",
+  "MAC della scheda di rete cablata del PC da accendere. Da spento, la porta USB del ricevitore deve restare alimentata (opzione del BIOS tipo \"USB power in S5\").": "MAC of the wired network adapter of the PC to turn on. When the PC is off, the receiver's USB port must stay powered (a BIOS option like \"USB power in S5\").",
+  "Ricevitore": "Receiver",
+  "Impostazioni del ricevitore": "Receiver settings",
+  "Salva ora": "Save now",
+  "Impostazioni di fabbrica": "Factory settings",
+  "Aggiorna il firmware…": "Update the firmware…",
+  "Riavvia in BOOTSEL": "Restart in BOOTSEL",
+  "Registro": "Log",
+  "Aggiornamenti (GitHub)": "Updates (GitHub)",
+  "Cerca aggiornamenti": "Check for updates",
+  "Il browser non può scaricare da GitHub per conto suo: il link apre il download, poi carica il file con \"Aggiorna il firmware…\". L'app Windows e il plugin Decky fanno tutto da soli.": "The browser cannot download from GitHub by itself: the link opens the download, then load the file with \"Update the firmware…\". The Windows app and the Decky plugin do everything on their own.",
+  "tutto a posto: password giusta, indirizzo dal router e internet raggiungibile": "all good: correct password, address from the router and internet reachable",
+  "password sbagliata": "wrong password",
+  "rete non trovata: spenta, lontana, nome sbagliato o solo a 5 GHz (il Pico 2 W usa i 2,4 GHz)": "network not found: off, too far, wrong name or 5 GHz only (the Pico 2 W uses 2.4 GHz)",
+  "il router non ha completato il collegamento (controlla WPA2/WPA3)": "the router did not complete the connection (check WPA2/WPA3)",
+  "collegato, ma il router non ha dato un indirizzo IP": "connected, but the router did not give an IP address",
+  "rete di casa raggiungibile, internet no (il Wake-on-LAN funziona lo stesso)": "home network reachable, internet not (Wake-on-LAN works anyway)",
+  "interrotta: si è collegato un controller": "interrupted: a controller connected",
+  "collegamento alla rete": "connecting to the network",
+  "indirizzo IP dal router": "IP address from the router",
+  "verifica di internet": "checking internet",
+  "nessun errore": "no error",
+  "comando sconosciuto": "unknown command",
+  "lunghezza dei dati sbagliata": "wrong data length",
+  "valore non ammesso": "value not allowed",
+  "il ricevitore sta ancora finendo l'operazione precedente": "the receiver is still finishing the previous operation",
+  "spegni prima i controller (PS-RX scrive in memoria solo senza controller collegati)": "turn off the controllers first (PS-RX writes to memory only with no controllers connected)",
+  "controller non trovato fra gli abbinati": "controller not found among the paired ones",
+  "posti esauriti": "no free slots",
+  "scrittura in memoria fallita": "memory write failed",
+  "blocco fuori ordine o caricamento non iniziato": "block out of order or upload not started",
+  "firmware di dimensione non valida": "firmware of invalid size",
+  "impronta SHA-256 diversa: firmware rovinato durante il caricamento": "different SHA-256 hash: firmware corrupted during upload",
+  "il file non è un firmware per Raspberry Pi Pico 2 W": "the file is not a firmware for Raspberry Pi Pico 2 W",
+  "nessun firmware pronto da installare": "no firmware ready to install",
+  "WiFi non connesso": "WiFi not connected",
+  "annullato": "cancelled",
+  "spento (radio al Bluetooth)": "off (radio used by Bluetooth)",
+  "connessione in corso": "connecting",
+  "connesso": "connected",
+  "nessuna rete raggiungibile": "no network reachable",
+  "errore {0}": "error {0}",
+  "MAC non valido: {0}": "Invalid MAC: {0}",
+  "interfaccia di configurazione PS-RX non trovata": "PS-RX configuration interface not found",
+  "ricevitore non collegato": "receiver not connected",
+  "non è un PS-RX": "not a PS-RX",
+  " Cambiarla ricollega l'USB del ricevitore.": " Changing it reconnects the receiver USB.",
+  "{0}: il ricevitore si ricollega all'USB e per circa un secondo i controller non arrivano al PC. Continuare?": "{0}: the receiver reconnects to USB and for about a second the controllers do not reach the PC. Continue?",
+  "{0}: salvato": "{0}: saved",
+  "Posto {0}": "Slot {0}",
+  "{0} · {1} report/s · {2} Hz · segnale {3}{4}": "{0} · {1} reports/s · {2} Hz · signal {3}{4}",
+  " · audio": " · audio",
+  "Batteria {0}%{1}": "Battery {0}%{1}",
+  " · in carica": " · charging",
+  "Batteria sconosciuta": "Battery unknown",
+  "Spegni": "Turn off",
+  "Posto {0} spento": "Slot {0} turned off",
+  "Abbinamento in corso…": "Pairing…",
+  "Nessun controller abbinato.": "No paired controllers.",
+  "Nome (facoltativo)": "Name (optional)",
+  "Rinomina": "Rename",
+  "Nome salvato": "Name saved",
+  "{0}: {1} salvato": "{0}: {1} saved",
+  "Dimentica questo controller": "Forget this controller",
+  "Dimenticare {0}? Va abbinato di nuovo e le sue impostazioni si perdono.": "Forget {0}? It must be paired again and its settings are lost.",
+  "Controller dimenticato": "Controller forgotten",
+  "Connesso a {0} · IP {1} · segnale {2} dBm": "Connected to {0} · IP {1} · signal {2} dBm",
+  "Spento: con i controller collegati la radio è tutta al Bluetooth": "Off: with controllers connected the radio is all for Bluetooth",
+  "{0} · ultimo Wake-on-LAN: {1}": "{0} · last Wake-on-LAN: {1}",
+  "mai": "never",
+  "{0} fa": "{0} ago",
+  "(vuota)": "(empty)",
+  " · aperta": " · open",
+  "Modifica": "Edit",
+  "Aggiungi": "Add",
+  "Prova": "Test",
+  "Elimina": "Delete",
+  "Eliminare la rete {0}?": "Delete the network {0}?",
+  "Rete eliminata": "Network deleted",
+  "Prova di \"{0}\": avvio…": "Test of \"{0}\": starting…",
+  "Prova non avviata: {0}": "Test not started: {0}",
+  "esito {0}": "result {0}",
+  " (IP {0}, segnale {1} dBm, internet in {2} ms)": " (IP {0}, signal {1} dBm, internet in {2} ms)",
+  "Prova di \"{0}\": {1}": "Test of \"{0}\": {1}",
+  "Prova di \"{0}\": {1}…": "Test of \"{0}\": {1}…",
+  "in corso": "in progress",
+  "La prova non ha dato risposta in tempo.": "The test did not answer in time.",
+  "Ricerca delle reti…": "Scanning for networks…",
+  "Ricerca non avviata: {0}": "Scan not started: {0}",
+  "Ricerca interrotta: riprova senza controller collegati.": "Scan interrupted: try again with no controllers connected.",
+  "Nessuna rete rilevata: il router trasmette a 2,4 GHz?": "No networks found: does the router broadcast on 2.4 GHz?",
+  "Usa": "Use",
+  "Già 5 reti salvate: eliminane una.": "5 networks already saved: delete one.",
+  "{0} · {1} dBm · canale {2} · {3}": "{0} · {1} dBm · channel {2} · {3}",
+  "aperta": "open",
+  "protetta": "secured",
+  "La ricerca non ha dato risposta in tempo.": "The scan did not answer in time.",
+  "Rete {0}": "Network {0}",
+  "Password vuota = mantieni quella salvata.": "Empty password = keep the saved one.",
+  "Password vuota = rete aperta.": "Empty password = open network.",
+  "altoparlante": "speaker",
+  "microfono": "microphone",
+  "non in uso": "not in use",
+  " · base {0} · acceso da {1}": " · base {0} · up for {1}",
+  "Modalità {0} · {1} sull'USB{2} · audio: {3}": "{0} mode · {1} on USB{2} · audio: {3}",
+  " (PC in sospensione)": " (PC asleep)",
+  "Memoria libera {0} KB{1}": "Free memory {0} KB{1}",
+  " · modifiche in attesa di salvataggio (a controller spenti)": " · changes waiting to be saved (with controllers off)",
+  "Controller {0}": "Controller {0}",
+  "batteria sconosciuta": "battery unknown",
+  "batteria {0}%": "battery {0}%",
+  "{0} collegato · posto {1} · {2} · modalità {3} · {4}": "{0} connected · slot {1} · {2} · {3} mode · {4}",
+  "{0} scollegato (posto {1})": "{0} disconnected (slot {1})",
+  "evento {0}": "event {0}",
+  "Collegato · modalità {0} · {1} controller": "Connected · {0} mode · {1} controllers",
+  "Errore: {0}": "Error: {0}",
+  "file UF2 di lunghezza non multipla di 512": "UF2 file length not a multiple of 512",
+  "blocco UF2 non valido": "invalid UF2 block",
+  "nessun blocco RP2350 nel file UF2": "no RP2350 block in the UF2 file",
+  "il firmware non parte dall'inizio della flash": "the firmware does not start at the beginning of flash",
+  "file troppo piccolo": "file too small",
+  "troppo grande: al massimo {0} byte": "too large: at most {0} bytes",
+  "tabella dei vettori non valida (stack)": "invalid vector table (stack)",
+  "tabella dei vettori non valida (reset)": "invalid vector table (reset)",
+  "manca il blocco IMAGE_DEF: non è un firmware RP2350": "IMAGE_DEF block missing: not an RP2350 firmware",
+  "Spegni i controller: il firmware si carica e si installa solo senza controller.": "Turn off the controllers: the firmware is uploaded and installed only with no controllers.",
+  "Installata: {0}\nNuova: {1} ({2} KB)\n\nIl ricevitore si riavvia alla fine. Continuare?": "Installed: {0}\nNew: {1} ({2} KB)\n\nThe receiver restarts at the end. Continue?",
+  "il ricevitore non risponde": "the receiver does not respond",
+  "Caricamento: blocco {0} di {1}": "Uploading: block {0} of {1}",
+  "verifica non conclusa": "verification not completed",
+  "Verifica dell'impronta SHA-256…": "Verifying the SHA-256 hash…",
+  "Installazione: il ricevitore si riavvia (non staccarlo)…": "Installing: the receiver restarts (do not unplug it)…",
+  "Firmware installato: il ricevitore si riavvia. Ricollegalo a questa pagina tra qualche secondo.": "Firmware installed: the receiver is restarting. Reconnect it to this page in a few seconds.",
+  "Aggiornamento non riuscito: {0}": "Update failed: {0}",
+  "Non riesco ad aprire il ricevitore: {0}": "Cannot open the receiver: {0}",
+  "Questo browser non ha WebUSB: usa Chrome o Edge.": "This browser has no WebUSB: use Chrome or Edge.",
+  "Ricevitore scollegato: attendo che torni…": "Receiver disconnected: waiting for it to come back…",
+  "Abbinamento aperto per 30 secondi": "Pairing open for 30 seconds",
+  "Controller spenti": "Controllers turned off",
+  "Nome della rete vuoto o troppo lungo (massimo 32 byte)": "Network name empty or too long (32 bytes at most)",
+  "La password WPA va da 8 a 63 caratteri": "The WPA password must be 8 to 63 characters",
+  "Rete {0} salvata": "Network {0} saved",
+  "Destinazioni del Wake-on-LAN salvate": "Wake-on-LAN targets saved",
+  "Pacchetto Wake-on-LAN inviato": "Wake-on-LAN packet sent",
+  "Impostazioni salvate": "Settings saved",
+  "Impostazioni di fabbrica? Reti WiFi, Wake-on-LAN e controller abbinati restano.": "Factory settings? WiFi networks, Wake-on-LAN and paired controllers are kept.",
+  "Impostazioni di fabbrica ripristinate": "Factory settings restored",
+  "Il ricevitore si riavvia come chiavetta RP2350 (servono i controller spenti). Continuare?": "The receiver restarts as an RP2350 drive (the controllers must be off). Continue?",
+  "Ricevitore in modalità BOOTSEL": "Receiver in BOOTSEL mode",
+  "Registro spento: attiva \"Registro diagnostico\".": "Log off: turn on \"Diagnostic log\".",
+  "File non valido: {0}": "Invalid file: {0}",
+  "Ricerca su GitHub…": "Searching GitHub…",
+  "Nessuna release pubblicata.": "No release published.",
+  "Ultima versione: {0} · installata: {1} · ": "Latest version: {0} · installed: {1} · ",
+  "note della release": "release notes",
+  "scarica {0}": "download {0}",
+  " · il firmware è aggiornato": " · the firmware is up to date",
+  "Ricerca non riuscita: {0}": "Search failed: {0}",
+};
+const ITALIANO = (navigator.language || "").toLowerCase().startsWith("it");
+
+// Testo nella lingua del browser; {0}, {1}... sostituiti dai valori.
+function t(testo, ...valori) {
+  const modello = ITALIANO ? testo : (EN[testo] ?? SCHEMA_EN[testo] ?? testo);
+  return valori.length ? modello.replace(/\{(\d+)\}/g, (m, i) => (Number(i) < valori.length ? String(valori[Number(i)]) : m)) : modello;
+}
+
+// Testi fissi dell'HTML (titoli, pulsanti, note, segnaposto): tradotti una volta all'avvio.
+function traduciPagina() {
+  if (ITALIANO) return;
+  document.documentElement.lang = "en";
+  const giro = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = giro.nextNode(); n; n = giro.nextNode()) {
+    if (n.parentElement.closest("script")) continue;
+    const chiave = n.nodeValue.replace(/\s+/g, " ").trim();
+    if (chiave && EN[chiave]) n.nodeValue = n.nodeValue.replace(/\S[\s\S]*\S|\S/, EN[chiave]);
+  }
+  for (const e of document.querySelectorAll("[placeholder]")) e.placeholder = t(e.placeholder);
+}
+traduciPagina();
 
 // ---------------------------------------------------------------------------------------------------
 // Protocollo (specchio di app/psrx/protocollo.py)
@@ -167,32 +380,33 @@ const CMD = { INFO: 0x00, STATO: 0x01, IMPOSTAZIONI: 0x02, ABBINATI: 0x03, REGIS
   RETE_SALVA: 0x30, RETE_CANCELLA: 0x31, WOL_DESTINAZIONI: 0x32, WOL_PROVA: 0x33, RETE_PROVA: 0x34, CERCA_RETI: 0x35, CARICA_INIZIO: 0x40,
   CARICA_BLOCCO: 0x41, CARICA_FINE: 0x42, CARICA_ANNULLA: 0x43, INSTALLA_ORA: 0x44, BOOTSEL_ORA: 0x45 };
 const LUNGHEZZA = { 0: 76, 1: 112, 2: 64, 3: 128, 4: 2304, 5: 2, 6: 12, 7: 1 + 16 * 14, 8: RETI_MAX * 35 + 13, 9: 16, 10: 2 + 16 * 36 };
-const ESITI_PROVA = { 1: "tutto a posto: password giusta, indirizzo dal router e internet raggiungibile",
-  2: "password sbagliata", 3: "rete non trovata: spenta, lontana, nome sbagliato o solo a 5 GHz (il Pico 2 W usa i 2,4 GHz)",
-  4: "il router non ha completato il collegamento (controlla WPA2/WPA3)", 5: "collegato, ma il router non ha dato un indirizzo IP",
-  6: "rete di casa raggiungibile, internet no (il Wake-on-LAN funziona lo stesso)", 7: "interrotta: si è collegato un controller" };
-const FASI_PROVA = { 1: "collegamento alla rete", 2: "indirizzo IP dal router", 3: "verifica di internet" };
-const ERRORI = ["nessun errore", "comando sconosciuto", "lunghezza dei dati sbagliata", "valore non ammesso",
-  "il ricevitore sta ancora finendo l'operazione precedente",
-  "spegni prima i controller (PS-RX scrive in memoria solo senza controller collegati)",
-  "controller non trovato fra gli abbinati", "posti esauriti", "scrittura in memoria fallita",
-  "blocco fuori ordine o caricamento non iniziato", "firmware di dimensione non valida",
-  "impronta SHA-256 diversa: firmware rovinato durante il caricamento",
-  "il file non è un firmware per Raspberry Pi Pico 2 W", "nessun firmware pronto da installare", "WiFi non connesso"];
+const ESITI_PROVA = { 1: t("tutto a posto: password giusta, indirizzo dal router e internet raggiungibile"),
+  2: t("password sbagliata"), 3: t("rete non trovata: spenta, lontana, nome sbagliato o solo a 5 GHz (il Pico 2 W usa i 2,4 GHz)"),
+  4: t("il router non ha completato il collegamento (controlla WPA2/WPA3)"), 5: t("collegato, ma il router non ha dato un indirizzo IP"),
+  6: t("rete di casa raggiungibile, internet no (il Wake-on-LAN funziona lo stesso)"), 7: t("interrotta: si è collegato un controller") };
+const FASI_PROVA = { 1: t("collegamento alla rete"), 2: t("indirizzo IP dal router"), 3: t("verifica di internet") };
+const ERRORI = [t("nessun errore"), t("comando sconosciuto"), t("lunghezza dei dati sbagliata"), t("valore non ammesso"),
+  t("il ricevitore sta ancora finendo l'operazione precedente"),
+  t("spegni prima i controller (PS-RX scrive in memoria solo senza controller collegati)"),
+  t("controller non trovato fra gli abbinati"), t("posti esauriti"), t("scrittura in memoria fallita"),
+  t("blocco fuori ordine o caricamento non iniziato"), t("firmware di dimensione non valida"),
+  t("impronta SHA-256 diversa: firmware rovinato durante il caricamento"),
+  t("il file non è un firmware per Raspberry Pi Pico 2 W"), t("nessun firmware pronto da installare"), t("WiFi non connesso")];
 const ERR_OCCUPATO = 4, ERR_PAD_CONNESSO = 5;
+const ANNULLATO = t("annullato");
 const MODALITA = { 0: "PlayStation", 1: "Xbox", 2: "Steam Controller" };
 const MODELLI = { 0: "-", 1: "DualSense", 2: "DualSense Edge", 3: "DualShock 4" };
 const HZ = { 0: 1000, 1: 500, 2: 250, 3: 125 };
-const RETE = { 0: "spento (radio al Bluetooth)", 1: "connessione in corso", 2: "connesso", 3: "nessuna rete raggiungibile" };
+const RETE = { 0: t("spento (radio al Bluetooth)"), 1: t("connessione in corso"), 2: t("connesso"), 3: t("nessuna rete raggiungibile") };
 const CAR = { INATTIVO: 0, RICEZIONE: 1, SCRITTURA: 2, VERIFICA: 3, PRONTO: 4, INSTALLAZIONE: 5, ERRORE: 6 };
 
-class ErrorePsrx extends Error { constructor(codice) { super(ERRORI[codice] || `errore ${codice}`); this.codice = codice; } }
+class ErrorePsrx extends Error { constructor(codice) { super(ERRORI[codice] || t("errore {0}", codice)); this.codice = codice; } }
 
 const testoUtf8 = (b) => new TextDecoder().decode(b.slice(0, b.indexOf(0) >= 0 ? b.indexOf(0) : b.length));
 const macTesto = (b) => Array.from(b, (x) => x.toString(16).padStart(2, "0").toUpperCase()).join(":");
-function macBytes(t) {
-  const p = t.trim().replace(/-/g, ":").split(":");
-  if (p.length !== 6 || p.some((x) => !/^[0-9a-fA-F]{2}$/.test(x))) throw new Error(`MAC non valido: ${t}`);
+function macBytes(testo) {
+  const p = testo.trim().replace(/-/g, ":").split(":");
+  if (p.length !== 6 || p.some((x) => !/^[0-9a-fA-F]{2}$/.test(x))) throw new Error(t("MAC non valido: {0}", testo));
   return Uint8Array.from(p.map((x) => parseInt(x, 16)));
 }
 const sonno = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -207,7 +421,7 @@ async function apri(d) {
   await d.open();
   if (d.configuration === null) await d.selectConfiguration(1);
   const itf = d.configuration.interfaces.find((i) => i.alternates.some((a) => a.interfaceClass === 0xFF && a.interfaceSubclass === 0x50));
-  if (!itf) throw new Error("interfaccia di configurazione PS-RX non trovata");
+  if (!itf) throw new Error(t("interfaccia di configurazione PS-RX non trovata"));
   await d.claimInterface(itf.interfaceNumber);
   dev = d;
 }
@@ -219,7 +433,7 @@ async function erroreDalPico() {
 
 function leggi(cmd, indice = 0) {
   return inCoda(async () => {
-    if (!dev) throw new Error("ricevitore non collegato");
+    if (!dev) throw new Error(t("ricevitore non collegato"));
     const r = await dev.controlTransferIn({ requestType: "vendor", recipient: "device", request: RICHIESTA, value: cmd, index: indice }, LUNGHEZZA[cmd] || 2304);
     if (r.status === "stall") throw new ErrorePsrx(await erroreDalPico());
     return new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
@@ -228,7 +442,7 @@ function leggi(cmd, indice = 0) {
 
 function scrivi(cmd, indice = 0, dati = new Uint8Array(0)) {
   return inCoda(async () => {
-    if (!dev) throw new Error("ricevitore non collegato");
+    if (!dev) throw new Error(t("ricevitore non collegato"));
     const r = await dev.controlTransferOut({ requestType: "vendor", recipient: "device", request: RICHIESTA, value: cmd, index: indice }, dati);
     if (r.status === "stall") throw new ErrorePsrx(await erroreDalPico());
   });
@@ -237,7 +451,7 @@ function scrivi(cmd, indice = 0, dati = new Uint8Array(0)) {
 // --- letture ----------------------------------------------------------------------------------------
 async function leggiInfo() {
   const b = await leggi(CMD.INFO), v = new DataView(b.buffer, b.byteOffset);
-  if (testoUtf8(b.slice(0, 4)) !== "PSRX") throw new Error("non è un PS-RX");
+  if (testoUtf8(b.slice(0, 4)) !== "PSRX") throw new Error(t("non è un PS-RX"));
   return { protocollo: b[4], slotMax: b[5], capacita: v.getUint32(8, true), appoggio: v.getUint32(12, true),
            versione: testoUtf8(b.slice(16, 48)), base: testoUtf8(b.slice(48, 76)) };
 }
@@ -340,17 +554,17 @@ function controllo(voce, valore, cambia) {
   if (voce.tipo === "booleano") {
     const c = el("input", { type: "checkbox", onchange: () => cambia(c.checked ? 1 : 0) });
     c.checked = !!valore;
-    box.append(el("label", {}, c, voce.titolo));
+    box.append(el("label", {}, c, t(voce.titolo)));
   } else if (voce.tipo === "scelta") {
     const s = el("select", { onchange: () => cambia(Number(s.value)) });
-    for (const [v, t] of voce.opzioni) { const o = el("option", { value: v, testo: t }); if (v === valore) o.selected = true; s.append(o); }
-    box.append(el("label", {}, voce.titolo, s));
+    for (const [v, nome] of voce.opzioni) { const o = el("option", { value: v, testo: t(nome) }); if (v === valore) o.selected = true; s.append(o); }
+    box.append(el("label", {}, t(voce.titolo), s));
   } else {
     const n = el("input", { type: "number", min: voce.min, max: voce.max, step: voce.passo || 1, onchange: () => cambia(Number(n.value)) });
     n.value = valore;
-    box.append(el("label", {}, voce.titolo, n));
+    box.append(el("label", {}, t(voce.titolo), n));
   }
-  const nota = voce.nota + (voce.riconnette ? " Cambiarla ricollega l'USB del ricevitore." : "");
+  const nota = (voce.nota ? t(voce.nota) : "") + (voce.riconnette ? t(" Cambiarla ricollega l'USB del ricevitore.") : "");
   if (nota.trim()) box.append(el("div", { class: "nota", testo: nota }));
   return box;
 }
@@ -360,12 +574,12 @@ function disegnaImpostazioni(sezione, contenitore) {
   c.replaceChildren();
   for (const voce of SCHEMA.impostazioni.filter((v) => v.sezione === sezione)) {
     c.append(controllo(voce, imp[voce.id] ?? voce.predefinito, (x) => {
-      if (voce.riconnette && st && st.padConnessi && !confirm(`${voce.titolo}: il ricevitore si ricollega all'USB e per circa un secondo i controller non arrivano al PC. Continuare?`)) {
+      if (voce.riconnette && st && st.padConnessi && !confirm(t("{0}: il ricevitore si ricollega all'USB e per circa un secondo i controller non arrivano al PC. Continuare?", t(voce.titolo)))) {
         disegnaImpostazioni(sezione, contenitore);
         return;
       }
       const v = new Uint8Array([x & 0xFF, x >> 8]);
-      azione(() => scrivi(CMD.IMPOSTA, voce.id, v), `${voce.titolo}: salvato`);
+      azione(() => scrivi(CMD.IMPOSTA, voce.id, v), t("{0}: salvato", t(voce.titolo)));
     }));
   }
 }
@@ -375,17 +589,17 @@ function disegnaPosti() {
   c.replaceChildren();
   const nomi = Object.fromEntries(abbinati.map((a) => [a.mac, a.nome]));
   for (const p of st.pad) {
-    const box = el("div", { class: "posto" }, el("div", { class: "tenue", testo: `Posto ${p.posto + 1}` }));
+    const box = el("div", { class: "posto" }, el("div", { class: "tenue", testo: t("Posto {0}", p.posto + 1) }));
     if (!p.connesso) { box.append(el("b", { testo: "Libero" })); c.append(box); continue; }
     box.append(el("b", { testo: nomi[p.mac] || p.mac }));
-    box.append(el("div", { class: "tenue", testo: `${MODELLI[p.modello] || "?"} · ${p.rps} report/s · ${HZ[p.polling]} Hz · segnale ${p.rssi ?? "-"}${p.audio ? " · audio" : ""}` }));
+    box.append(el("div", { class: "tenue", testo: t("{0} · {1} report/s · {2} Hz · segnale {3}{4}", MODELLI[p.modello] || "?", p.rps, HZ[p.polling], p.rssi ?? "-", p.audio ? t(" · audio") : "") }));
     const barra = el("div", { class: "barra" }, el("div", { style: `width:${p.valida ? p.batteria : 0}%` }));
     box.append(barra, el("div", { class: "riga" },
-      el("span", { class: "tenue", testo: p.valida ? `Batteria ${p.batteria}%${p.carica ? " · in carica" : ""}` : "Batteria sconosciuta" }),
-      el("button", { class: "sec", testo: "Spegni", onclick: () => azione(() => scrivi(CMD.SPEGNI_PAD, p.posto), `Posto ${p.posto + 1} spento`) })));
+      el("span", { class: "tenue", testo: p.valida ? t("Batteria {0}%{1}", p.batteria, p.carica ? t(" · in carica") : "") : t("Batteria sconosciuta") }),
+      el("button", { class: "sec", testo: t("Spegni"), onclick: () => azione(() => scrivi(CMD.SPEGNI_PAD, p.posto), t("Posto {0} spento", p.posto + 1)) })));
     c.append(box);
   }
-  $("abbina").textContent = st.abbinamento ? "Abbinamento in corso…" : "Abbina un nuovo controller";
+  $("abbina").textContent = st.abbinamento ? t("Abbinamento in corso…") : t("Abbina un nuovo controller");
 }
 
 function disegnaAbbinati() {
@@ -400,26 +614,26 @@ function disegnaAbbinati() {
   const d = $("dettaglio-pad");
   d.replaceChildren();
   const a = abbinati.find((x) => x.mac === scelto);
-  if (!a) { d.append(el("div", { class: "tenue", testo: "Nessun controller abbinato." })); return; }
-  const nome = el("input", { type: "text", maxlength: 15, placeholder: "Nome (facoltativo)" });
+  if (!a) { d.append(el("div", { class: "tenue", testo: t("Nessun controller abbinato.") })); return; }
+  const nome = el("input", { type: "text", maxlength: 15, placeholder: t("Nome (facoltativo)") });
   nome.value = a.nome;
-  d.append(el("div", { class: "riga" }, nome, el("button", { class: "sec", testo: "Rinomina", onclick: () => {
-    const t = new TextEncoder().encode(nome.value.trim()).slice(0, 15), dati = new Uint8Array(22);
-    dati.set(macBytes(a.mac)); dati.set(t, 6);
-    azione(() => scrivi(CMD.RINOMINA, 0, dati), "Nome salvato");
+  d.append(el("div", { class: "riga" }, nome, el("button", { class: "sec", testo: t("Rinomina"), onclick: () => {
+    const byte = new TextEncoder().encode(nome.value.trim()).slice(0, 15), dati = new Uint8Array(22);
+    dati.set(macBytes(a.mac)); dati.set(byte, 6);
+    azione(() => scrivi(CMD.RINOMINA, 0, dati), t("Nome salvato"));
   } })));
   for (const voce of SCHEMA.impostazioni_pad) {
     const box = controllo(voce, a.valori[voce.chiave], (x) => {
       const dati = new Uint8Array(8);
       dati.set(macBytes(a.mac)); dati[6] = voce.id; dati[7] = x;
-      azione(() => scrivi(CMD.IMPOSTA_PAD, 0, dati), `${a.nome || a.mac}: ${voce.titolo} salvato`);
+      azione(() => scrivi(CMD.IMPOSTA_PAD, 0, dati), t("{0}: {1} salvato", a.nome || a.mac, t(voce.titolo)));
     });
     if (voce.chiave === "inverti_scorrimento" && !a.valori.trackpad) box.querySelector("input").disabled = true;
     d.append(box);
   }
-  d.append(el("button", { class: "sec", testo: "Dimentica questo controller", onclick: () => {
-    if (confirm(`Dimenticare ${a.nome || a.mac}? Va abbinato di nuovo e le sue impostazioni si perdono.`))
-      azione(() => scrivi(CMD.DIMENTICA, 0, macBytes(a.mac)), "Controller dimenticato");
+  d.append(el("button", { class: "sec", testo: t("Dimentica questo controller"), onclick: () => {
+    if (confirm(t("Dimenticare {0}? Va abbinato di nuovo e le sue impostazioni si perdono.", a.nome || a.mac)))
+      azione(() => scrivi(CMD.DIMENTICA, 0, macBytes(a.mac)), t("Controller dimenticato"));
   } }));
 }
 
@@ -429,19 +643,19 @@ function durata(s) {
 }
 
 function disegnaRete() {
-  let t = RETE[st.reteStato] || "?";
-  if (st.reteStato === 2) t = `Connesso a ${reti.reti[st.reteIndice]?.ssid || "?"} · IP ${st.ip} · segnale ${st.rssi} dBm`;
-  else if (st.reteStato === 0 && st.padConnessi) t = "Spento: con i controller collegati la radio è tutta al Bluetooth";
-  $("wifi").textContent = `${t} · ultimo Wake-on-LAN: ${st.msWol === null ? "mai" : durata(Math.floor(st.msWol / 1000)) + " fa"}`;
+  let testo = RETE[st.reteStato] || "?";
+  if (st.reteStato === 2) testo = t("Connesso a {0} · IP {1} · segnale {2} dBm", reti.reti[st.reteIndice]?.ssid || "?", st.ip, st.rssi);
+  else if (st.reteStato === 0 && st.padConnessi) testo = t("Spento: con i controller collegati la radio è tutta al Bluetooth");
+  $("wifi").textContent = t("{0} · ultimo Wake-on-LAN: {1}", testo, st.msWol === null ? t("mai") : t("{0} fa", durata(Math.floor(st.msWol / 1000))));
   const tb = $("reti");
   tb.replaceChildren();
   for (const r of reti.reti) {
-    tb.append(el("tr", {}, el("td", { testo: r.indice + 1 }), el("td", { testo: r.ssid || "(vuota)" }),
-      el("td", { testo: r.ssid ? `${r.wpa3 ? "WPA3" : "WPA2"}${r.haPassword ? "" : " · aperta"}` : "" }),
-      el("td", {}, el("button", { class: "sec", testo: r.ssid ? "Modifica" : "Aggiungi", onclick: () => apriRete(r) }),
-        r.ssid ? el("button", { class: "sec", testo: "Prova", onclick: () => provaRete(r) }) : null,
-        r.ssid ? el("button", { class: "sec", testo: "Elimina", onclick: () => {
-          if (confirm(`Eliminare la rete ${r.ssid}?`)) azione(() => scrivi(CMD.RETE_CANCELLA, r.indice), "Rete eliminata");
+    tb.append(el("tr", {}, el("td", { testo: r.indice + 1 }), el("td", { testo: r.ssid || t("(vuota)") }),
+      el("td", { testo: r.ssid ? `${r.wpa3 ? "WPA3" : "WPA2"}${r.haPassword ? "" : t(" · aperta")}` : "" }),
+      el("td", {}, el("button", { class: "sec", testo: r.ssid ? t("Modifica") : t("Aggiungi"), onclick: () => apriRete(r) }),
+        r.ssid ? el("button", { class: "sec", testo: t("Prova"), onclick: () => provaRete(r) }) : null,
+        r.ssid ? el("button", { class: "sec", testo: t("Elimina"), onclick: () => {
+          if (confirm(t("Eliminare la rete {0}?", r.ssid))) azione(() => scrivi(CMD.RETE_CANCELLA, r.indice), t("Rete eliminata"));
         } }) : null)));
   }
   for (const [i, id] of [[0, "wol1"], [1, "wol2"]]) if (document.activeElement !== $(id) && !$(id).dataset.modificato) $(id).value = reti.wol[i];
@@ -450,79 +664,79 @@ function disegnaRete() {
 // Prova di una rete salvata: password, indirizzo dal router, internet (solo senza controller).
 async function provaRete(r) {
   const esito = $("esito-prova");
-  esito.textContent = `Prova di "${r.ssid}": avvio…`;
+  esito.textContent = t("Prova di \"{0}\": avvio…", r.ssid);
   try {
     await scrivi(CMD.RETE_PROVA, r.indice);
-  } catch (e) { esito.textContent = `Prova non avviata: ${e.message}`; return; }
+  } catch (e) { esito.textContent = t("Prova non avviata: {0}", e.message); return; }
   for (const fine = Date.now() + 70000; Date.now() < fine;) {
     await sonno(700);
     const b = await leggi(CMD.PROVA_RETE), v = new DataView(b.buffer, b.byteOffset);
     const fase = b[0], codice = b[1];
     if (fase === 4) {
-      let t = ESITI_PROVA[codice] || `esito ${codice}`;
-      if (codice === 1) t += ` (IP ${Array.from(b.slice(4, 8)).join(".")}, segnale ${v.getInt8(3)} dBm, internet in ${v.getUint16(12, true)} ms)`;
-      esito.textContent = `Prova di "${r.ssid}": ${t}`;
+      let esitoTesto = ESITI_PROVA[codice] || t("esito {0}", codice);
+      if (codice === 1) esitoTesto += t(" (IP {0}, segnale {1} dBm, internet in {2} ms)", Array.from(b.slice(4, 8)).join("."), v.getInt8(3), v.getUint16(12, true));
+      esito.textContent = t("Prova di \"{0}\": {1}", r.ssid, esitoTesto);
       return;
     }
-    esito.textContent = `Prova di "${r.ssid}": ${FASI_PROVA[fase] || "in corso"}…`;
+    esito.textContent = t("Prova di \"{0}\": {1}…", r.ssid, FASI_PROVA[fase] || t("in corso"));
   }
-  esito.textContent = "La prova non ha dato risposta in tempo.";
+  esito.textContent = t("La prova non ha dato risposta in tempo.");
 }
 
 // Reti rilevate dal ricevitore (solo 2,4 GHz, solo senza controller): clic su una rete per salvarla.
 $("cerca-reti").onclick = async () => {
   const box = $("reti-viste");
-  box.textContent = "Ricerca delle reti…";
-  try { await scrivi(CMD.CERCA_RETI); } catch (e) { box.textContent = `Ricerca non avviata: ${e.message}`; return; }
+  box.textContent = t("Ricerca delle reti…");
+  try { await scrivi(CMD.CERCA_RETI); } catch (e) { box.textContent = t("Ricerca non avviata: {0}", e.message); return; }
   for (const fine = Date.now() + 25000; Date.now() < fine;) {
     await sonno(700);
     const b = await leggi(CMD.RETI_VISTE), v = new DataView(b.buffer, b.byteOffset);
     if (b[0] < 2) continue;
-    if (b[0] === 3) { box.textContent = "Ricerca interrotta: riprova senza controller collegati."; return; }
+    if (b[0] === 3) { box.textContent = t("Ricerca interrotta: riprova senza controller collegati."); return; }
     const viste = [];
     for (let i = 0; i < b[1]; i++) {
       const o = 2 + i * 36;
       viste.push({ ssid: testoUtf8(b.slice(o, o + 33)), rssi: v.getInt8(o + 33), canale: b[o + 34], aperta: b[o + 35] === 0 });
     }
-    if (!viste.length) { box.textContent = "Nessuna rete rilevata: il router trasmette a 2,4 GHz?"; return; }
+    if (!viste.length) { box.textContent = t("Nessuna rete rilevata: il router trasmette a 2,4 GHz?"); return; }
     box.replaceChildren(...viste.map((r) => el("div", { class: "riga" },
-      el("button", { class: "sec", testo: "Usa", onclick: () => {
+      el("button", { class: "sec", testo: t("Usa"), onclick: () => {
         const posto = reti.reti.find((x) => x.ssid === r.ssid) || reti.reti.find((x) => !x.ssid);
-        if (!posto) { messaggio("Già 5 reti salvate: eliminane una.", true); return; }
+        if (!posto) { messaggio(t("Già 5 reti salvate: eliminane una."), true); return; }
         apriRete(posto);
         $("ssid").value = r.ssid;
         $("psk").focus();
       } }),
-      `${r.ssid} · ${r.rssi} dBm · canale ${r.canale} · ${r.aperta ? "aperta" : "protetta"}`)));
+      t("{0} · {1} dBm · canale {2} · {3}", r.ssid, r.rssi, r.canale, r.aperta ? t("aperta") : t("protetta")))));
     return;
   }
-  box.textContent = "La ricerca non ha dato risposta in tempo.";
+  box.textContent = t("La ricerca non ha dato risposta in tempo.");
 };
 
 let reteAperta = null;
 function apriRete(r) {
   reteAperta = r;
   $("modulo-rete").classList.remove("nascosto");
-  $("titolo-rete").textContent = `Rete ${r.indice + 1}`;
+  $("titolo-rete").textContent = t("Rete {0}", r.indice + 1);
   $("ssid").value = r.ssid; $("psk").value = ""; $("wpa3").checked = r.wpa3;
-  $("nota-psk").textContent = r.ssid && r.haPassword ? "Password vuota = mantieni quella salvata." : "Password vuota = rete aperta.";
+  $("nota-psk").textContent = r.ssid && r.haPassword ? t("Password vuota = mantieni quella salvata.") : t("Password vuota = rete aperta.");
 }
 
 function disegnaInfo() {
-  const audio = [st.altoparlante ? "altoparlante" : "", st.microfono ? "microfono" : ""].filter(Boolean).join(", ") || "non in uso";
+  const audio = [st.altoparlante ? t("altoparlante") : "", st.microfono ? t("microfono") : ""].filter(Boolean).join(", ") || t("non in uso");
   $("info").replaceChildren(
-    el("b", { testo: `PS-RX ${info.versione}` }), ` · base ${info.base} · acceso da ${durata(st.uptime)}`, el("br"),
-    `Modalità ${MODALITA[st.modalita]} · ${st.usbGamepad} sull'USB${st.usbSospeso ? " (PC in sospensione)" : ""} · audio: ${audio}`, el("br"),
-    `Memoria libera ${Math.floor(st.heap / 1024)} KB${st.inSospeso ? " · modifiche in attesa di salvataggio (a controller spenti)" : ""}`);
+    el("b", { testo: `PS-RX ${info.versione}` }), t(" · base {0} · acceso da {1}", info.base, durata(st.uptime)), el("br"),
+    t("Modalità {0} · {1} sull'USB{2} · audio: {3}", MODALITA[st.modalita], st.usbGamepad, st.usbSospeso ? t(" (PC in sospensione)") : "", audio), el("br"),
+    t("Memoria libera {0} KB{1}", Math.floor(st.heap / 1024), st.inSospeso ? t(" · modifiche in attesa di salvataggio (a controller spenti)") : ""));
 }
 
 function testoEvento(e) {
-  const nome = abbinati.find((a) => a.mac === e.mac)?.nome || `Controller ${e.posto + 1}`;
-  const batt = e.batteria === null ? "batteria sconosciuta" : `batteria ${e.batteria}%`;
-  if (e.tipo === 1) return `${nome} collegato · posto ${e.posto + 1} · ${MODELLI[e.modello]} · modalità ${MODALITA[e.modalita]} · ${batt}`;
-  if (e.tipo === 2) return `${nome} scollegato (posto ${e.posto + 1})`;
+  const nome = abbinati.find((a) => a.mac === e.mac)?.nome || t("Controller {0}", e.posto + 1);
+  const batt = e.batteria === null ? t("batteria sconosciuta") : t("batteria {0}%", e.batteria);
+  if (e.tipo === 1) return t("{0} collegato · posto {1} · {2} · modalità {3} · {4}", nome, e.posto + 1, MODELLI[e.modello], MODALITA[e.modalita], batt);
+  if (e.tipo === 2) return t("{0} scollegato (posto {1})", nome, e.posto + 1);
   if (e.tipo === 3) return `${e.critico ? "Batteria quasi scarica" : "Batteria in esaurimento"}: ${nome}, ${batt}`;
-  return `evento ${e.tipo}`;
+  return t("evento {0}", e.tipo);
 }
 
 let giro = 0;
@@ -545,31 +759,31 @@ async function aggiorna(dettagli = false) {
       for (const e of await leggiEventi(ultimoEvento)) eventiVisti.unshift(`${new Date().toLocaleTimeString()} · ${testoEvento(e)}`);
       ultimoEvento = st.ultimoEvento;
       eventiVisti.length = Math.min(eventiVisti.length, 10);
-      $("eventi").replaceChildren(...eventiVisti.flatMap((t) => [t, el("br")]));
+      $("eventi").replaceChildren(...eventiVisti.flatMap((riga) => [riga, el("br")]));
     }
     disegnaPosti();
     disegnaRete();
     disegnaInfo();
-    $("stato-conn").textContent = `Collegato · modalità ${MODALITA[st.modalita]} · ${st.padConnessi} controller`;
+    $("stato-conn").textContent = t("Collegato · modalità {0} · {1} controller", MODALITA[st.modalita], st.padConnessi);
   } catch (e) {
-    $("stato-conn").textContent = `Errore: ${e.message}`;
+    $("stato-conn").textContent = t("Errore: {0}", e.message);
   }
 }
 
 // --- firmware -------------------------------------------------------------------------------------------
 function daUf2(buf) {
   const v = new DataView(buf), pezzi = new Map();
-  if (buf.byteLength % 512) throw new Error("file UF2 di lunghezza non multipla di 512");
+  if (buf.byteLength % 512) throw new Error(t("file UF2 di lunghezza non multipla di 512"));
   for (let o = 0; o < buf.byteLength; o += 512) {
     if (v.getUint32(o, true) !== 0x0A324655 || v.getUint32(o + 4, true) !== 0x9E5D5157 || v.getUint32(o + 508, true) !== 0x0AB16F30)
-      throw new Error("blocco UF2 non valido");
+      throw new Error(t("blocco UF2 non valido"));
     const flag = v.getUint32(o + 8, true), ind = v.getUint32(o + 12, true), dim = v.getUint32(o + 16, true), fam = v.getUint32(o + 28, true);
     if (flag & 1 || !(flag & 0x2000) || fam !== 0xE48BFF59 || dim > 476 || ind < 0x10000000 || ind >= 0x11000000) continue;
     pezzi.set(ind, new Uint8Array(buf, o + 32, dim));
   }
-  if (!pezzi.size) throw new Error("nessun blocco RP2350 nel file UF2");
+  if (!pezzi.size) throw new Error(t("nessun blocco RP2350 nel file UF2"));
   const inizio = Math.min(...pezzi.keys());
-  if (inizio !== 0x10000000) throw new Error("il firmware non parte dall'inizio della flash");
+  if (inizio !== 0x10000000) throw new Error(t("il firmware non parte dall'inizio della flash"));
   const fine = Math.max(...[...pezzi].map(([a, d]) => a + d.length));
   const img = new Uint8Array(fine - inizio).fill(0xFF);
   for (const [a, d] of pezzi) img.set(d, a - inizio);
@@ -577,14 +791,14 @@ function daUf2(buf) {
 }
 
 function controllaImmagine(img) {
-  if (img.length < 64 * 1024) throw new Error("file troppo piccolo");
-  if (info && img.length > info.appoggio) throw new Error(`troppo grande: al massimo ${info.appoggio} byte`);
+  if (img.length < 64 * 1024) throw new Error(t("file troppo piccolo"));
+  if (info && img.length > info.appoggio) throw new Error(t("troppo grande: al massimo {0} byte", info.appoggio));
   const v = new DataView(img.buffer), sp = v.getUint32(0, true), reset = v.getUint32(4, true);
-  if (sp < 0x20000000 || sp > 0x20082000 || sp & 7) throw new Error("tabella dei vettori non valida (stack)");
-  if (!(reset & 1)) throw new Error("tabella dei vettori non valida (reset)");
+  if (sp < 0x20000000 || sp > 0x20082000 || sp & 7) throw new Error(t("tabella dei vettori non valida (stack)"));
+  if (!(reset & 1)) throw new Error(t("tabella dei vettori non valida (reset)"));
   let trovato = false;
   for (let o = 8; o < 4096; o += 4) if (v.getUint32(o, true) === 0xFFFFDED3) { trovato = true; break; }
-  if (!trovato) throw new Error("manca il blocco IMAGE_DEF: non è un firmware RP2350");
+  if (!trovato) throw new Error(t("manca il blocco IMAGE_DEF: non è un firmware RP2350"));
 }
 
 function avanzamento(testo, percento) {
@@ -597,8 +811,8 @@ function avanzamento(testo, percento) {
 async function ripetiSePad(f) {
   for (;;) {
     try { return await f(); } catch (e) {
-      if (interrompi) throw new Error("annullato");
-      if (e.codice === ERR_PAD_CONNESSO) { avanzamento("Spegni i controller: il firmware si carica e si installa solo senza controller.", null); await sonno(1000); continue; }
+      if (interrompi) throw new Error(ANNULLATO);
+      if (e.codice === ERR_PAD_CONNESSO) { avanzamento(t("Spegni i controller: il firmware si carica e si installa solo senza controller."), null); await sonno(1000); continue; }
       if (e.codice === ERR_OCCUPATO) { await sonno(10); continue; }
       throw e;
     }
@@ -611,7 +825,7 @@ async function caricaFirmware(file) {
   const img = file.name.toLowerCase().endsWith(".uf2") || new DataView(buf).getUint32(0, true) === 0x0A324655 ? daUf2(buf) : u;
   controllaImmagine(img);
   const versione = (new TextDecoder("latin1").decode(img).match(/ps-rx-[0-9A-Za-z.\-_]+/) || ["sconosciuta"])[0];
-  if (!confirm(`Installata: ${info.versione}\nNuova: ${versione} (${Math.round(img.length / 1024)} KB)\n\nIl ricevitore si riavvia alla fine. Continuare?`)) return;
+  if (!confirm(t("Installata: {0}\nNuova: {1} ({2} KB)\n\nIl ricevitore si riavvia alla fine. Continuare?", info.versione, versione, Math.round(img.length / 1024)))) return;
   const sha = new Uint8Array(await crypto.subtle.digest("SHA-256", img));
   const blocchi = Math.ceil(img.length / SETTORE);
   caricamentoInCorso = true; interrompi = false;
@@ -621,41 +835,41 @@ async function caricaFirmware(file) {
     inizio.set(sha, 4);
     await ripetiSePad(() => scrivi(CMD.CARICA_INIZIO, 0, inizio));
     for (let i = 0; i < blocchi; i++) {
-      for (let t = Date.now(); ;) {           // il Pico ha scritto i blocchi precedenti?
+      for (const t0 = Date.now(); ;) {           // il Pico ha scritto i blocchi precedenti?
         const c = await leggiCaricamento();
         if (c.stato === CAR.RICEZIONE && c.scritti === i) break;
         if (c.stato === CAR.ERRORE) throw new ErrorePsrx(c.errore);
-        if (interrompi) throw new Error("annullato");
-        if (Date.now() - t > 30000) throw new Error("il ricevitore non risponde");
+        if (interrompi) throw new Error(ANNULLATO);
+        if (Date.now() - t0 > 30000) throw new Error(t("il ricevitore non risponde"));
         await sonno(5);
       }
       const blocco = new Uint8Array(SETTORE).fill(0xFF);
       blocco.set(img.subarray(i * SETTORE, Math.min(img.length, (i + 1) * SETTORE)));
       await ripetiSePad(() => scrivi(CMD.CARICA_BLOCCO, i, blocco));
-      avanzamento(`Caricamento: blocco ${i + 1} di ${blocchi}`, Math.round((i + 1) * 90 / blocchi));
+      avanzamento(t("Caricamento: blocco {0} di {1}", i + 1, blocchi), Math.round((i + 1) * 90 / blocchi));
     }
-    for (let t = Date.now(); ;) {
+    for (const t0 = Date.now(); ;) {
       const c = await leggiCaricamento();
       if (c.stato === CAR.RICEZIONE && c.scritti === blocchi) break;
       if (c.stato === CAR.ERRORE) throw new ErrorePsrx(c.errore);
-      if (Date.now() - t > 30000) throw new Error("il ricevitore non risponde");
+      if (Date.now() - t0 > 30000) throw new Error(t("il ricevitore non risponde"));
       await sonno(5);
     }
     await scrivi(CMD.CARICA_FINE);
-    for (let t = Date.now(); ;) {
+    for (const t0 = Date.now(); ;) {
       const c = await leggiCaricamento();
       if (c.stato === CAR.PRONTO) break;
       if (c.stato === CAR.ERRORE) throw new ErrorePsrx(c.errore);
-      if (Date.now() - t > 30000) throw new Error("verifica non conclusa");
-      avanzamento("Verifica dell'impronta SHA-256…", 95);
+      if (Date.now() - t0 > 30000) throw new Error(t("verifica non conclusa"));
+      avanzamento(t("Verifica dell'impronta SHA-256…"), 95);
       await sonno(100);
     }
-    avanzamento("Installazione: il ricevitore si riavvia (non staccarlo)…", 99);
+    avanzamento(t("Installazione: il ricevitore si riavvia (non staccarlo)…"), 99);
     await ripetiSePad(() => scrivi(CMD.INSTALLA_ORA));
-    messaggio("Firmware installato: il ricevitore si riavvia. Ricollegalo a questa pagina tra qualche secondo.");
+    messaggio(t("Firmware installato: il ricevitore si riavvia. Ricollegalo a questa pagina tra qualche secondo."));
   } catch (e) {
-    if (e.message === "annullato") { try { await scrivi(CMD.CARICA_ANNULLA); } catch { /* niente */ } }
-    messaggio(`Aggiornamento non riuscito: ${e.message}`, true);
+    if (e.message === ANNULLATO) { try { await scrivi(CMD.CARICA_ANNULLA); } catch { /* niente */ } }
+    messaggio(t("Aggiornamento non riuscito: {0}", e.message), true);
   } finally {
     caricamentoInCorso = false;
     avanzamento("", null);
@@ -672,12 +886,12 @@ async function collegato(d) {
     await aggiorna(true);
   } catch (e) {
     dev = null;
-    $("stato-conn").textContent = `Non riesco ad aprire il ricevitore: ${e.message}`;
+    $("stato-conn").textContent = t("Non riesco ad aprire il ricevitore: {0}", e.message);
   }
 }
 
 $("collega").onclick = async () => {
-  if (!navigator.usb) { messaggio("Questo browser non ha WebUSB: usa Chrome o Edge.", true); return; }
+  if (!navigator.usb) { messaggio(t("Questo browser non ha WebUSB: usa Chrome o Edge."), true); return; }
   try {
     const d = await navigator.usb.requestDevice({ filters: [{ classCode: 0xFF, subclassCode: 0x50 }] });
     await collegato(d);
@@ -687,7 +901,7 @@ $("collega").onclick = async () => {
 if (navigator.usb) {
   // Il ricevitore si ricollega quando cambia forma USB (controller, modalità, posti): si riapre da solo.
   navigator.usb.addEventListener("disconnect", (e) => {
-    if (e.device === dev) { dev = null; $("stato-conn").textContent = "Ricevitore scollegato: attendo che torni…"; }
+    if (e.device === dev) { dev = null; $("stato-conn").textContent = t("Ricevitore scollegato: attendo che torni…"); }
   });
   navigator.usb.addEventListener("connect", (e) => { if (!dev) collegato(e.device); });
   navigator.usb.getDevices().then((l) => { if (l.length) collegato(l[0]); });
@@ -698,19 +912,19 @@ document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click
   document.querySelectorAll("[data-pannello]").forEach((p) => p.classList.toggle("nascosto", p.dataset.pannello !== b.dataset.scheda));
 }));
 
-$("abbina").onclick = () => azione(() => scrivi(CMD.ABBINA), "Abbinamento aperto per 30 secondi");
-$("spegni-tutti").onclick = () => azione(() => scrivi(CMD.SPEGNI_PAD, 0xFF), "Controller spenti");
+$("abbina").onclick = () => azione(() => scrivi(CMD.ABBINA), t("Abbinamento aperto per 30 secondi"));
+$("spegni-tutti").onclick = () => azione(() => scrivi(CMD.SPEGNI_PAD, 0xFF), t("Controller spenti"));
 $("annulla-rete").onclick = () => $("modulo-rete").classList.add("nascosto");
 $("salva-rete").onclick = () => {
   const r = reteAperta, enc = new TextEncoder(), ssid = enc.encode($("ssid").value), psk = enc.encode($("psk").value);
-  if (!ssid.length || ssid.length > 32) { messaggio("Nome della rete vuoto o troppo lungo (massimo 32 byte)", true); return; }
-  if (psk.length && (psk.length < 8 || psk.length > 63)) { messaggio("La password WPA va da 8 a 63 caratteri", true); return; }
+  if (!ssid.length || ssid.length > 32) { messaggio(t("Nome della rete vuoto o troppo lungo (massimo 32 byte)"), true); return; }
+  if (psk.length && (psk.length < 8 || psk.length > 63)) { messaggio(t("La password WPA va da 8 a 63 caratteri"), true); return; }
   const dati = new Uint8Array(99);
   dati.set(ssid, 0); dati.set(psk, 33);
   dati[97] = $("wpa3").checked ? 1 : 0;
   dati[98] = !psk.length && $("ssid").value === r.ssid && r.haPassword ? 1 : 0;
   $("modulo-rete").classList.add("nascosto");
-  azione(() => scrivi(CMD.RETE_SALVA, r.indice, dati), `Rete ${$("ssid").value} salvata`);
+  azione(() => scrivi(CMD.RETE_SALVA, r.indice, dati), t("Rete {0} salvata", $("ssid").value));
 };
 for (const id of ["wol1", "wol2"]) $(id).addEventListener("input", () => { $(id).dataset.modificato = "1"; });
 $("salva-wol").onclick = () => {
@@ -718,24 +932,24 @@ $("salva-wol").onclick = () => {
     const dati = new Uint8Array(12);
     ["wol1", "wol2"].forEach((id, i) => { if ($(id).value.trim()) dati.set(macBytes($(id).value), i * 6); });
     ["wol1", "wol2"].forEach((id) => delete $(id).dataset.modificato);
-    azione(() => scrivi(CMD.WOL_DESTINAZIONI, 0, dati), "Destinazioni del Wake-on-LAN salvate");
+    azione(() => scrivi(CMD.WOL_DESTINAZIONI, 0, dati), t("Destinazioni del Wake-on-LAN salvate"));
   } catch (e) { messaggio(e.message, true); }
 };
-$("prova-wol").onclick = () => azione(() => scrivi(CMD.WOL_PROVA), "Pacchetto Wake-on-LAN inviato");
-$("salva-ora").onclick = () => azione(() => scrivi(CMD.SALVA_ORA), "Impostazioni salvate");
+$("prova-wol").onclick = () => azione(() => scrivi(CMD.WOL_PROVA), t("Pacchetto Wake-on-LAN inviato"));
+$("salva-ora").onclick = () => azione(() => scrivi(CMD.SALVA_ORA), t("Impostazioni salvate"));
 $("predefinite").onclick = () => {
-  if (confirm("Impostazioni di fabbrica? Reti WiFi, Wake-on-LAN e controller abbinati restano."))
-    azione(() => scrivi(CMD.PREDEFINITE), "Impostazioni di fabbrica ripristinate");
+  if (confirm(t("Impostazioni di fabbrica? Reti WiFi, Wake-on-LAN e controller abbinati restano.")))
+    azione(() => scrivi(CMD.PREDEFINITE), t("Impostazioni di fabbrica ripristinate"));
 };
 $("bootsel").onclick = () => {
-  if (confirm("Il ricevitore si riavvia come chiavetta RP2350 (servono i controller spenti). Continuare?"))
-    azione(() => scrivi(CMD.BOOTSEL_ORA), "Ricevitore in modalità BOOTSEL");
+  if (confirm(t("Il ricevitore si riavvia come chiavetta RP2350 (servono i controller spenti). Continuare?")))
+    azione(() => scrivi(CMD.BOOTSEL_ORA), t("Ricevitore in modalità BOOTSEL"));
 };
 $("mostra-registro").onclick = async () => {
   try {
     const b = await leggi(CMD.REGISTRO), n = b[2] | (b[3] << 8);
     const pre = $("registro");
-    pre.textContent = b[0] ? new TextDecoder().decode(b.slice(4, 4 + n)) : "Registro spento: attiva \"Registro diagnostico\".";
+    pre.textContent = b[0] ? new TextDecoder().decode(b.slice(4, 4 + n)) : t("Registro spento: attiva \"Registro diagnostico\".");
     pre.classList.remove("nascosto");
     pre.scrollTop = pre.scrollHeight;
   } catch (e) { messaggio(e.message, true); }
@@ -744,12 +958,12 @@ $("file-fw").onchange = async (e) => {
   const f = e.target.files[0];
   e.target.value = "";
   if (!f) return;
-  try { await caricaFirmware(f); } catch (err) { messaggio(`File non valido: ${err.message}`, true); }
+  try { await caricaFirmware(f); } catch (err) { messaggio(t("File non valido: {0}", err.message), true); }
 };
 
 // --- aggiornamenti da GitHub (solo ricerca: il download lo fa l'utente dal link) ----------------------
 const RELEASE = "https://api.github.com/repos/loddi-o/PS-RX/releases/latest";
-const numeroVersione = (t) => { const m = /(\d+)\.(\d+)(?:\.(\d+))?/.exec(t || ""); return m ? [m[1], m[2], m[3] || 0].map(Number) : null; };
+const numeroVersione = (testo) => { const m = /(\d+)\.(\d+)(?:\.(\d+))?/.exec(testo || ""); return m ? [m[1], m[2], m[3] || 0].map(Number) : null; };
 function piuNuova(disp, inst) {
   const d = numeroVersione(disp), i = numeroVersione(inst);
   if (!d) return false;
@@ -759,21 +973,21 @@ function piuNuova(disp, inst) {
 }
 $("cerca-agg").onclick = async () => {
   const esito = $("esito-agg");
-  esito.textContent = "Ricerca su GitHub…";
+  esito.textContent = t("Ricerca su GitHub…");
   try {
     const r = await fetch(RELEASE, { headers: { Accept: "application/vnd.github+json" } });
-    if (r.status === 404) { esito.textContent = "Nessuna release pubblicata."; return; }
-    if (!r.ok) throw new Error(`errore ${r.status}`);
+    if (r.status === 404) { esito.textContent = t("Nessuna release pubblicata."); return; }
+    if (!r.ok) throw new Error(t("errore {0}", r.status));
     const rel = await r.json();
     const fw = (rel.assets || []).find((a) => /^ps-rx-firmware-.*\.uf2$/.test(a.name));
     const installata = info ? info.versione : null;
     const nuovo = installata && piuNuova(rel.tag_name, installata);
-    esito.replaceChildren(`Ultima versione: ${rel.tag_name} · installata: ${installata || "?"} · `,
-      el("a", { href: rel.html_url, target: "_blank", rel: "noopener", testo: "note della release" }),
-      nuovo && fw ? el("span", {}, " · ", el("a", { href: fw.browser_download_url, testo: `scarica ${fw.name}` })) : "",
-      nuovo ? "" : " · il firmware è aggiornato");
+    esito.replaceChildren(t("Ultima versione: {0} · installata: {1} · ", rel.tag_name, installata || "?"),
+      el("a", { href: rel.html_url, target: "_blank", rel: "noopener", testo: t("note della release") }),
+      nuovo && fw ? el("span", {}, " · ", el("a", { href: fw.browser_download_url, testo: t("scarica {0}", fw.name) })) : "",
+      nuovo ? "" : t(" · il firmware è aggiornato"));
   } catch (e) {
-    esito.textContent = `Ricerca non riuscita: ${e.message}`;
+    esito.textContent = t("Ricerca non riuscita: {0}", e.message);
   }
 };
 
