@@ -89,13 +89,14 @@ IMPOSTAZIONI_PAD = [
     {
         'id': p.PAD_AUDIO, 'chiave': 'audio', 'tipo': 'booleano', 'predefinito': 1,
         'titolo': 'Audio (altoparlante e cuffie del controller)',
-        'nota': 'Solo con un controller collegato: con due o più il Bluetooth non regge l\'audio. Spento libera '
-                'banda e rende la connessione più stabile. Non disponibile sul DualShock 4.',
+        'nota': 'Solo con un controller collegato: con due o più il Bluetooth non regge l\'audio. Spento: Windows '
+                'non mostra più altoparlante e microfono del controller (il ricevitore si ricollega all\'USB, '
+                'circa 1 s) e il Bluetooth ha più banda. Non disponibile sul DualShock 4.',
     },
     {
         'id': p.PAD_MICROFONO, 'chiave': 'microfono', 'tipo': 'booleano', 'predefinito': 1,
         'titolo': 'Microfono (integrato o delle cuffie)',
-        'nota': 'Trasmette solo quando un\'app usa il microfono.',
+        'nota': 'Trasmette solo quando un\'app usa il microfono. Richiede l\'audio attivo.',
     },
     {
         'id': p.PAD_POLLING, 'chiave': 'polling', 'tipo': 'scelta', 'predefinito': 0,

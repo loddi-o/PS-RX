@@ -55,6 +55,7 @@ static bool rich_dimentica = false;
 static bool rich_dimentica_tutti = false;
 static bool rich_spegni_tutti = false;
 static bool rich_wol = false;
+static int rich_prova_rete = -1;   // posto della rete da provare (-1 = nessuna richiesta)
 static uint8_t rich_spegni_posto = 0;   // un bit per posto
 static uint8_t mac_dimentica[BT_ADDR_LEN];
 
@@ -381,6 +382,13 @@ static uint8_t rispondi(uint8_t comando, uint16_t indice, uint16_t *lunghezza) {
         case CMD_REGISTRO:     *lunghezza = registro(risposta, sizeof risposta); return ERR_NESSUNO;
         case CMD_EVENTI:       *lunghezza = leggi_eventi(risposta, indice); return ERR_NESSUNO;
         case CMD_RETI:         *lunghezza = reti(risposta); return ERR_NESSUNO;
+        case CMD_PROVA_RETE: {
+            ProvaRete p;
+            rete_esito_prova(&p);
+            memcpy(risposta, &p, sizeof p);
+            *lunghezza = sizeof p;
+            return ERR_NESSUNO;
+        }
         case CMD_ERRORE: {
             const ErroreRisposta e{ultimo_errore, ultimo_comando};
             memcpy(risposta, &e, sizeof e);
@@ -431,6 +439,7 @@ static uint8_t prepara(uint8_t comando, uint16_t indice, uint16_t lunghezza) {
         case CMD_SPEGNI_PAD:
         case CMD_RETE_CANCELLA:
         case CMD_WOL_PROVA:
+        case CMD_RETE_PROVA:
         case CMD_CARICA_FINE:
         case CMD_CARICA_ANNULLA:
         case CMD_INSTALLA_ORA:
@@ -489,6 +498,11 @@ static uint8_t esegui(uint8_t comando, uint16_t indice, const uint8_t *buf, uint
                 return ERR_NESSUNO;
             }
             return ERR_NON_CONNESSO;
+        case CMD_RETE_PROVA:
+            if (indice >= PSRX_RETI_MAX || !get_config().psrx_reti[indice].ssid[0]) return ERR_NON_TROVATO;
+            if (pad_connessi() > 0) return ERR_PAD_CONNESSO;   // con un controller il WiFi e' spento
+            rich_prova_rete = indice;
+            return ERR_NESSUNO;
         case CMD_CARICA_INIZIO: {
             CaricaInizio ci;
             memcpy(&ci, buf, sizeof ci);
@@ -623,6 +637,11 @@ void servizio_usb_task() {
         rich_spegni_posto &= static_cast<uint8_t>(~(1u << posto));
         psrx_log("app: spengo il controller del posto %u", posto + 1);
         pad_spegni(posto);
+    }
+    if (rich_prova_rete >= 0) {
+        const int k = rich_prova_rete;
+        rich_prova_rete = -1;
+        if (!rete_avvia_prova(static_cast<uint8_t>(k))) psrx_log("prova del WiFi non avviata (WiFi spento)");
     }
     if (rich_wol) {
         rich_wol = false;

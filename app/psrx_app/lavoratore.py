@@ -151,8 +151,14 @@ class Lavoratore(QObject):
         if s.info is None:
             s.info = c.info()
             self.dettagli_dovuti = True
-        s.stato = c.stato()
+        stato = c.stato()
+        if s.stato is not None and stato.uptime_s < s.stato.uptime_s:
+            self.dettagli_dovuti = True    # il ricevitore si e' riavviato: rileggo tutto, versione compresa
+        s.stato = stato
         if self.dettagli_dovuti or self.giro % GIRI_DETTAGLI == 0:
+            # Anche la versione: dopo un aggiornamento il Pico si riavvia e il client si ricollega da solo,
+            # senza passare da "scollegato".
+            s.info = c.info()
             s.impostazioni = c.impostazioni()
             s.abbinati = c.abbinati()
             s.reti = c.reti()

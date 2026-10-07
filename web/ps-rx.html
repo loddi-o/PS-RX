@@ -106,12 +106,15 @@ pre { white-space: pre-wrap; font-size: 12px; max-height: 50vh; overflow: auto; 
           il ricevitore manda 3 pacchetti (entro 30 s al massimo), poi lo spegne.</div></section>
       <section class="carta"><h2>Reti salvate (fino a 5)</h2>
         <table><thead><tr><th>#</th><th>Nome della rete</th><th>Sicurezza</th><th></th></tr></thead><tbody id="reti"></tbody></table>
+        <div id="esito-prova" class="tenue"></div>
         <div id="modulo-rete" class="nascosto">
           <div class="riga"><b id="titolo-rete"></b></div>
           <div class="riga"><input type="text" id="ssid" maxlength="32" placeholder="Nome della rete (SSID)">
             <input type="password" id="psk" maxlength="63" placeholder="Password">
             <label><input type="checkbox" id="wpa3"> WPA3</label></div>
           <div class="nota" id="nota-psk">Password vuota = rete aperta.</div>
+          <div class="nota"><b>Solo reti a 2,4 GHz</b>: il Pico 2 W non vede i 5 GHz. Se il router ha due nomi (per esempio
+            "Casa" e "Casa_5G") scegli quello a 2,4 GHz.</div>
           <div class="riga"><button class="az" id="salva-rete">Salva</button><button class="sec" id="annulla-rete">Annulla</button></div>
         </div>
       </section>
@@ -150,18 +153,23 @@ pre { white-space: pre-wrap; font-size: 12px; max-height: 50vh; overflow: auto; 
 // ---------------------------------------------------------------------------------------------------
 // Schema delle impostazioni (generato da app/psrx/schema.py)
 // SCHEMA-INIZIO
-const SCHEMA = {"impostazioni":[{"id":1,"chiave":"modalita","tipo":"scelta","sezione":"sistema","riconnette":true,"titolo":"Modalità del ricevitore","opzioni":[[0,"PlayStation"],[1,"Xbox"],[2,"Steam Controller 2026 (sperimentale)"]],"predefinito":0,"nota":"Come il PC vede i controller. PlayStation: DualSense (anche il DualShock 4), con tutto. Xbox: controller Xbox 360 (XInput), senza giroscopio e audio; il touchpad funziona solo come mouse. Steam: ogni controller diventa un nuovo Steam Controller (2026), con giroscopio e il touchpad diviso nei due trackpad; funziona solo con Steam aperto."},{"id":2,"chiave":"posti_fissi","tipo":"booleano","sezione":"sistema","riconnette":true,"titolo":"Sempre 4 gamepad sull'USB","predefinito":0,"nota":"Attivo: il PC vede sempre 4 gamepad e collegare un controller non interrompe gli altri. Spento: il PC vede solo quelli accesi, ma quando se ne collega uno nuovo gli altri si fermano per circa 1 s."},{"id":3,"chiave":"led_posto","tipo":"booleano","sezione":"gamepad","riconnette":false,"titolo":"Colore della barra luminosa secondo il posto","predefinito":0,"nota":"Come la PS5: 1 blu, 2 rosso, 3 verde, 4 rosa. Ignora i colori decisi dai giochi."},{"id":4,"chiave":"wol_spento","tipo":"booleano","sezione":"rete","riconnette":false,"titolo":"Disattiva il Wake-on-LAN","predefinito":0,"nota":"Senza Wake-on-LAN il WiFi si spegne appena si collega un controller."},{"id":5,"chiave":"buffer_audio","tipo":"intero","min":16,"max":128,"passo":8,"sezione":"sistema","riconnette":false,"titolo":"Buffer audio del controller","predefinito":64,"nota":"Più alto = meno scatti in cuffia, con un po' di ritardo solo sull'audio. Non tocca i tasti."},{"id":6,"chiave":"inattivita","tipo":"intero","min":5,"max":60,"passo":5,"sezione":"sistema","riconnette":false,"titolo":"Spegni il controller dopo (minuti di inattività)","predefinito":30,"nota":"Il controller si spegne se resta fermo per questo tempo."},{"id":7,"chiave":"mai_disconnettere","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"Non spegnere mai i controller per inattività","predefinito":0,"nota":""},{"id":8,"chiave":"led_pico_spento","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"LED del ricevitore spento","predefinito":0,"nota":"Di solito il LED del Pico resta acceso finché c'è almeno un controller collegato."},{"id":9,"chiave":"tastiera_risveglio","tipo":"booleano","sezione":"sistema","riconnette":true,"titolo":"Sveglia il PC dalla sospensione via USB","predefinito":0,"nota":"Aggiunge una piccola tastiera USB che preme un tasto quando premi PS a PC sospeso. Alcuni anticheat la notano: tienila spenta se non ti serve (il Wake-on-LAN funziona comunque)."},{"id":10,"chiave":"registro","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"Registro diagnostico","predefinito":0,"nota":"Tiene in RAM le ultime righe di log del ricevitore, da leggere nell'app."}],"impostazioni_pad":[{"id":1,"chiave":"audio","tipo":"booleano","predefinito":1,"titolo":"Audio (altoparlante e cuffie del controller)","nota":"Solo con un controller collegato: con due o più il Bluetooth non regge l'audio. Spento libera banda e rende la connessione più stabile. Non disponibile sul DualShock 4."},{"id":2,"chiave":"microfono","tipo":"booleano","predefinito":1,"titolo":"Microfono (integrato o delle cuffie)","nota":"Trasmette solo quando un'app usa il microfono."},{"id":3,"chiave":"polling","tipo":"scelta","predefinito":0,"opzioni":[[0,"1000 Hz"],[1,"500 Hz"],[2,"250 Hz"],[3,"125 Hz"]],"titolo":"Frequenza verso il PC","nota":"Quante volte al secondo il PC riceve lo stato di questo controller. 1000 Hz = latenza minima."},{"id":4,"chiave":"trackpad","tipo":"booleano","predefinito":0,"titolo":"Touchpad come mouse","nota":"Il touchpad muove il puntatore e il suo click è il tasto sinistro; la striscia a sinistra fa da rotellina."},{"id":5,"chiave":"inverti_scorrimento","tipo":"booleano","predefinito":0,"titolo":"Inverti la rotellina","nota":""}]};
+const SCHEMA = {"impostazioni":[{"id":1,"chiave":"modalita","tipo":"scelta","sezione":"sistema","riconnette":true,"titolo":"Modalità del ricevitore","opzioni":[[0,"PlayStation"],[1,"Xbox"],[2,"Steam Controller 2026 (sperimentale)"]],"predefinito":0,"nota":"Come il PC vede i controller. PlayStation: DualSense (anche il DualShock 4), con tutto. Xbox: controller Xbox 360 (XInput), senza giroscopio e audio; il touchpad funziona solo come mouse. Steam: ogni controller diventa un nuovo Steam Controller (2026), con giroscopio e il touchpad diviso nei due trackpad; funziona solo con Steam aperto."},{"id":2,"chiave":"posti_fissi","tipo":"booleano","sezione":"sistema","riconnette":true,"titolo":"Sempre 4 gamepad sull'USB","predefinito":0,"nota":"Attivo: il PC vede sempre 4 gamepad e collegare un controller non interrompe gli altri. Spento: il PC vede solo quelli accesi, ma quando se ne collega uno nuovo gli altri si fermano per circa 1 s."},{"id":3,"chiave":"led_posto","tipo":"booleano","sezione":"gamepad","riconnette":false,"titolo":"Colore della barra luminosa secondo il posto","predefinito":0,"nota":"Come la PS5: 1 blu, 2 rosso, 3 verde, 4 rosa. Ignora i colori decisi dai giochi."},{"id":4,"chiave":"wol_spento","tipo":"booleano","sezione":"rete","riconnette":false,"titolo":"Disattiva il Wake-on-LAN","predefinito":0,"nota":"Senza Wake-on-LAN il WiFi si spegne appena si collega un controller."},{"id":5,"chiave":"buffer_audio","tipo":"intero","min":16,"max":128,"passo":8,"sezione":"sistema","riconnette":false,"titolo":"Buffer audio del controller","predefinito":64,"nota":"Più alto = meno scatti in cuffia, con un po' di ritardo solo sull'audio. Non tocca i tasti."},{"id":6,"chiave":"inattivita","tipo":"intero","min":5,"max":60,"passo":5,"sezione":"sistema","riconnette":false,"titolo":"Spegni il controller dopo (minuti di inattività)","predefinito":30,"nota":"Il controller si spegne se resta fermo per questo tempo."},{"id":7,"chiave":"mai_disconnettere","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"Non spegnere mai i controller per inattività","predefinito":0,"nota":""},{"id":8,"chiave":"led_pico_spento","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"LED del ricevitore spento","predefinito":0,"nota":"Di solito il LED del Pico resta acceso finché c'è almeno un controller collegato."},{"id":9,"chiave":"tastiera_risveglio","tipo":"booleano","sezione":"sistema","riconnette":true,"titolo":"Sveglia il PC dalla sospensione via USB","predefinito":0,"nota":"Aggiunge una piccola tastiera USB che preme un tasto quando premi PS a PC sospeso. Alcuni anticheat la notano: tienila spenta se non ti serve (il Wake-on-LAN funziona comunque)."},{"id":10,"chiave":"registro","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"Registro diagnostico","predefinito":0,"nota":"Tiene in RAM le ultime righe di log del ricevitore, da leggere nell'app."}],"impostazioni_pad":[{"id":1,"chiave":"audio","tipo":"booleano","predefinito":1,"titolo":"Audio (altoparlante e cuffie del controller)","nota":"Solo con un controller collegato: con due o più il Bluetooth non regge l'audio. Spento: Windows non mostra più altoparlante e microfono del controller (il ricevitore si ricollega all'USB, circa 1 s) e il Bluetooth ha più banda. Non disponibile sul DualShock 4."},{"id":2,"chiave":"microfono","tipo":"booleano","predefinito":1,"titolo":"Microfono (integrato o delle cuffie)","nota":"Trasmette solo quando un'app usa il microfono. Richiede l'audio attivo."},{"id":3,"chiave":"polling","tipo":"scelta","predefinito":0,"opzioni":[[0,"1000 Hz"],[1,"500 Hz"],[2,"250 Hz"],[3,"125 Hz"]],"titolo":"Frequenza verso il PC","nota":"Quante volte al secondo il PC riceve lo stato di questo controller. 1000 Hz = latenza minima."},{"id":4,"chiave":"trackpad","tipo":"booleano","predefinito":0,"titolo":"Touchpad come mouse","nota":"Il touchpad muove il puntatore e il suo click è il tasto sinistro; la striscia a sinistra fa da rotellina."},{"id":5,"chiave":"inverti_scorrimento","tipo":"booleano","predefinito":0,"titolo":"Inverti la rotellina","nota":""}]};
 // SCHEMA-FINE
 
 // ---------------------------------------------------------------------------------------------------
 // Protocollo (specchio di app/psrx/protocollo.py)
 const RICHIESTA = 0x50, PAD_MAX = 4, RETI_MAX = 5, SETTORE = 4096;
 const CMD = { INFO: 0x00, STATO: 0x01, IMPOSTAZIONI: 0x02, ABBINATI: 0x03, REGISTRO: 0x04, ERRORE: 0x05,
-  CARICAMENTO: 0x06, EVENTI: 0x07, RETI: 0x08, IMPOSTA: 0x10, SALVA_ORA: 0x11, PREDEFINITE: 0x12,
+  CARICAMENTO: 0x06, EVENTI: 0x07, RETI: 0x08, PROVA_RETE: 0x09, IMPOSTA: 0x10, SALVA_ORA: 0x11, PREDEFINITE: 0x12,
   IMPOSTA_PAD: 0x13, RINOMINA: 0x20, DIMENTICA: 0x21, ABBINA: 0x23, SPEGNI_PAD: 0x24,
-  RETE_SALVA: 0x30, RETE_CANCELLA: 0x31, WOL_DESTINAZIONI: 0x32, WOL_PROVA: 0x33, CARICA_INIZIO: 0x40,
+  RETE_SALVA: 0x30, RETE_CANCELLA: 0x31, WOL_DESTINAZIONI: 0x32, WOL_PROVA: 0x33, RETE_PROVA: 0x34, CARICA_INIZIO: 0x40,
   CARICA_BLOCCO: 0x41, CARICA_FINE: 0x42, CARICA_ANNULLA: 0x43, INSTALLA_ORA: 0x44, BOOTSEL_ORA: 0x45 };
-const LUNGHEZZA = { 0: 76, 1: 112, 2: 64, 3: 128, 4: 2304, 5: 2, 6: 12, 7: 1 + 16 * 14, 8: RETI_MAX * 35 + 13 };
+const LUNGHEZZA = { 0: 76, 1: 112, 2: 64, 3: 128, 4: 2304, 5: 2, 6: 12, 7: 1 + 16 * 14, 8: RETI_MAX * 35 + 13, 9: 16 };
+const ESITI_PROVA = { 1: "tutto a posto: password giusta, indirizzo dal router e internet raggiungibile",
+  2: "password sbagliata", 3: "rete non trovata: spenta, lontana, nome sbagliato o solo a 5 GHz (il Pico 2 W usa i 2,4 GHz)",
+  4: "il router non ha completato il collegamento (controlla WPA2/WPA3)", 5: "collegato, ma il router non ha dato un indirizzo IP",
+  6: "rete di casa raggiungibile, internet no (il Wake-on-LAN funziona lo stesso)", 7: "interrotta: si è collegato un controller" };
+const FASI_PROVA = { 1: "collegamento alla rete", 2: "indirizzo IP dal router", 3: "verifica di internet" };
 const ERRORI = ["nessun errore", "comando sconosciuto", "lunghezza dei dati sbagliata", "valore non ammesso",
   "il ricevitore sta ancora finendo l'operazione precedente",
   "spegni prima i controller (PS-RX scrive in memoria solo senza controller collegati)",
@@ -429,11 +437,34 @@ function disegnaRete() {
     tb.append(el("tr", {}, el("td", { testo: r.indice + 1 }), el("td", { testo: r.ssid || "(vuota)" }),
       el("td", { testo: r.ssid ? `${r.wpa3 ? "WPA3" : "WPA2"}${r.haPassword ? "" : " · aperta"}` : "" }),
       el("td", {}, el("button", { class: "sec", testo: r.ssid ? "Modifica" : "Aggiungi", onclick: () => apriRete(r) }),
+        r.ssid ? el("button", { class: "sec", testo: "Prova", onclick: () => provaRete(r) }) : null,
         r.ssid ? el("button", { class: "sec", testo: "Elimina", onclick: () => {
           if (confirm(`Eliminare la rete ${r.ssid}?`)) azione(() => scrivi(CMD.RETE_CANCELLA, r.indice), "Rete eliminata");
         } }) : null)));
   }
   for (const [i, id] of [[0, "wol1"], [1, "wol2"]]) if (document.activeElement !== $(id) && !$(id).dataset.modificato) $(id).value = reti.wol[i];
+}
+
+// Prova di una rete salvata: password, indirizzo dal router, internet (solo senza controller).
+async function provaRete(r) {
+  const esito = $("esito-prova");
+  esito.textContent = `Prova di "${r.ssid}": avvio…`;
+  try {
+    await scrivi(CMD.RETE_PROVA, r.indice);
+  } catch (e) { esito.textContent = `Prova non avviata: ${e.message}`; return; }
+  for (const fine = Date.now() + 70000; Date.now() < fine;) {
+    await sonno(700);
+    const b = await leggi(CMD.PROVA_RETE), v = new DataView(b.buffer, b.byteOffset);
+    const fase = b[0], codice = b[1];
+    if (fase === 4) {
+      let t = ESITI_PROVA[codice] || `esito ${codice}`;
+      if (codice === 1) t += ` (IP ${Array.from(b.slice(4, 8)).join(".")}, segnale ${v.getInt8(3)} dBm, internet in ${v.getUint16(12, true)} ms)`;
+      esito.textContent = `Prova di "${r.ssid}": ${t}`;
+      return;
+    }
+    esito.textContent = `Prova di "${r.ssid}": ${FASI_PROVA[fase] || "in corso"}…`;
+  }
+  esito.textContent = "La prova non ha dato risposta in tempo.";
 }
 
 let reteAperta = null;

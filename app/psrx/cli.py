@@ -4,7 +4,7 @@ PS-RX - riga di comando.
     python -m psrx stato
     python -m psrx impostazioni | imposta CHIAVE VALORE
     python -m psrx abbinati | pad MAC CHIAVE VALORE | rinomina MAC NOME | dimentica MAC | abbina | spegni [POSTO]
-    python -m psrx reti | rete POSTO SSID [PASSWORD] [--wpa3] | rete-cancella POSTO
+    python -m psrx reti | rete POSTO SSID [PASSWORD] [--wpa3] | rete-cancella POSTO | rete-prova POSTO
     python -m psrx wol MAC1 [MAC2] | wol-prova
     python -m psrx eventi            (resta in ascolto e stampa le notifiche)
     python -m psrx registro
@@ -176,6 +176,8 @@ def main(argv=None) -> int:
     s.add_argument('--wpa3', action='store_true')
     s = sub.add_parser('rete-cancella')
     s.add_argument('posto', type=int)
+    s = sub.add_parser('rete-prova', help='prova una rete salvata (password, indirizzo, internet)')
+    s.add_argument('posto', type=int, help='1-5')
     s = sub.add_parser('wol')
     s.add_argument('mac1', nargs='?', default='')
     s.add_argument('mac2', nargs='?', default='')
@@ -255,6 +257,15 @@ def main(argv=None) -> int:
             ps.salva_rete(args.posto - 1, args.ssid, args.password, args.wpa3)
         elif c == 'rete-cancella':
             ps.cancella_rete(args.posto - 1)
+        elif c == 'rete-prova':
+            ps.prova_rete(args.posto - 1)
+            while True:
+                esito = ps.esito_prova_rete()
+                print(f'\r{esito.descrizione:<100}', end='', flush=True)
+                if esito.finita:
+                    print()
+                    return 0 if esito.esito == p.ESITO_OK else 1
+                time.sleep(0.5)
         elif c == 'wol':
             ps.destinazioni_wol(args.mac1, args.mac2)
         elif c == 'wol-prova':

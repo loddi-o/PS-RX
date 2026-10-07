@@ -156,6 +156,7 @@ class SchedaSistema(Scheda):
         if not attivo:
             self.info.setText('Ricevitore non collegato')
             return
+        self._riallinea_ricerca(ist.info.versione)
         i, st = ist.info, ist.stato
         usb = f'{st.usb_gamepad} {"controller Xbox" if st.modalita == 1 else "gamepad"} sull\'USB'
         if st.usb_sospeso:
@@ -184,6 +185,15 @@ class SchedaSistema(Scheda):
     # --- aggiornamenti da GitHub ------------------------------------------------------------------
     def _versione_firmware(self) -> Optional[str]:
         return self.ist.info.versione if self.ist and self.ist.info else None
+
+    def _riallinea_ricerca(self, versione: str) -> None:
+        """L'esito dell'ultima ricerca segue la versione attuale del ricevitore (per esempio appena aggiornato)."""
+        c = self.finestra.aggiornatore.ultimo
+        if c is None or c.firmware_installato == versione:
+            return
+        c.firmware_installato = versione
+        c.firmware_nuovo = ag.piu_nuova(c.release.versione, versione) and ag.file_firmware(c.release) is not None
+        self._su_esito(c, '')
 
     def _cerca(self) -> None:
         if self.finestra.aggiornatore.cerca(self._versione_firmware()):

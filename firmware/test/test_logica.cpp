@@ -20,6 +20,7 @@
 #include "trackpad.h"
 #include "xinput.h"
 #include "steam.h"
+#include "prova_rete.h"
 
 namespace {
 
@@ -772,6 +773,24 @@ void test_steam() {
     VERIFICA(static_cast<int8_t>(s7b[8]) == -60 && s7b[0] == 0xF7);
 }
 
+// --- Prova del WiFi: domanda DNS ------------------------------------------------------------------
+
+void test_prova_rete() {
+    printf("[test] prova del WiFi (domanda DNS)\n");
+    uint8_t b[DNS_DOMANDA_MAX];
+    const uint16_t n = dns_domanda(b, 0xBEEF);
+    VERIFICA(n == 28 && n <= DNS_DOMANDA_MAX);
+    VERIFICA(b[0] == 0xBE && b[1] == 0xEF && b[2] == 0x01 && b[5] == 1);          // id, ricorsione, 1 domanda
+    VERIFICA(b[12] == 6 && memcmp(b + 13, "github", 6) == 0 && b[19] == 3 && b[23] == 0);
+    VERIFICA(b[25] == 1 && b[27] == 1);                                           // tipo A, classe IN
+    uint8_t r[12] = {0xBE, 0xEF, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0};
+    VERIFICA(dns_risposta_valida(r, sizeof r, 0xBEEF));
+    VERIFICA(!dns_risposta_valida(r, sizeof r, 0xBEEE));                          // id diverso
+    r[2] = 0x01;
+    VERIFICA(!dns_risposta_valida(r, sizeof r, 0xBEEF));                          // e' una domanda
+    VERIFICA(!dns_risposta_valida(r, 8, 0xBEEF));                                 // troppo corta
+}
+
 } // namespace
 
 int esegui_test_logica() {
@@ -788,6 +807,7 @@ int esegui_test_logica() {
     test_trackpad();
     test_xinput();
     test_steam();
+    test_prova_rete();
     printf("[test] %d controlli, %d falliti: %s\n", controlli, fallimenti, fallimenti ? "ERRORE" : "OK");
     return fallimenti;
 }

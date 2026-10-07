@@ -350,6 +350,17 @@ class Plugin:
             return {'errore': 'MAC non valido (formato AA:BB:CC:DD:EE:FF)'}
         return await self._azione(self.ps.destinazioni_wol, mac1.upper(), mac2.upper())
 
+    async def prova_rete(self, indice: int) -> dict:
+        return await self._azione(self.ps.prova_rete, int(indice))
+
+    async def esito_prova_rete(self) -> dict:
+        try:
+            e = await self._usb(self.ps.esito_prova_rete)
+        except Exception as ex:  # noqa: BLE001
+            return _errore(ex)
+        return {'fase': e.fase, 'esito': e.esito, 'finita': e.finita, 'ok': e.esito == p.ESITO_OK,
+                'rete': e.rete, 'descrizione': e.descrizione}
+
     async def prova_wol(self) -> dict:
         return await self._azione(self.ps.prova_wol)
 

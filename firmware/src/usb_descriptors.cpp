@@ -676,11 +676,18 @@ typedef struct {
     uint8_t multi_slots;
     bool xbox;                // PS-RX: modalita' Xbox (interfacce XInput al posto di audio e HID; mai tastiera)
     bool steam;               // PS-RX: modalita' Steam (dongle con 4 posti fissi; mai tastiera ne' mouse)
+    bool senza_audio;         // PS-RX: FULL senza la funzione audio (il controller non la usa): solo gamepad
 } usb_desc_target;
 // Field-wise volatile access is enough: all fields are only written from
 // main-loop context (BT event handlers, httpd POST handlers, usb_variant_task).
-static volatile usb_desc_target active_target  = {DESC_VARIANT_MINIMAL, false, false, 0, false, false};
-static volatile usb_desc_target desired_target = {DESC_VARIANT_MINIMAL, false, false, 0, false, false};
+static volatile usb_desc_target active_target  = {DESC_VARIANT_MINIMAL, false, false, 0, false, false, false};
+static volatile usb_desc_target desired_target = {DESC_VARIANT_MINIMAL, false, false, 0, false, false, false};
+
+// PS-RX: "senza audio" conta solo nella variante FULL (un controller): nelle altre l'audio non c'e' comunque
+// (MINIMAL, MULTI) o resta com'e' (FISSO), quindi non deve provocare ricollegamenti.
+static bool senza_audio_effettivo(const volatile usb_desc_target &t) {
+    return t.senza_audio && t.variant == DESC_VARIANT_FULL;
+}
 
 bool usb_descriptor_variant_is_full(void) {
     return active_target.variant == DESC_VARIANT_FULL;
@@ -696,6 +703,12 @@ static uint16_t usb_active_bcd_device(void) {
     uint16_t bcd;
     // PS-RX: modalita' Xbox, un valore per numero di interfacce XInput (altro VID/PID, nessun conflitto).
     if (active_target.steam) return STEAM_BCD;   // come il dongle vero (altro VID/PID, nessun conflitto)
+    if (senza_audio_effettivo(active_target)) {     // un gamepad senza audio: forma propria, valore proprio
+        bcd = 0x0105;
+        if (active_target.kbd) bcd |= 0x0040;
+        if (active_target.mouse) bcd |= 0x0080;
+        return bcd;
+    }
     if (active_target.xbox) return (uint16_t) (0x0200 + usb_xbox_posti() + (active_target.mouse ? 0x80 : 0));
     switch (active_target.variant) {
         case DESC_VARIANT_MINIMAL: bcd = 0x0101; break;
@@ -872,6 +885,7 @@ void usb_request_wake_kbd(bool enabled) { desired_target.kbd = enabled; }
 void usb_request_mouse(bool enabled) { desired_target.mouse = enabled; }
 void usb_request_xbox(bool enabled) { desired_target.xbox = enabled; }
 void usb_request_steam(bool enabled) { desired_target.steam = enabled; }
+void usb_request_senza_audio(bool senza) { desired_target.senza_audio = senza; }
 // One-time boot init, called after config_load() and BEFORE the first
 // tud_connect(): seed BOTH desired and active with the persisted kbd choice so
 // the very first enumeration already matches the config (no cosmetic bounce a
@@ -916,6 +930,7 @@ static bool desc_target_differs(void) {
            desired_target.variant != active_target.variant ||
            (desired_target.kbd && !desired_target.xbox) != active_target.kbd ||
            desired_target.xbox != active_target.xbox ||
+           senza_audio_effettivo(desired_target) != senza_audio_effettivo(active_target) ||
            desired_target.mouse != active_target.mouse ||
            desired_target.multi_slots != active_target.multi_slots;
 }
@@ -988,6 +1003,7 @@ void usb_variant_task(void) {
             active_target.mouse       = desired_target.mouse && !desired_target.steam;
             active_target.xbox        = desired_target.xbox;
             active_target.steam       = desired_target.steam;
+            active_target.senza_audio = desired_target.senza_audio;
             active_target.multi_slots = desired_target.multi_slots;
             // Audio alt-setting state resets with the bus: variants without an
             // audio function (MINIMAL/MULTI) never receive the SET_INTERFACE
@@ -1026,9 +1042,11 @@ static uint8_t const *descrittore_dlb(uint8_t index) {
     }
     uint8_t *desc_full;
 #if MULTI_SLOT_COUNT > 1
+    // PS-RX: un controller senza audio usa la forma MULTI con un solo gamepad (stesso endpoint di FULL).
+    const bool multi_uno = senza_audio_effettivo(active_target);
     if (active_target.variant == DESC_VARIANT_FISSO) {
         desc_full = active_target.kbd ? descriptor_configuration_fisso_kbd : descriptor_configuration_fisso;
-    } else if (active_target.variant == DESC_VARIANT_MULTI) {
+    } else if (active_target.variant == DESC_VARIANT_MULTI || multi_uno) {
         desc_full = active_target.kbd ? descriptor_configuration_multi_kbd
                                       : descriptor_configuration_multi;
     } else
@@ -1061,7 +1079,7 @@ static uint8_t const *descrittore_dlb(uint8_t index) {
     // (The canonical FULL block and the DS5_GAMEPAD_ITF_DESC macro share this
     // exact layout.)
 #if defined(ENABLE_WAKE_HID) && MULTI_SLOT_COUNT > 1
-    if (active_target.variant == DESC_VARIANT_MULTI) {
+    if (active_target.variant == DESC_VARIANT_MULTI || multi_uno) {
         // MULTI: header(9) + uniform 32-byte gamepad blocks, with the 25-byte
         // keyboard interface (when enumerated) inserted after slot 0's block.
         // The static array carries every compiled slot; TRUNCATE the served
@@ -1070,7 +1088,7 @@ static uint8_t const *descrittore_dlb(uint8_t index) {
         // serves exactly wTotalLength bytes, so trailing blocks simply don't
         // exist for the host. Ghost pads that were never connected this
         // session are thus never enumerated.
-        const uint8_t exposed = active_target.multi_slots;
+        const uint8_t exposed = multi_uno ? 1 : active_target.multi_slots;   // PS-RX: 1 = FULL senza audio
         const uint16_t kbd_len = active_target.kbd ? DS5_KBD_ITF_DESC_LEN : 0;
         const uint16_t total = 9 + (uint16_t)(exposed * DS5_GAMEPAD_TAIL_LEN) + kbd_len;
         desc_full[2] = (uint8_t)(total & 0xFF);        // wTotalLength lo

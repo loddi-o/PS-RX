@@ -112,6 +112,10 @@ class Finestra(QMainWindow):
         self.ponte.esegui(lambda c: c.imposta(ident, valore), lambda _: self.messaggio(testo),
                           lambda e: (self.messaggio(testo_errore(e), errore=True), self._rimostra()))
 
+    def lav_aggiorna(self) -> None:
+        """Rilegge subito stato e dettagli dal ricevitore."""
+        self.ponte.lav.aggiorna_subito()
+
     def conferma(self, titolo: str, testo: str) -> bool:
         return QMessageBox.question(self, titolo, testo) == QMessageBox.Yes
 

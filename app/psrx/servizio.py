@@ -19,7 +19,7 @@ from .firmware import Immagine
 
 LUNGHEZZE = {p.CMD_INFO: p.DIM_INFO, p.CMD_STATO: p.DIM_STATO, p.CMD_IMPOSTAZIONI: 64, p.CMD_ABBINATI: 128,
              p.CMD_REGISTRO: 2304, p.CMD_ERRORE: 2, p.CMD_CARICAMENTO: 12, p.CMD_EVENTI: 1 + 16 * p.DIM_EVENTO,
-             p.CMD_RETI: p.DIM_RETI}
+             p.CMD_RETI: p.DIM_RETI, p.CMD_PROVA_RETE: struct.calcsize(p.FMT_PROVA_RETE)}
 
 T_RICERCA_S = 6.0          # attesa massima del Pico dopo un ricollegamento USB
 T_FASE_CARICAMENTO_S = 30  # attesa massima di un blocco o della verifica
@@ -156,6 +156,13 @@ class Psrx:
     def destinazioni_wol(self, mac1: str = '', mac2: str = '') -> None:
         dati = (p.mac_da_testo(mac1) if mac1 else bytes(6)) + (p.mac_da_testo(mac2) if mac2 else bytes(6))
         self.scrivi(p.CMD_WOL_DESTINAZIONI, 0, dati)
+
+    def prova_rete(self, indice: int) -> None:
+        """Avvia la prova della rete salvata nel posto indice (solo senza controller collegati)."""
+        self.scrivi(p.CMD_RETE_PROVA, indice)
+
+    def esito_prova_rete(self) -> p.ProvaRete:
+        return p.leggi_prova_rete(self.leggi(p.CMD_PROVA_RETE))
 
     def prova_wol(self) -> None:
         self.scrivi(p.CMD_WOL_PROVA)

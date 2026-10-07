@@ -40,6 +40,7 @@ CMD_ERRORE = 0x05
 CMD_CARICAMENTO = 0x06
 CMD_EVENTI = 0x07
 CMD_RETI = 0x08
+CMD_PROVA_RETE = 0x09
 CMD_IMPOSTA = 0x10
 CMD_SALVA_ORA = 0x11
 CMD_PREDEFINITE = 0x12
@@ -53,6 +54,7 @@ CMD_RETE_SALVA = 0x30
 CMD_RETE_CANCELLA = 0x31
 CMD_WOL_DESTINAZIONI = 0x32
 CMD_WOL_PROVA = 0x33
+CMD_RETE_PROVA = 0x34
 CMD_CARICA_INIZIO = 0x40
 CMD_CARICA_BLOCCO = 0x41
 CMD_CARICA_FINE = 0x42
@@ -168,6 +170,24 @@ FMT_RETE_DATI = '<33s64sBB'
 FMT_CARICAMENTO = '<BBHHHI'
 FMT_CARICA_INIZIO = '<I32s'
 FMT_ERRORE = '<BB'
+FMT_PROVA_RETE = '<BBbb4s4sHH'   # ProvaRete (firmware/src/psrx/rete.h)
+
+# Prova del WiFi: fasi ed esiti (rete.h)
+PROVA_NESSUNA, PROVA_CONNESSIONE, PROVA_INDIRIZZO, PROVA_INTERNET, PROVA_FINITA = range(5)
+ESITO_IN_CORSO, ESITO_OK, ESITO_PASSWORD, ESITO_NON_TROVATA, ESITO_NESSUNA_RISPOSTA, ESITO_NESSUN_IP, \
+    ESITO_NO_INTERNET, ESITO_ANNULLATA = range(8)
+TESTO_FASE_PROVA = {PROVA_CONNESSIONE: 'collegamento alla rete', PROVA_INDIRIZZO: 'indirizzo IP dal router',
+                    PROVA_INTERNET: 'verifica di internet'}
+TESTO_ESITO_PROVA = {
+    ESITO_OK: 'tutto a posto: password giusta, indirizzo dal router e internet raggiungibile',
+    ESITO_PASSWORD: 'password sbagliata',
+    ESITO_NON_TROVATA: 'rete non trovata: è spenta, troppo lontana, il nome è sbagliato o trasmette solo a 5 GHz '
+                       '(il Pico 2 W usa solo i 2,4 GHz)',
+    ESITO_NESSUNA_RISPOSTA: 'il router non ha completato il collegamento (riprova; controlla WPA2/WPA3)',
+    ESITO_NESSUN_IP: 'collegato, ma il router non ha dato un indirizzo IP (DHCP spento o pieno?)',
+    ESITO_NO_INTERNET: 'rete di casa raggiungibile, internet no (il Wake-on-LAN funziona lo stesso: resta in casa)',
+    ESITO_ANNULLATA: 'prova interrotta: si è collegato un controller e il WiFi si è spento',
+}
 
 DIM_INFO = struct.calcsize(FMT_INFO)
 DIM_PAD = struct.calcsize(FMT_PAD)
@@ -311,6 +331,39 @@ class Caricamento:
                  CAR_INSTALLAZIONE: 'installazione in corso (non staccare il ricevitore)',
                  CAR_ERRORE: f'errore: {TESTO_ERRORE.get(self.errore, self.errore)}'}
         return testi.get(self.stato, '?')
+
+
+@dataclass
+class ProvaRete:
+    fase: int
+    esito: int
+    rete: int
+    rssi: Optional[int]
+    ip: str
+    gateway: str
+    ms_internet: int
+    ms_totale: int
+
+    @property
+    def finita(self) -> bool:
+        return self.fase == PROVA_FINITA
+
+    @property
+    def descrizione(self) -> str:
+        if self.fase == PROVA_NESSUNA:
+            return 'nessuna prova'
+        if not self.finita:
+            return f'in corso: {TESTO_FASE_PROVA.get(self.fase, "?")}…'
+        testo = TESTO_ESITO_PROVA.get(self.esito, f'esito {self.esito}')
+        if self.esito == ESITO_OK:
+            testo += f' (IP {self.ip}, segnale {self.rssi} dBm, internet in {self.ms_internet} ms)'
+        return testo
+
+
+def leggi_prova_rete(b: bytes) -> ProvaRete:
+    fase, esito, rete, rssi, ip, gw, ms_i, ms_t = struct.unpack_from(FMT_PROVA_RETE, b)
+    return ProvaRete(fase, esito, rete, rssi or None, '.'.join(str(x) for x in ip), '.'.join(str(x) for x in gw),
+                     ms_i, ms_t)
 
 
 def leggi_info(b: bytes) -> Info:

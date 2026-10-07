@@ -24,6 +24,7 @@
 #include "config.h"
 #include "log_psrx.h"
 #include "politica_rete.h"
+#include "prova_rete.h"
 #include "wifi_net.h"
 
 namespace {
@@ -41,7 +42,22 @@ uint32_t t_controllo = 0;
 int16_t rssi_wifi = 0;             // letto ogni 5 s nel ciclo (ioctl al chip: mai dentro le richieste USB)
 uint32_t t_rssi = 0;
 
+// Prova di una rete (rete.h).
+struct StatoProva {
+    bool attiva = false;
+    ProvaRete esito{};
+    uint32_t t_inizio = 0, t_fase = 0, t_invio = 0;
+    uint8_t invii = 0;
+    uint16_t id = 0;
+    udp_pcb *pcb = nullptr;
+    volatile bool risposta = false;
+};
+StatoProva prova;
+
 constexpr uint32_t T_JOIN_MAX_MS = 20000;       // tempo massimo per connettersi a una rete
+constexpr uint32_t T_PROVA_IP_MS = 15000;       // indirizzo dal router
+constexpr uint32_t T_PROVA_DNS_MS = 1500;       // fra una domanda DNS e l'altra
+constexpr uint8_t PROVA_DNS_INVII = 4;          // 1.1.1.1, 8.8.8.8, 1.1.1.1, 8.8.8.8
 constexpr uint32_t ATTESE_MS[] = {2000, 5000, 15000, 30000, 60000};
 
 uint32_t ora_ms() { return to_ms_since_boot(get_absolute_time()); }
@@ -158,6 +174,111 @@ void sorveglia_join(uint32_t ora) {
     if (k >= 0) avvia_join(k);
 }
 
+// --- prova di una rete ---------------------------------------------------------------------------
+void chiudi_pcb_prova() {
+    if (prova.pcb) {
+        udp_remove(prova.pcb);
+        prova.pcb = nullptr;
+    }
+}
+
+void fine_prova(uint8_t esito, uint32_t ora) {
+    prova.attiva = false;
+    prova.esito.fase = PROVA_FINITA;
+    prova.esito.esito = esito;
+    prova.esito.ms_totale = static_cast<uint16_t>(ora - prova.t_inizio > 65535 ? 65535 : ora - prova.t_inizio);
+    chiudi_pcb_prova();
+    join_in_corso = false;
+    fallimenti_di_fila = 0;
+    static const char *const TESTI[] = {"", "riuscita", "password sbagliata", "rete non trovata", "nessuna risposta",
+                                        "nessun indirizzo IP", "internet non raggiungibile", "annullata"};
+    psrx_log("prova del WiFi: %s", esito < 8 ? TESTI[esito] : "?");
+    if (esito != ESITO_OK && radio_accesa) {
+        // Si torna alle reti salvate a turno, da capo.
+        cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+        rete_corrente = -1;
+        t_prossimo_tentativo = ora + 1000;
+    }
+}
+
+void ricevi_dns(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
+    if (!p) return;
+    uint8_t h[12];
+    if (pbuf_copy_partial(p, h, sizeof h, 0) == sizeof h && dns_risposta_valida(h, sizeof h, prova.id)) {
+        prova.risposta = true;
+    }
+    pbuf_free(p);
+}
+
+bool invia_dns() {
+    if (!prova.pcb) {
+        prova.pcb = udp_new();
+        if (!prova.pcb) return false;
+        udp_recv(prova.pcb, ricevi_dns, nullptr);
+    }
+    uint8_t domanda[DNS_DOMANDA_MAX];
+    const uint16_t n = dns_domanda(domanda, prova.id);
+    pbuf *p = pbuf_alloc(PBUF_TRANSPORT, n, PBUF_RAM);
+    if (!p) return false;
+    memcpy(p->payload, domanda, n);
+    ip_addr_t server;
+    if (prova.invii % 2 == 0) IP4_ADDR(&server, 1, 1, 1, 1);
+    else IP4_ADDR(&server, 8, 8, 8, 8);
+    const err_t e = udp_sendto(prova.pcb, p, &server, DNS_PORTA);
+    pbuf_free(p);
+    return e == ERR_OK;
+}
+
+void sorveglia_prova(uint32_t ora) {
+    ProvaRete &e = prova.esito;
+    if (e.fase == PROVA_CONNESSIONE) {
+        const int s = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+        if (s == CYW43_LINK_BADAUTH) return fine_prova(ESITO_PASSWORD, ora);
+        if (s == CYW43_LINK_NONET) return fine_prova(ESITO_NON_TROVATA, ora);
+        if (s == CYW43_LINK_FAIL) return fine_prova(ESITO_NESSUNA_RISPOSTA, ora);
+        if (s == CYW43_LINK_NOIP || s == CYW43_LINK_UP) {   // associato: la password e' giusta
+            e.fase = PROVA_INDIRIZZO;
+            prova.t_fase = ora;
+        } else if (ora - prova.t_fase > T_JOIN_MAX_MS) {
+            return fine_prova(ESITO_NESSUNA_RISPOSTA, ora);
+        }
+        return;
+    }
+    if (e.fase == PROVA_INDIRIZZO) {
+        if (link_pronto()) {
+            const netif *n = &cyw43_state.netif[CYW43_ITF_STA];
+            memcpy(e.ip, &netif_ip4_addr(n)->addr, 4);
+            memcpy(e.gateway, &netif_ip4_gw(n)->addr, 4);
+            int32_t r = 0;
+            if (cyw43_wifi_get_rssi(&cyw43_state, &r) == 0) {
+                e.rssi = static_cast<int8_t>(r < -127 ? -127 : r > 0 ? 0 : r);
+                rssi_wifi = static_cast<int16_t>(r);
+            }
+            e.fase = PROVA_INTERNET;
+            prova.t_fase = ora;
+            prova.invii = 0;
+            prova.risposta = false;
+            prova.id = static_cast<uint16_t>(ora * 2654435761u >> 16);
+            prova.t_invio = ora;
+            invia_dns();
+        } else if (ora - prova.t_fase > T_PROVA_IP_MS) {
+            return fine_prova(ESITO_NESSUN_IP, ora);
+        }
+        return;
+    }
+    if (e.fase == PROVA_INTERNET) {
+        if (prova.risposta) {
+            e.ms_internet = static_cast<uint16_t>(ora - prova.t_invio);
+            return fine_prova(ESITO_OK, ora);
+        }
+        if (ora - prova.t_invio >= T_PROVA_DNS_MS) {
+            if (++prova.invii >= PROVA_DNS_INVII) return fine_prova(ESITO_NO_INTERNET, ora);
+            prova.t_invio = ora;
+            invia_dns();
+        }
+    }
+}
+
 } // namespace
 
 // --- interfaccia di wifi_net.h (usata da main.cpp) --------------------------------------------
@@ -202,8 +323,14 @@ void wifi_net_task() {
     const DecisioneRete d = politica.aggiorna(ora, bt_connected_count(), link_pronto(), wol_attivo(), ha_reti());
     if (d.invia_wol) invia_wol_a_tutti();
     if (d.wifi_acceso && !radio_accesa) accendi();
-    if (!d.wifi_acceso && radio_accesa) spegni();
-    if (radio_accesa) sorveglia_join(ora);
+    if (!d.wifi_acceso && radio_accesa) {
+        if (prova.attiva) fine_prova(ESITO_ANNULLATA, ora);   // un controller si e' collegato
+        spegni();
+    }
+    if (radio_accesa) {
+        if (prova.attiva) sorveglia_prova(ora);
+        else sorveglia_join(ora);
+    }
 }
 
 // Chiamata da wake.cpp quando un controller vuole svegliare l'host sospeso. La politica manda gia'
@@ -255,4 +382,29 @@ void rete_reti_cambiate() {
     rete_corrente = -1;
     fallimenti_di_fila = 0;
     t_prossimo_tentativo = ora_ms();
+}
+
+bool rete_avvia_prova(uint8_t indice) {
+    if (!radio_accesa || indice >= PSRX_MAX_RETI || !get_config().psrx_reti[indice].ssid[0]) return false;
+    const uint32_t ora = ora_ms();
+    chiudi_pcb_prova();
+    prova.attiva = true;
+    prova.esito = ProvaRete{};
+    prova.esito.rete = static_cast<int8_t>(indice);
+    prova.esito.fase = PROVA_CONNESSIONE;
+    prova.t_inizio = prova.t_fase = ora;
+    psrx_log("prova del WiFi su \"%s\"", get_config().psrx_reti[indice].ssid);
+    if (link_pronto() && rete_corrente == static_cast<int8_t>(indice)) {
+        prova.esito.fase = PROVA_INDIRIZZO;   // gia' connessi a quella rete: si parte dall'indirizzo
+        return true;
+    }
+    cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+    avvia_join(static_cast<int8_t>(indice));
+    if (!join_in_corso) fine_prova(ESITO_NESSUNA_RISPOSTA, ora);
+    return true;
+}
+
+void rete_esito_prova(ProvaRete *out) {
+    *out = prova.esito;
+    if (prova.attiva) out->ms_totale = static_cast<uint16_t>(ora_ms() - prova.t_inizio);
 }

@@ -229,6 +229,7 @@ if (ENABLE_WIFI_WOL)
             src/weblog.cpp
             src/psrx/politica_rete.cpp
             src/psrx/rete.cpp
+            src/psrx/prova_rete.cpp
     )
     target_compile_definitions(ds5-bridge PRIVATE
             ENABLE_WIFI_WOL

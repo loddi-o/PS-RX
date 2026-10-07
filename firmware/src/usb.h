@@ -122,6 +122,9 @@ uint8_t usb_xbox_posti(void);
 // Modalita' Steam (dongle del nuovo Steam Controller, 4 posti fissi): cambia la forma USB.
 void usb_request_steam(bool enabled);
 bool usb_steam_servita(void);
+// Un solo controller che non usa l'audio: la forma FULL perde la funzione audio (Windows toglie altoparlante
+// e microfono). Conta solo con un controller; cambiarla ricollega l'USB.
+void usb_request_senza_audio(bool senza);
 uint8_t usb_steam_posti(void);
 
 #endif //DS5_BRIDGE_USB_H

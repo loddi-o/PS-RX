@@ -75,6 +75,27 @@ const salvaRete = callable<[number, string, string, boolean, boolean], Errore>("
 const cancellaRete = callable<[number], Errore>("cancella_rete");
 const destinazioniWol = callable<[string, string], Errore>("destinazioni_wol");
 const provaWol = callable<[], Errore>("prova_wol");
+interface EsitoProva extends Errore { fase?: number; finita?: boolean; ok?: boolean; descrizione?: string }
+const provaRete = callable<[number], Errore>("prova_rete");
+const esitoProvaRete = callable<[], EsitoProva>("esito_prova_rete");
+
+// Prova di una rete salvata: avvia e segue fino all'esito (al massimo 70 s), poi una notifica.
+async function provaUnaRete(indice: number, ssid: string, avanzamento: (t: string) => void) {
+  if (!(await esegui(provaRete(indice)))) return;
+  const fine = Date.now() + 70000;
+  while (Date.now() < fine) {
+    await new Promise((r) => setTimeout(r, 700));
+    const e = await esitoProvaRete();
+    if (e.errore) { avviso("PS-RX", e.errore); return; }
+    avanzamento(e.descrizione ?? "");
+    if (e.finita) {
+      toaster.toast({ title: e.ok ? `WiFi "${ssid}" a posto` : `WiFi "${ssid}": problema`, body: e.descrizione ?? "",
+                      critical: !e.ok });
+      return;
+    }
+  }
+  avviso("PS-RX", "La prova del WiFi non ha dato risposta in tempo.");
+}
 const bootsel = callable<[], Errore>("bootsel");
 const preparaFirmware = callable<[string], Firmware>("prepara_firmware");
 const caricaFirmware = callable<[], Errore>("carica_firmware");
@@ -220,6 +241,7 @@ function ModaleRete(props: { rete: Rete; closeModal?: () => void; fatto: () => v
         bIsPassword value={pw} onChange={(e) => setPw(e.target.value.slice(0, 63))} />
       <ToggleField label="WPA3" description="Solo se il router lo richiede: WPA2 va bene per quasi tutte le reti."
         checked={wpa3} onChange={setWpa3} />
+      <Field description="Solo reti a 2,4 GHz: il Pico 2 W non vede i 5 GHz. Se il router ha due nomi (per esempio Casa e Casa_5G) scegli quello a 2,4 GHz. Dopo il salvataggio usa Prova." />
     </ConfirmModal>
   );
 }
@@ -297,6 +319,7 @@ function SezioneGamepad(props: { st: Stato }) {
 function SezioneRete(props: { st: Stato }) {
   const { st } = props;
   const [reti, setReti] = useState<Reti | null>(null);
+  const [prova, setProva] = useState<{ indice: number; testo: string } | null>(null);
   const carica = async () => { const r = await leggiReti(); if (!r.errore) setReti(r); };
   useEffect(() => { carica(); }, []);
   const wol = st.ms_da_ultimo_wol === null ? "mai" : `${durata(Math.floor(st.ms_da_ultimo_wol / 1000))} fa`;
@@ -315,6 +338,18 @@ function SezioneRete(props: { st: Stato }) {
             onClick={() => showModal(<ModaleRete rete={r} fatto={carica} />)}>
             {r.ssid ? "Modifica" : "Aggiungi"}
           </ButtonItem>
+          {r.ssid && (
+            <ButtonItem layout="below" disabled={st.pad_connessi > 0 || prova !== null}
+              description={prova?.indice === r.indice ? prova.testo :
+                (st.pad_connessi > 0 ? "Spegni i controller: con un controller il WiFi è spento." : "Password, indirizzo dal router e internet.")}
+              onClick={async () => {
+                setProva({ indice: r.indice, testo: "in corso..." });
+                await provaUnaRete(r.indice, r.ssid, (t) => setProva({ indice: r.indice, testo: t }));
+                setProva(null);
+              }}>
+              Prova
+            </ButtonItem>
+          )}
           {r.ssid && (
             <ButtonItem layout="below" onClick={async () => { await esegui(cancellaRete(r.indice), `Rete ${r.ssid} eliminata.`); carica(); }}>
               Elimina

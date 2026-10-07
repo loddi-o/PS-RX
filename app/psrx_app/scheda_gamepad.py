@@ -205,6 +205,8 @@ class SchedaGamepad(Scheda):
             self.controlli_pad[voce['id']].mostra(valore)
         if a is not None:
             self.controlli_pad[p.PAD_INVERTI_SCORRIMENTO].setEnabled(a.trackpad)
+            self.controlli_pad[p.PAD_MICROFONO].setEnabled(a.audio)   # senza audio il microfono non c'e'
+
 
     # --- azioni ------------------------------------------------------------------------------
     def _imposta_pad(self, ident: int, valore: int) -> None:
@@ -213,8 +215,8 @@ class SchedaGamepad(Scheda):
             return
         voce = schema.PAD_PER_ID[ident]
         testo = f'{a.nome or a.mac}: {voce["titolo"]} = {schema.testo_valore(voce, valore)}'
-        if ident == p.PAD_TRACKPAD:
-            testo += ' (il ricevitore si ricollega all\'USB per aggiungere o togliere il mouse)'
+        if ident in (p.PAD_TRACKPAD, p.PAD_AUDIO):
+            testo += ' (il ricevitore si ricollega all\'USB per cambiare forma)'
         self.esegui(lambda c: c.imposta_pad(a.mac, ident, valore), testo)
 
     def _rinomina(self) -> None:

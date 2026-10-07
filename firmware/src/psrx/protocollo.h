@@ -38,6 +38,7 @@ enum ComandoPsrx : uint8_t {
     CMD_CARICAMENTO   = 0x06,
     CMD_EVENTI        = 0x07,  // wIndex = ultimo numero d'evento gia' letto
     CMD_RETI          = 0x08,
+    CMD_PROVA_RETE    = 0x09,  // esito della prova del WiFi (ProvaRete, rete.h)
     // scrittura (0x40)
     CMD_IMPOSTA       = 0x10,  // wIndex = id impostazione globale, dati = valore u16
     CMD_SALVA_ORA     = 0x11,
@@ -52,6 +53,7 @@ enum ComandoPsrx : uint8_t {
     CMD_RETE_CANCELLA = 0x31,  // wIndex = posto
     CMD_WOL_DESTINAZIONI = 0x32, // dati = 2 x MAC[6] (tutto zero = nessuna)
     CMD_WOL_PROVA     = 0x33,
+    CMD_RETE_PROVA    = 0x34,  // wIndex = posto della rete da provare (solo senza controller)
     CMD_CARICA_INIZIO = 0x40,  // dati = CaricaInizio
     CMD_CARICA_BLOCCO = 0x41,  // wIndex = numero del blocco, dati = 4096 byte
     CMD_CARICA_FINE   = 0x42,

@@ -9,8 +9,10 @@ import io
 import re
 import subprocess
 import sys
+import time
 from typing import List, Optional, Tuple
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
                                QHeaderView, QLabel, QLineEdit, QMenu, QPushButton, QTableWidget,
                                QTableWidgetItem, QToolButton, QVBoxLayout)
@@ -18,7 +20,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QDialogBut
 from psrx import protocollo as p
 
 from .controlli import nota, riga
-from .lavoratore import Istantanea
+from .lavoratore import Istantanea, testo_errore
 from .scheda_gamepad import Scheda
 
 MAC_RE = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$')
@@ -71,8 +73,11 @@ class DialogoRete(QDialog):
         modulo.addRow('Nome della rete (SSID)', self.ssid)
         modulo.addRow('Password', riga(self.password, mostra, stretch=False))
         modulo.addRow('', self.wpa3)
+        modulo.addRow(nota('<b>Solo reti a 2,4 GHz</b>: il Pico 2 W non vede le reti a 5 GHz. Se il router usa lo '
+                           'stesso nome per 2,4 e 5 GHz va bene, si collega da solo ai 2,4; se ha due nomi (per '
+                           'esempio "Casa" e "Casa_5G"), scegli quello a 2,4 GHz.'))
         modulo.addRow(nota('WPA2 va bene per quasi tutte le reti: WPA3 solo se il router lo richiede. '
-                           'Lascia la password vuota per una rete aperta.'))
+                           'Lascia la password vuota per una rete aperta. Dopo il salvataggio parte una prova.'))
         pulsanti = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         pulsanti.accepted.connect(self._controlla)
         pulsanti.rejected.connect(self.reject)
@@ -110,7 +115,8 @@ class SchedaRete(Scheda):
         v.addWidget(self.stato)
         v.addWidget(nota('Il WiFi è acceso solo senza controller collegati, per mandare il Wake-on-LAN. Al '
                          'primo controller il ricevitore manda 3 pacchetti (entro 30 s al massimo), poi spegne '
-                         'il WiFi: la radio resta tutta al Bluetooth. Si riaccende quando si spegne l\'ultimo.'))
+                         'il WiFi: la radio resta tutta al Bluetooth. Si riaccende quando si spegne l\'ultimo. '
+                         'Il Pico 2 W usa solo reti a <b>2,4 GHz</b>.'))
         self.col.addWidget(gruppo)
 
         gruppo = QGroupBox(f'Reti salvate (fino a {p.RETI_MAX})')
@@ -129,7 +135,13 @@ class SchedaRete(Scheda):
         self.modifica.clicked.connect(lambda: self._modifica(self.tabella.currentRow()))
         self.elimina = QPushButton('Elimina')
         self.elimina.clicked.connect(self._elimina)
-        v.addLayout(riga(self.modifica, self.elimina))
+        self.prova = QPushButton('Prova la rete')
+        self.prova.setToolTip('Controlla password, indirizzo dal router e internet (solo senza controller collegati)')
+        self.prova.clicked.connect(lambda: self._avvia_prova(self.tabella.currentRow()))
+        v.addLayout(riga(self.modifica, self.elimina, self.prova))
+        self.esito_prova = QLabel('')
+        self.esito_prova.setWordWrap(True)
+        v.addWidget(self.esito_prova)
         v.addWidget(nota('Il ricevitore prova le reti in ordine e si collega alla prima che trova.'))
         self.col.addWidget(gruppo)
 
@@ -164,6 +176,9 @@ class SchedaRete(Scheda):
         self._mac_modificati = False
         for e in self.mac:
             e.textEdited.connect(self._segna_mac)
+        self._timer_prova = QTimer(self)
+        self._timer_prova.timeout.connect(self._leggi_prova)
+        self._t_prova = 0
 
     def _segna_mac(self, *_):
         self._mac_modificati = True
@@ -181,6 +196,10 @@ class SchedaRete(Scheda):
         attivo = ist is not None and ist.stato is not None and ist.reti is not None
         for w in (self.modifica, self.elimina, self.salva_wol, self.prova_wol, self.tabella, *self.mac):
             w.setEnabled(attivo)
+        senza_pad = attivo and ist.stato.pad_connessi == 0
+        self.prova.setEnabled(senza_pad and not self._timer_prova.isActive())
+        self.prova.setToolTip('Controlla password, indirizzo dal router e internet' if senza_pad else
+                              'Spegni i controller: con un controller collegato il WiFi è spento')
         for ident, c in self.globali.items():
             c.mostra(ist.impostazioni.get(ident) if attivo else None)
         if not attivo:
@@ -218,7 +237,52 @@ class SchedaRete(Scheda):
         if d.exec() != QDialog.Accepted:
             return
         ssid, pw, wpa3, mantieni = d.valori()
-        self.esegui(lambda c: c.salva_rete(riga_, ssid, pw, wpa3, mantieni), f'Rete {riga_ + 1} salvata: {ssid}')
+        senza_pad = self.ist.stato is not None and self.ist.stato.pad_connessi == 0
+        # Dopo il salvataggio, prova subito la rete (se non ci sono controller: con un controller il WiFi e' spento).
+        self.esegui(lambda c: c.salva_rete(riga_, ssid, pw, wpa3, mantieni), f'Rete {riga_ + 1} salvata: {ssid}',
+                    (lambda _: self._avvia_prova(riga_)) if senza_pad else None)
+
+    # --- prova della rete -----------------------------------------------------------------------
+    def _avvia_prova(self, indice: int) -> None:
+        if self.ist is None or self.ist.reti is None or indice < 0 or not self.ist.reti.reti[indice].ssid:
+            self.finestra.messaggio('Scegli una rete salvata da provare', errore=True)
+            return
+        ssid = self.ist.reti.reti[indice].ssid
+        self.esito_prova.setStyleSheet('')
+        self.esito_prova.setText(f'Prova di "{ssid}": collegamento alla rete…')
+        self.prova.setEnabled(False)
+
+        def avviata(_):
+            self._t_prova = time.monotonic()
+            self._timer_prova.start(700)
+
+        def errore(e):
+            self.prova.setEnabled(True)
+            self.esito_prova.setText(f'Prova non avviata: {testo_errore(e)}')
+
+        self.finestra.ponte.esegui(lambda c: c.prova_rete(indice), avviata, errore)
+
+    def _leggi_prova(self) -> None:
+        if time.monotonic() - self._t_prova > 70:
+            self._timer_prova.stop()
+            self.esito_prova.setText('La prova non ha dato risposta in tempo: riprova.')
+            self.prova.setEnabled(True)
+            return
+        self.finestra.ponte.esegui(lambda c: c.esito_prova_rete(), self._mostra_prova)
+
+    def _mostra_prova(self, esito) -> None:
+        if esito.fase == p.PROVA_NESSUNA:
+            return
+        ssid = ''
+        if self.ist and self.ist.reti and 0 <= esito.rete < p.RETI_MAX:
+            ssid = self.ist.reti.reti[esito.rete].ssid
+        self.esito_prova.setText(f'Prova di "{ssid}": {esito.descrizione}')
+        if esito.finita:
+            self._timer_prova.stop()
+            self.prova.setEnabled(True)
+            ok = esito.esito == p.ESITO_OK
+            self.esito_prova.setStyleSheet('' if ok else 'color: #c62828;')
+            self.finestra.lav_aggiorna()
 
     def _elimina(self) -> None:
         r = self.tabella.currentRow()

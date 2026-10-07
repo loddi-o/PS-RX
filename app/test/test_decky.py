@@ -102,6 +102,19 @@ class TestBackendDecky(unittest.TestCase):
             await self.plugin._unload()
         asyncio.run(prova())
 
+    def test_prova_rete(self):
+        async def prova():
+            await self.plugin._main()
+            self.assertIn('errore', await self.plugin.prova_rete(0))          # controller collegato: WiFi spento
+            self.pico.scollega_pad(0)
+            self.assertEqual(await self.plugin.prova_rete(0), {'ok': True})
+            self.assertFalse((await self.plugin.esito_prova_rete())['finita'])
+            await asyncio.sleep(1.1)
+            e = await self.plugin.esito_prova_rete()
+            self.assertTrue(e['finita'] and e['ok'])
+            await self.plugin._unload()
+        asyncio.run(prova())
+
     def test_estrai_plugin(self):
         import zipfile
         cartella = tempfile.mkdtemp(prefix='psrx-plugin-')

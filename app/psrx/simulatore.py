@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import struct
+import time
 from typing import Dict, List
 
 from . import protocollo as p
@@ -33,6 +34,7 @@ class PicoSimulato:
         self.reti[0] = {'ssid': 'Casa', 'psk': 'password123', 'auth': 0}
         self.wol = [bytes(6), bytes(6)]
         self.rete_stato = p.RETE_SPENTA
+        self.prova = None   # (indice, istante d'inizio) della prova del WiFi
         self.wol_inviati = 0
         self.eventi: List[bytes] = []
         self.numero_evento = 0
@@ -110,6 +112,19 @@ class PicoSimulato:
             nuovi = [e for e in self.eventi if ((struct.unpack_from('<H', e)[0] - indice) & 0xFFFF) not in (0,) and
                      ((struct.unpack_from('<H', e)[0] - indice) & 0xFFFF) < 0x8000]
             return bytes([len(nuovi)]) + b''.join(nuovi)
+        if comando == p.CMD_PROVA_RETE:
+            if self.prova is None:
+                return struct.pack(p.FMT_PROVA_RETE, 0, 0, -1, 0, bytes(4), bytes(4), 0, 0)
+            indice, t0 = self.prova
+            passati = time.monotonic() - t0
+            if passati < 1.0:
+                return struct.pack(p.FMT_PROVA_RETE, p.PROVA_CONNESSIONE, 0, indice, 0, bytes(4), bytes(4), 0,
+                                   int(passati * 1000))
+            if self.reti[indice]['psk'] == 'sbagliata':
+                return struct.pack(p.FMT_PROVA_RETE, p.PROVA_FINITA, p.ESITO_PASSWORD, indice, 0, bytes(4),
+                                   bytes(4), 0, 1000)
+            return struct.pack(p.FMT_PROVA_RETE, p.PROVA_FINITA, p.ESITO_OK, indice, -55, bytes([192, 168, 1, 50]),
+                               bytes([192, 168, 1, 1]), 23, 1200)
         if comando == p.CMD_RETI:
             b = b''
             for r in self.reti:
@@ -199,6 +214,13 @@ class PicoSimulato:
             return
         if comando == p.CMD_WOL_DESTINAZIONI:
             self.wol = [dati[:6], dati[6:12]]
+            return
+        if comando == p.CMD_RETE_PROVA:
+            if indice >= p.RETI_MAX or not self.reti[indice]['ssid']:
+                self._rifiuta(p.ERR_NON_TROVATO, comando)
+            if self.pad_connessi():
+                self._rifiuta(p.ERR_PAD_CONNESSO, comando)
+            self.prova = (indice, time.monotonic())
             return
         if comando == p.CMD_WOL_PROVA:
             if self.rete_stato != p.RETE_CONNESSA:
