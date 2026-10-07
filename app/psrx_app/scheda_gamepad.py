@@ -100,6 +100,8 @@ class SchedaGamepad(Scheda):
             w = Posto(i, self)
             self.posti.append(w)
             griglia.addWidget(w, i // 2, i % 2)
+        griglia.setColumnStretch(0, 1)
+        griglia.setColumnStretch(1, 1)
         self.col.addLayout(griglia)
 
         # abbinamento
