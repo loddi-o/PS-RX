@@ -1,9 +1,11 @@
-# PS-RX - exe dell'app Windows (un solo file, senza console) con PyInstaller.
+# PS-RX - app Windows con PyInstaller: cartella con PS-RX.exe (un solo processo, senza console).
+# Non "un file": l'exe a file unico lancia due processi e il lanciatore resta vivo quando Windows o un
+# installer chiudono l'app (Restart Manager), tenendo bloccato l'exe durante gli aggiornamenti.
 #
 #   powershell -ExecutionPolicy Bypass -File strumenti\compila_app.ps1
 #
 # Serve Python con PySide6-Essentials e PyInstaller (pip install PySide6-Essentials pyinstaller).
-# Risultato: %USERPROFILE%\.ds5-build\build-app\dist\PS-RX.exe
+# Risultato: %USERPROFILE%\.ds5-build\build-app\dist\PS-RX\PS-RX.exe (la cartella la installa l'installer)
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -28,7 +30,7 @@ $fuori = @('PySide6.QtQml', 'PySide6.QtQuick', 'PySide6.QtPdf', 'PySide6.QtOpenG
            'PySide6.QtTest', 'PySide6.QtXml', 'PySide6.QtConcurrent', 'PySide6.QtDBus', 'PySide6.QtSvg',
            'PySide6.QtDesigner', 'PySide6.QtHelp', 'PySide6.QtMultimedia', 'PySide6.QtWebEngineCore',
            'tkinter', 'unittest', 'pydoc')
-$args_ = @('--noconfirm', '--clean', '--onefile', '--windowed', '--name', 'PS-RX', '--icon', $ico,
+$args_ = @('--noconfirm', '--clean', '--onedir', '--windowed', '--name', 'PS-RX', '--icon', $ico,
            '--paths', $app, '--distpath', (Join-Path $lavoro 'dist'), '--workpath', (Join-Path $lavoro 'build'),
            '--specpath', $lavoro)
 foreach ($m in $fuori) { $args_ += @('--exclude-module', $m) }
@@ -36,6 +38,6 @@ if (Test-Path $fwIncluso) { $args_ += @('--add-data', "$fwIncluso;firmware") }
 python -m PyInstaller @args_ (Join-Path $app 'ps-rx.pyw')
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller non riuscito' }
 
-$exe = Join-Path $lavoro 'dist\PS-RX.exe'
+$exe = Join-Path $lavoro 'dist\PS-RX\PS-RX.exe'
 $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
 Write-Host "[PS-RX] app: $exe ($mb MB)"

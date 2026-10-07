@@ -1,5 +1,5 @@
 ; PS-RX - installer per Windows (Inno Setup 6). Lo compila strumenti\compila_installer.ps1:
-;   ISCC.exe /DVersione=X.Y.Z /DExe=...\PS-RX.exe /DIcona=...\ps-rx.ico /O<cartella> ps-rx.iss
+;   ISCC.exe /DVersione=X.Y.Z /DCartella=...\dist\PS-RX /DIcona=...\ps-rx.ico /O<cartella> ps-rx.iss
 ;
 ; Installa per tutti gli utenti in Programmi\PS-RX, con la voce nel menu Start, l'icona facoltativa sul
 ; desktop e la disinstallazione in "App installate". L'app si aggiorna lanciando lo stesso installer in
@@ -42,8 +42,12 @@ Name: "it"; MessagesFile: "compiler:Languages\Italian.isl"
 [Tasks]
 Name: "desktop"; Description: "Icona sul desktop"; GroupDescription: "Collegamenti:"; Flags: unchecked
 
+[InstallDelete]
+; Le librerie dell'app si sostituiscono in blocco: niente file vecchi rimasti da una versione precedente.
+Type: filesandordirs; Name: "{app}\_internal"
+
 [Files]
-Source: "{#Exe}"; DestDir: "{app}"; DestName: "PS-RX.exe"; Flags: ignoreversion
+Source: "{#Cartella}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\PS-RX"; Filename: "{app}\PS-RX.exe"; Comment: "Impostazioni e notifiche del ricevitore PS-RX"
@@ -56,4 +60,4 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: 
 [Run]
 ; Installazione normale: casella "Avvia PS-RX" alla fine. Aggiornamento silenzioso: l'app si riapre da sola.
 Filename: "{app}\PS-RX.exe"; Description: "Avvia PS-RX"; Flags: postinstall nowait skipifsilent
-Filename: "{app}\PS-RX.exe"; Flags: nowait runasoriginaluser; Check: WizardSilent
+Filename: "{app}\PS-RX.exe"; Parameters: "--dopo-aggiornamento"; Flags: nowait runasoriginaluser; Check: WizardSilent
