@@ -10,7 +10,6 @@
 #include "pad.h"
 #include "tusb.h"
 #include "usb.h"
-#include "risveglio.h"
 #include "wake.h"
 
 namespace {
@@ -26,8 +25,6 @@ StatoPc confermato = PC_SCONOSCIUTO;
 StatoPc candidato = PC_SCONOSCIUTO;
 uint32_t t_candidato = 0;
 uint32_t t_controllo = 0;
-FinestraRisveglio finestra;
-bool finestra_prima = false;
 
 const char *nome(StatoPc s) {
     switch (s) {
@@ -78,23 +75,14 @@ StatoPc pc_stato() {
     return confermato;
 }
 
-uint8_t pc_durata_risveglio_s() {
-    const uint8_t v = get_config().psrx_durata_risveglio;
-    if (v == 255) return 0;
-    return v == 0 ? risveglio::DURATA_PREDEFINITA_S : v;
+bool pc_serve_wol() {
+    // Acceso (confermato): inutile, anche durante un ricollegamento USB voluto. Appena svegliato (stato
+    // immediato acceso, per esempio dal risveglio via USB): inutile, la finestra del WoL si chiude subito.
+    // Spento, sospeso, o stato non ancora noto: WoL (dopo pc_ritardo_wol_ms se si puo' svegliare via USB).
+    if (confermato == PC_ACCESO) return false;
+    return usb_variant_swap_in_progress() || leggi() != PC_ACCESO;
 }
 
-void pc_risveglio_task(uint32_t ora) {
-    const bool attivo = tud_mounted() && !usb_host_suspended();
-    const DecisioneRisveglio d =
-        finestra.aggiorna(ora, pad_connessi(), attivo, usb_variant_swap_in_progress(), pc_durata_risveglio_s());
-    if (d.segnale_usb) wake_request_bus_resume();   // se il bus e' attivo non succede nulla
-    if (d.attiva != finestra_prima) {
-        psrx_log("finestra di risveglio %s", d.attiva ? "aperta: USB e Wake-on-LAN, il LED lampeggia" : "chiusa");
-        finestra_prima = d.attiva;
-    }
-}
-
-bool pc_finestra_risveglio() {
-    return finestra.attiva();
+uint32_t pc_ritardo_wol_ms() {
+    return wake_usb_possibile() ? 3000 : 0;
 }

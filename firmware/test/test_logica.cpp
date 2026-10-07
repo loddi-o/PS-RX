@@ -15,7 +15,6 @@
 #include "ds4.h"
 #include "eventi.h"
 #include "politica_rete.h"
-#include "risveglio.h"
 #include "politiche.h"
 #include "psrx_config.h"
 #include "trackpad.h"
@@ -80,27 +79,19 @@ void test_coda_uart() {
 
 struct SimRete {
     PoliticaRete p;
-    FinestraRisveglio f;
     uint32_t ora = 100000;
     int pad = 0;
     bool link = false;
     bool wol = true;
     bool reti = true;
-    bool pc_attivo = false;   // bus USB attivo
-    bool swap = false;        // ricollegamento USB voluto
-    uint8_t durata = 20;
     int pacchetti = 0;
-    int segnali_usb = 0;
     bool acceso = false;
-    bool finestra = false;
+    uint32_t ritardo = 0;   // risveglio via USB possibile: WoL di riserva
 
     // Avanza di 'ms' a passi di 10 ms (come il ciclo del firmware).
     void avanza(uint32_t ms) {
         for (uint32_t t = 0; t < ms; t += 10) {
-            const DecisioneRisveglio r = f.aggiorna(ora, pad, pc_attivo, swap, durata);
-            finestra = r.attiva;
-            if (r.segnale_usb) segnali_usb++;
-            const DecisioneRete d = p.aggiorna(ora, pad, link && acceso, wol, reti, r.attiva);
+            const DecisioneRete d = p.aggiorna(ora, pad, link && acceso, wol, reti, ritardo);
             if (d.invia_wol) pacchetti++;
             acceso = d.wifi_acceso;
             ora += 10;
@@ -121,72 +112,95 @@ void test_politica_rete() {
         s.avanza(1000);
         VERIFICA(!s.acceso);
     }
-    {   // primo pad con WiFi connesso: 3 pacchetti a 300 ms, poi un giro ogni 5 s per tutta la finestra (20 s)
+    {   // primo pad con WiFi gia' connesso: 3 pacchetti a 300 ms, poi WiFi spento
         SimRete s;
         s.link = true;
         s.avanza(1000);
         s.pad = 1;
         s.avanza(10);
-        VERIFICA(s.pacchetti == 1 && s.acceso && s.finestra);
-        s.avanza(700);
+        VERIFICA(s.pacchetti == 1);
+        VERIFICA(s.acceso);
+        s.avanza(290);
+        VERIFICA(s.pacchetti == 1);
+        s.avanza(20);
+        VERIFICA(s.pacchetti == 2);
+        s.avanza(400);
         VERIFICA(s.pacchetti == 3);
-        s.avanza(4300);
-        VERIFICA(s.pacchetti == 4);            // secondo giro dopo 5 s
-        s.avanza(15000);
-        VERIFICA(s.pacchetti == 12);           // giri a 0, 5, 10, 15 s
-        VERIFICA(!s.finestra && !s.acceso);    // finestra chiusa dopo 20 s: WiFi spento
+        s.avanza(20);
+        VERIFICA(!s.acceso);
         s.avanza(60000);
-        VERIFICA(s.pacchetti == 12 && !s.acceso);
+        VERIFICA(s.pacchetti == 3);
+        VERIFICA(!s.acceso);
     }
     {   // WiFi non ancora connesso: aspetta, poi manda appena connesso
         SimRete s;
         s.avanza(100);
         s.pad = 1;
         s.avanza(5000);
-        VERIFICA(s.pacchetti == 0 && s.acceso);
+        VERIFICA(s.pacchetti == 0);
+        VERIFICA(s.acceso);
         s.link = true;
         s.avanza(1000);
         VERIFICA(s.pacchetti == 3);
+        s.avanza(20);
+        VERIFICA(!s.acceso);
     }
-    {   // WoL non configurato: WiFi spento subito, ma la finestra (USB e LED) c'e' lo stesso
+    {   // il WiFi non si connette mai: dopo 30 s si spegne senza pacchetti
+        SimRete s;
+        s.avanza(100);
+        s.pad = 1;
+        s.avanza(29900);
+        VERIFICA(s.acceso);
+        s.avanza(200);
+        VERIFICA(!s.acceso);
+        VERIFICA(s.pacchetti == 0);
+        s.link = true;
+        s.avanza(5000);
+        VERIFICA(s.pacchetti == 0);
+    }
+    {   // WoL non configurato: WiFi spento subito al primo pad
         SimRete s;
         s.wol = false;
         s.link = true;
         s.avanza(1000);
         s.pad = 1;
         s.avanza(10);
-        VERIFICA(!s.acceso && s.pacchetti == 0 && s.finestra);
+        VERIFICA(!s.acceso);
+        VERIFICA(s.pacchetti == 0);
     }
-    {   // secondo pad: nessuna nuova finestra; scollegati tutti, il WiFi torna dopo 2 s
+    {   // secondo pad: nessun nuovo WoL; scollegati tutti, il WiFi torna dopo 2 s
         SimRete s;
         s.link = true;
         s.avanza(1000);
         s.pad = 1;
-        s.avanza(21000);
-        const int dopo_primo = s.pacchetti;
+        s.avanza(2000);
+        VERIFICA(s.pacchetti == 3);
         s.pad = 2;
         s.avanza(2000);
-        VERIFICA(s.pacchetti == dopo_primo && !s.finestra && !s.acceso);
+        VERIFICA(s.pacchetti == 3);
+        VERIFICA(!s.acceso);
         s.pad = 0;
         s.avanza(1900);
         VERIFICA(!s.acceso);
         s.avanza(200);
         VERIFICA(s.acceso);
-        s.pad = 1;      // un nuovo primo pad: nuova finestra
+        s.pad = 1;      // un nuovo primo pad: altro giro di WoL
         s.avanza(1000);
-        VERIFICA(s.pacchetti == dopo_primo + 3 && s.finestra);
+        VERIFICA(s.pacchetti == 6);
     }
-    {   // durata 0: funzione disattivata
+    {   // pad collegato e scollegato prima che il WiFi si connetta: niente WoL
         SimRete s;
-        s.link = true;
-        s.durata = 0;
-        s.avanza(1000);
+        s.avanza(100);
         s.pad = 1;
-        s.avanza(3000);
-        VERIFICA(!s.finestra && s.pacchetti == 0 && s.segnali_usb == 0 && !s.acceso);
+        s.avanza(1000);
+        s.pad = 0;
+        s.avanza(100);
+        s.link = true;
+        s.avanza(5000);
+        VERIFICA(s.pacchetti == 0);
+        VERIFICA(s.acceso);
     }
 }
-
 
 // --- Click del BOOTSEL e caricamento del firmware (come PS250) -------------------
 
@@ -779,56 +793,38 @@ void test_prova_rete() {
 }
 
 void test_risveglio_usb() {
-    printf("[test] finestra di risveglio (USB e Wake-on-LAN)\n");
-    {   // PC sospeso: segnale USB subito e ogni 2 s; il PC si sveglia -> finestra chiusa, WiFi spento
+    printf("[test] risveglio via USB prima del Wake-on-LAN\n");
+    {   // PC sospeso che si sveglia via USB: il WoL di riserva non parte
         SimRete s;
         s.link = true;
         s.avanza(3000);
+        s.ritardo = 3000;
         s.pad = 1;
-        s.avanza(10);
-        VERIFICA(s.segnali_usb == 1 && s.finestra);
-        s.avanza(4100);
-        VERIFICA(s.segnali_usb == 3);
-        s.pc_attivo = true;   // il bus torna attivo: il PC si e' svegliato
-        s.avanza(20);
-        VERIFICA(!s.finestra && !s.acceso);
-        const int usb = s.segnali_usb;
-        s.avanza(5000);
-        VERIFICA(s.segnali_usb == usb);
-    }
-    {   // PC gia' acceso: la finestra dura tutta (lo stato del PC potrebbe essere letto male)
-        SimRete s;
-        s.pc_attivo = true;
-        s.link = true;
-        s.avanza(3000);
-        s.pad = 1;
-        s.avanza(19000);
-        VERIFICA(s.finestra);
-        s.avanza(1100);
-        VERIFICA(!s.finestra);
-    }
-    {   // il ricollegamento USB voluto (cambio di forma) non conta come risveglio
-        SimRete s;
-        s.pc_attivo = true;
-        s.avanza(3000);
-        s.pad = 1;
-        s.swap = true;
-        s.pc_attivo = false;
         s.avanza(1500);
-        s.pc_attivo = true;
-        s.avanza(500);
-        s.swap = false;
-        s.avanza(1000);
-        VERIFICA(s.finestra);
+        VERIFICA(s.pacchetti == 0 && s.acceso);   // aspetta l'USB, il WiFi resta pronto
+        s.wol = false;                            // il PC si e' svegliato
+        s.avanza(3000);
+        VERIFICA(s.pacchetti == 0 && !s.acceso);
     }
-    {   // controller spento durante la finestra: si chiude
+    {   // il risveglio via USB non funziona: dopo il ritardo parte il WoL
         SimRete s;
-        s.avanza(1000);
+        s.link = true;
+        s.avanza(3000);
+        s.ritardo = 3000;
         s.pad = 1;
+        s.avanza(2900);
+        VERIFICA(s.pacchetti == 0);
         s.avanza(2000);
-        s.pad = 0;
-        s.avanza(20);
-        VERIFICA(!s.finestra);
+        VERIFICA(s.pacchetti == static_cast<int>(rete::N_PACCHETTI_WOL));
+    }
+    {   // PC acceso: nessun WoL, WiFi spento subito
+        SimRete s;
+        s.link = true;
+        s.avanza(3000);
+        s.wol = false;
+        s.pad = 1;
+        s.avanza(100);
+        VERIFICA(s.pacchetti == 0 && !s.acceso);
     }
 }
 

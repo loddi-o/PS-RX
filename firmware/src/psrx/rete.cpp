@@ -369,9 +369,9 @@ void wifi_net_task() {
     if (ora - t_controllo < 10) return;
     t_controllo = ora;
 
-    // Il WoL parte durante la finestra di risveglio (pc.h, risveglio.h).
-    const DecisioneRete d = politica.aggiorna(ora, bt_connected_count(), link_pronto(), wol_attivo(), ha_reti(),
-                                              pc_finestra_risveglio());
+    // Il WoL serve solo se il PC non e' acceso; se si puo' svegliare via USB, parte come riserva (pc.h).
+    const DecisioneRete d = politica.aggiorna(ora, bt_connected_count(), link_pronto(), wol_attivo() && pc_serve_wol(),
+                                              ha_reti(), pc_ritardo_wol_ms());
     if (d.invia_wol) invia_wol_a_tutti();
     if (d.wifi_acceso && !radio_accesa) accendi();
     if (!d.wifi_acceso && radio_accesa) {

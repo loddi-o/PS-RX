@@ -2,7 +2,9 @@
 // PS-RX - LED del Pico.
 //
 //   - "LED del ricevitore spento" attivo: sempre spento, in ogni caso;
-//   - finestra di risveglio del PC aperta (pc.h): lampeggia (2 volte al secondo);
+//   - risveglio del PC in corso: lampeggia (2 volte al secondo). Comincia quando si collega un controller e
+//     il PC non e' acceso (si sta cercando di svegliarlo: prima via USB, poi Wake-on-LAN); finisce appena il
+//     PC e' acceso, se si scollegano tutti i controller, o dopo 2 minuti;
 //   - altrimenti acceso con almeno un controller collegato, spento senza.
 //
 // Il LED e' un pin del chip radio: ogni cambio e' una breve scrittura al chip. Si scrive solo quando lo stato

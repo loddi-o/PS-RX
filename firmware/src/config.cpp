@@ -219,7 +219,6 @@ void config_valid() {
   if (body->psrx_led_posto > 1) body->psrx_led_posto = 0;
   if (body->psrx_wol_spento > 1) body->psrx_wol_spento = 0;
   if (body->psrx_pad_accesi_con_pc_spento > 1) body->psrx_pad_accesi_con_pc_spento = 0;
-  if (body->psrx_durata_risveglio > 120 && body->psrx_durata_risveglio != 255) body->psrx_durata_risveglio = 0;
   for (auto &p : body->psrx_pad) {
     if (p.audio_spento > 1) p.audio_spento = 0;
     if (p.microfono_spento > 1) p.microfono_spento = 0;

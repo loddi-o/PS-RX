@@ -6,7 +6,6 @@ eventi.cpp
 politica_rete.cpp
 politiche.cpp
 prova_rete.cpp
-risveglio.cpp
 trackpad.cpp
 xinput.cpp
 steam.cpp

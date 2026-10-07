@@ -13,7 +13,6 @@
 #include "config.h"
 #include "eventi.h"
 #include "led.h"
-#include "pc.h"
 #include "log_psrx.h"
 #include "pad.h"
 #include "protocollo.h"
@@ -104,7 +103,6 @@ static bool valore_impostazione(const Config_body &c, uint8_t id, uint16_t *valo
         case IMP_TASTIERA_RISVEGLIO: *valore = c.wake_kbd_enabled; return true;
         case IMP_REGISTRO:           *valore = c.weblog_enabled; return true;
         case IMP_SPEGNI_CON_PC:      *valore = c.psrx_pad_accesi_con_pc_spento ? 0 : 1; return true;
-        case IMP_DURATA_RISVEGLIO:   *valore = pc_durata_risveglio_s(); return true;
     }
     return false;
 }
@@ -120,8 +118,6 @@ static uint8_t imposta(uint8_t id, uint16_t valore) {
                                      c.audio_buffer_length = valore; break;
         case IMP_INATTIVITA_MIN:     if (valore < 5 || valore > 60) return ERR_VALORE;
                                      c.inactive_time = valore; break;
-        case IMP_DURATA_RISVEGLIO:   if (valore > 120) return ERR_VALORE;
-                                     c.psrx_durata_risveglio = valore == 0 ? 255 : static_cast<uint8_t>(valore); break;
         default:
             if (valore > 1) return ERR_VALORE;
             switch (id) {

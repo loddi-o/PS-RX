@@ -111,8 +111,7 @@ IMP_LED_PICO_SPENTO = 8
 IMP_TASTIERA_RISVEGLIO = 9
 IMP_REGISTRO = 10
 IMP_SPEGNI_CON_PC = 11
-IMP_DURATA_RISVEGLIO = 12
-N_IMPOSTAZIONI = 12
+N_IMPOSTAZIONI = 11
 
 # --- impostazioni per controller ------------------------------------------------------------
 PAD_AUDIO = 1

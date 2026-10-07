@@ -41,7 +41,6 @@ void psrx_task() {
     steam_task(ora);
     pad_task(ora);
     pc_task(ora);
-    pc_risveglio_task(ora);
     led_task(ora);
     servizio_usb_task();
     salvataggio_task();
