@@ -43,6 +43,9 @@ class Istantanea:
 
 def testo_errore(e: BaseException) -> str:
     if isinstance(e, ErrorePsrx):
+        if e.codice == p.ERR_COMANDO:   # funzione nuova dell'app, firmware vecchio
+            return ('il firmware del ricevitore è troppo vecchio per questa funzione: aggiornalo da Sistema → '
+                    'Aggiornamenti')
         return str(e)
     if isinstance(e, Scollegato):
         return 'Ricevitore non trovato (scollegato, oppure aperto da un\'altra app)'
