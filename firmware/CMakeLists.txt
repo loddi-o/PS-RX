@@ -183,6 +183,7 @@ target_sources(ds5-bridge PRIVATE
         src/psrx/eventi.cpp
         src/psrx/log_psrx.cpp
         src/psrx/mouse.cpp
+        src/psrx/led.cpp
         src/psrx/pad.cpp
         src/psrx/pc.cpp
         src/psrx/politiche.cpp

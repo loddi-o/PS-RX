@@ -627,7 +627,8 @@ int main() {
 
   // Power-On Self Test (POST) LED pattern: 3 rapid flashes to confirm
   // successful CPU overclocking and CYW43 Bluetooth module initialization.
-  for (int i = 0; i < 6; i++) {
+  // PS-RX: con "LED del ricevitore spento" il LED resta spento anche all'avvio.
+  for (int i = 0; i < 6 && !get_config().disable_pico_led; i++) {
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, i % 2 == 0);
     sleep_ms(80);
   }
@@ -640,7 +641,7 @@ int main() {
   if (watchdog_caused_reboot()) {
     printf("Rebooted by Watchdog!\n");
     // 当崩溃重启以后，闪三下灯
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6 && !get_config().disable_pico_led; i++) {   // PS-RX: rispetta il LED spento
       if (i % 2 == 0) {
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
       } else {

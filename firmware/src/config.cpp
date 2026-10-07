@@ -515,5 +515,5 @@ void set_config(const Config_body &new_config) {
   // overload). Other live fields (inactive_time, audio_buffer_length, ...) are
   // re-read on their own cadence; descriptor-bound fields (controller_mode,
   // polling_rate_mode) only take effect on the next USB re-enumeration.
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, !config.body.disable_pico_led);
+  // PS-RX: il LED lo comanda psrx/led.cpp (spento senza controller, lampeggio durante il risveglio del PC).
 }

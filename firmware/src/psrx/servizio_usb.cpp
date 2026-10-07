@@ -12,6 +12,7 @@
 #include "bt.h"
 #include "config.h"
 #include "eventi.h"
+#include "led.h"
 #include "log_psrx.h"
 #include "pad.h"
 #include "protocollo.h"
@@ -606,7 +607,7 @@ void servizio_usb_task() {
 
     if (rich_led) {
         rich_led = false;
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, !get_config().disable_pico_led && pad_connessi() > 0);
+        led_forza();   // lo stato del LED lo decide led.cpp
     }
     if (rich_forma_usb) {
         // "Posti fissi" cambiato: stessa scelta di bt_apply_usb_variant_policy() (bt.cpp), chiesta da
