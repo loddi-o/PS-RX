@@ -81,7 +81,11 @@ option(ENABLE_WIFI_WOL "Serve the config page + send Wake-on-LAN over the onboar
 # the release's SHA-256, then a RAM-resident stub copies staging over the live
 # image and resets. Requires the WiFi transport, and a flash big enough to
 # hold TWO images (staging sits at 2 MB): the 2 MB Pico W is excluded.
-option(ENABLE_OTA "Firmware updates over WiFi from GitHub Releases" ON)
+# PS-RX: niente OTA da GitHub (la repo e' privata). Il firmware si aggiorna dall'app via USB.
+option(ENABLE_OTA "Firmware updates over WiFi from GitHub Releases" OFF)
+if (ENABLE_OTA)
+    message(FATAL_ERROR "PS-RX: l'OTA da GitHub non e' supportato; il firmware si aggiorna dall'app via USB")
+endif ()
 # Which GitHub repo's Releases feed OTA. Version discovery + downloads use the
 # public web endpoints (releases/latest redirect + releases/download/...), so
 # no API tokens and no rate-limit concerns.
@@ -165,6 +169,16 @@ add_executable(ds5-bridge
         src/ram_mem.c
 )
 
+# --- PS-RX -------------------------------------------------------------------
+# Codice del ricevitore (src/psrx): servizio USB per l'app, rete e Wake-on-LAN, log non bloccante.
+# Tutto sul core 0, fuori dai percorsi per pacchetto salvo dove indicato.
+target_sources(ds5-bridge PRIVATE
+        src/psrx/log_psrx.cpp
+        src/psrx/psrx.cpp
+        src/psrx/uart_asincrona.cpp
+)
+target_include_directories(ds5-bridge PRIVATE src/psrx)
+
 # MULTI_SLOT_COUNT reaches every source (btstack_config.h / tusb_config.h /
 # slots.h mirror a =1 fallback for safety). Global add_compile_definitions is
 # NOT enough: BTstack + TinyUSB sources compile inside the ds5-bridge target
@@ -184,25 +198,16 @@ set_source_files_properties(src/ram_mem.c PROPERTIES COMPILE_OPTIONS
 # defs live). mDNS for ds5.local discovery. web_api.cpp is the httpd core
 # (fs_open_custom / JSON API / POST handlers), kept in a separate file from the
 # netif glue.
+# PS-RX: il WiFi serve solo al Wake-on-LAN (src/psrx/rete.cpp sostituisce wifi_net.cpp). Niente
+# pagina web, portale di configurazione, mDNS: le impostazioni passano dall'app via USB.
 if (ENABLE_WIFI_WOL)
     target_sources(ds5-bridge PRIVATE
-            src/web_api.cpp
             src/weblog.cpp
-            src/wifi_net.cpp
-            # Onboarding captive portal (AP mode): tiny DHCP + DNS servers so an
-            # unprovisioned dongle can hand a phone a lease and redirect every
-            # lookup to its own page. Vendored from pico-examples; only compiled
-            # for the WiFi build (the AP path is the sole user). See lib/portal.
-            lib/portal/dhcpserver.c
-            lib/portal/dnsserver.c
-    )
-    target_include_directories(ds5-bridge PRIVATE
-            lib/portal
+            src/psrx/politica_rete.cpp
+            src/psrx/rete.cpp
     )
     target_compile_definitions(ds5-bridge PRIVATE
             ENABLE_WIFI_WOL
-            # The web UI exists in this build (web_api.cpp + httpd).
-            ENABLE_WEBUI
             # Regulatory country code for the CYW43 radio. The SDK default is
             # CYW43_COUNTRY_WORLDWIDE ('XX'), which makes the SoftAP BEACON but
             # REFUSE to admit stations (onboarding symptom: AP link up, but
@@ -210,13 +215,12 @@ if (ENABLE_WIFI_WOL)
             # mode needs a real regulatory domain. STA mode is unaffected (the
             # router's domain governs there), but this applies to both. Set to US
             # (permissive, widest 2.4GHz channel set).
-            PICO_CYW43_ARCH_DEFAULT_COUNTRY_CODE=CYW43_COUNTRY\('U','S',0\)
+            # PS-RX: Italia, cosi' si usano anche i canali 12 e 13 dei router europei.
+            PICO_CYW43_ARCH_DEFAULT_COUNTRY_CODE=CYW43_COUNTRY\('I','T',0\)
     )
     target_link_libraries(ds5-bridge
             pico_unique_id
             pico_lwip_nosys
-            pico_lwip_http
-            pico_lwip_mdns
     )
 endif ()
 
@@ -433,9 +437,10 @@ if(WAKE_DEBUG)
     )
 endif()
 
-set(VERSION "dev" CACHE STRING "Program version string")
+set(VERSION "ps-rx-dev" CACHE STRING "Program version string")
 
-pico_set_program_name(ds5-bridge "ds5-bridge")
+pico_set_program_name(ds5-bridge "PS-RX")
+pico_set_program_description(ds5-bridge "PS-RX: ricevitore DualSense/DualShock 4 (base DS5-Linux-Bridge v2.3.0-beta.1)")
 pico_set_program_version(ds5-bridge "${VERSION}")
 
 # Diagnostics go over UART0 only (GP0 TX, 115200 8N1). No USB stdio: USB-CDC

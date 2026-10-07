@@ -23,6 +23,7 @@
 #include "tier.h"
 #include "weblog.h"
 #include "wifi_net.h"
+#include "psrx.h"
 
 #if ENABLE_BATT_LED
 #include "battery_led.h"
@@ -644,6 +645,10 @@ int main() {
     printf("[BOOT] AP onboarding mode: skipping BT + audio (radio handed to SoftAP)\n");
   }
 
+  // PS-RX: servizio USB per l'app, rete e Wake-on-LAN, log non bloccante. Prima della prima
+  // enumerazione USB.
+  psrx_init();
+
 #ifdef ENABLE_WAKE_HID
   // Enumerate immediately as the MINIMAL variant (inert HID placeholder, plus
   // the boot keyboard if the runtime toggle is on), even before any controller
@@ -701,6 +706,8 @@ int main() {
 #if ENABLE_BATT_LED
     battery_led_tick();
 #endif
+    // PS-RX: dopo i percorsi critici di questo giro (report HID, audio); non aspetta mai.
+    psrx_task();
     // Yield only when the hot paths are idle; otherwise keep draining USB/BT.
     if (!tud_audio_available() && !bt_send_pending()) {
       sleep_us(250);

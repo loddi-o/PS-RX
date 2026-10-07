@@ -45,7 +45,8 @@ constexpr uint32_t CONFIG_FLASH_OFFSET =
 // one erase sector. 512 leaves comfortable headroom for future append-only
 // growth (the whole struct is well under this today) without ballooning the
 // on-stack save buffer.
-constexpr size_t CONFIG_STORE_SIZE = 512;
+// PS-RX: 1 KB (reti WiFi e impostazioni per controller in coda al corpo).
+constexpr size_t CONFIG_STORE_SIZE = 1024;
 // flash_safe_execute() timeout per attempt, and how many times we retry when
 // core1 (audio) fails to park in time. Total worst-case block ~= product of the
 // two; kept modest so a wedged core1 can't stall the web request indefinitely.
@@ -93,6 +94,10 @@ static_assert(offsetof(Config_body, wol_target_mac2) == 229);
 static_assert(offsetof(Config_body, multi_enabled) == 235);
 static_assert(offsetof(Config_body, weblog_enabled) == 236);
 static_assert(offsetof(Config_body, wifi_auth_mode) == 237);
+static_assert(offsetof(Config_body, psrx_modalita) == 238);
+static_assert(offsetof(Config_body, psrx_pad) == 254);
+static_assert(offsetof(Config_body, psrx_reti) == 254 + PSRX_MAX_PAD * sizeof(PadImpostazioni));
+static_assert(sizeof(PadImpostazioni) == 12 && sizeof(ReteSalvata) == 98);
 
 // CRC over the first `len` bytes of the body. `len` is the stored size, so an
 // older/shorter blob still validates against the bytes it actually wrote.
@@ -208,6 +213,23 @@ void config_valid() {
   if (body->wifi_auth_mode > CONFIG_WIFI_AUTH_WPA3) {
     body->wifi_auth_mode = CONFIG_WIFI_AUTH_WPA2;
   }
+  // PS-RX: tutti i campi hanno 0 come predefinito; valori fuori range tornano a 0.
+  if (body->psrx_modalita > PSRX_MODALITA_STEAM) body->psrx_modalita = PSRX_MODALITA_PS;
+  if (body->psrx_posti_fissi > 1) body->psrx_posti_fissi = 0;
+  if (body->psrx_led_posto > 1) body->psrx_led_posto = 0;
+  if (body->psrx_wol_spento > 1) body->psrx_wol_spento = 0;
+  for (auto &p : body->psrx_pad) {
+    if (p.audio_spento > 1) p.audio_spento = 0;
+    if (p.microfono_spento > 1) p.microfono_spento = 0;
+    if (p.polling > 3) p.polling = 0;
+    if (p.trackpad > 1) p.trackpad = 0;
+    if (p.inverti_scorrimento > 1) p.inverti_scorrimento = 0;
+  }
+  for (auto &r : body->psrx_reti) {
+    r.ssid[CONFIG_WIFI_SSID_LEN - 1] = '\0';
+    r.psk[CONFIG_WIFI_PSK_LEN - 1] = '\0';
+    if (r.auth > CONFIG_WIFI_AUTH_WPA3) r.auth = CONFIG_WIFI_AUTH_WPA2;
+  }
 }
 
 // Reset the in-RAM config to all defaults (does NOT touch flash). Most fields
@@ -221,6 +243,8 @@ void config_default() {
   // body as DS5 / 250 Hz. Default to the preferred out-of-box behavior instead.
   config.body.controller_mode = 2;   // Auto (0: DS5, 1: DSE, 2: Auto)
   config.body.polling_rate_mode = 2; // Real-time / 1000 Hz (0: 250, 1: 500, 2: RT)
+  // PS-RX: fino a 4 controller sempre ammessi (in DS5-Linux-Bridge era un'opzione spenta).
+  config.body.multi_enabled = 1;
   config_valid();
 }
 
@@ -446,6 +470,41 @@ void config_set_wifi_creds(const char *ssid, const char *psk,
   // the save path) re-checks this, but set it here so the in-RAM view is
   // immediately consistent for any code that reads it before the save.
   config.body.wifi_provisioned = (config.body.wifi_ssid[0] != '\0') ? 1 : 0;
+}
+
+const PadImpostazioni *config_pad(const uint8_t *mac) {
+  if (!mac || addr_is_zero(mac)) return nullptr;
+  for (const auto &p : config.body.psrx_pad) {
+    if (addr_eq(p.mac, mac)) return &p;
+  }
+  return nullptr;
+}
+
+PadImpostazioni *config_pad_scrivibile(const uint8_t *mac) {
+  if (!mac || addr_is_zero(mac)) return nullptr;
+  for (auto &p : config.body.psrx_pad) {
+    if (addr_eq(p.mac, mac)) return &p;
+  }
+  for (auto &p : config.body.psrx_pad) {
+    if (addr_is_zero(p.mac)) {
+      memset(&p, 0, sizeof(p));
+      memcpy(p.mac, mac, CONFIG_BOND_ADDR_LEN);
+      return &p;
+    }
+  }
+  return nullptr;
+}
+
+void config_pad_dimentica(const uint8_t *mac) {
+  if (!mac) return;
+  for (auto &p : config.body.psrx_pad) {
+    if (!addr_is_zero(p.mac) && addr_eq(p.mac, mac)) memset(&p, 0, sizeof(p));
+  }
+}
+
+void config_imposta(const Config_body &nuova) {
+  config.body = nuova;
+  config_valid();
 }
 
 void set_config(const Config_body &new_config) {

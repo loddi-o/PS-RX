@@ -52,6 +52,31 @@
 #define CONFIG_WIFI_AUTH_WPA2   0
 #define CONFIG_WIFI_AUTH_WPA3   1
 
+// --- PS-RX ------------------------------------------------------------------
+// Reti WiFi salvate (solo per il Wake-on-LAN) e impostazioni per controller, keyed per MAC.
+#define PSRX_MAX_RETI           5
+#define PSRX_MAX_PAD            4
+#define PSRX_MODALITA_PS        0   // DualSense USB (il DualShock 4 e' tradotto)
+#define PSRX_MODALITA_XBOX      1   // controller Xbox 360 (XInput)
+#define PSRX_MODALITA_STEAM     2   // Steam Controller (sperimentale)
+
+struct __attribute__((packed)) ReteSalvata {
+    char    ssid[CONFIG_WIFI_SSID_LEN]; // "" == posto libero
+    char    psk[CONFIG_WIFI_PSK_LEN];   // "" == rete aperta
+    uint8_t auth;                       // CONFIG_WIFI_AUTH_WPA2/WPA3
+};
+
+// Tutti i campi valgono 0 di predefinito (un blob piu' vecchio si riempie di zeri).
+struct __attribute__((packed)) PadImpostazioni {
+    uint8_t mac[CONFIG_BOND_ADDR_LEN]; // tutto zero == posto libero
+    uint8_t audio_spento;              // 1 = niente altoparlante/cuffie per questo pad
+    uint8_t microfono_spento;          // 1 = niente microfono per questo pad
+    uint8_t polling;                   // 0 = 1000 Hz, 1 = 500, 2 = 250, 3 = 125
+    uint8_t trackpad;                  // 1 = il touchpad muove il mouse (rotellina a sinistra)
+    uint8_t inverti_scorrimento;       // 1 = rotellina invertita
+    uint8_t riservato;
+};
+
 struct __attribute__((packed)) BondName {
     uint8_t addr[CONFIG_BOND_ADDR_LEN]; // all-zero == empty slot
     char    name[CONFIG_BOND_NAME_LEN]; // NUL-terminated; "" == unnamed
@@ -132,6 +157,14 @@ struct __attribute__((packed)) Config_body {
     // so migrated configs preserve the pre-WPA3 connection behavior. WPA3
     // means Personal/SAE; open networks ignore this field.
     uint8_t wifi_auth_mode;               // CONFIG_WIFI_AUTH_WPA2/WPA3
+    // --- PS-RX (offset 238, append-only come sopra; zero = predefinito) ---
+    uint8_t psrx_modalita;                // PSRX_MODALITA_PS/XBOX/STEAM
+    uint8_t psrx_posti_fissi;             // 1 = sempre 4 gamepad sull'USB (niente ri-enumerazione)
+    uint8_t psrx_led_posto;               // 1 = lightbar col colore del posto (blu, rosso, verde, rosa)
+    uint8_t psrx_wol_spento;              // 1 = niente Wake-on-LAN al collegamento del primo pad
+    uint8_t psrx_riservato[12];
+    PadImpostazioni psrx_pad[PSRX_MAX_PAD];
+    ReteSalvata psrx_reti[PSRX_MAX_RETI];
 };
 
 struct __attribute__((packed)) Config {
@@ -175,6 +208,14 @@ void config_clear_bond_name(const uint8_t *addr);
 // persists with config_save().
 void config_set_wifi_creds(const char *ssid, const char *psk,
                            uint8_t auth_mode);
+
+// PS-RX: impostazioni del controller con quel MAC (nullptr se non e' in tabella) e posto per un
+// MAC nuovo (riusa quello del MAC, poi il primo libero, poi nullptr). Solo RAM: il chiamante salva.
+const PadImpostazioni *config_pad(const uint8_t *mac);
+PadImpostazioni *config_pad_scrivibile(const uint8_t *mac);
+void config_pad_dimentica(const uint8_t *mac);
+// PS-RX: sostituisce la configurazione in RAM senza i comandi al chip radio di set_config().
+void config_imposta(const Config_body &nuova);
 
 extern bool is_dse;
 
