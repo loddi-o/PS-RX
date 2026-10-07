@@ -39,9 +39,10 @@ IMPOSTAZIONI = [
         'riconnette': False,
         'titolo': 'Spegni i controller quando il PC si spegne o va in sospensione',
         'predefinito': 1,
-        'nota': 'Il ricevitore capisce lo stato del PC dall\'USB (Windows e Linux). Per riaccendere il PC basta '
-                'premere PS sul controller (Wake-on-LAN, o la tastiera di risveglio). Serve che la porta USB resti '
-                'alimentata a PC spento.',
+        'nota': 'Il ricevitore capisce lo stato del PC dall\'USB (Windows e Linux), senza WiFi. Per riaccenderlo '
+                'basta premere PS: se il PC è sospeso e permette il risveglio via USB lo sveglia così, altrimenti '
+                '(o a PC spento) usa il Wake-on-LAN. A PC acceso il Wake-on-LAN non parte e il WiFi si spegne '
+                'subito. Serve che la porta USB resti alimentata a PC spento o sospeso.',
     },
     {
         'id': p.IMP_WOL_SPENTO, 'chiave': 'wol_spento', 'tipo': 'booleano', 'sezione': 'rete', 'riconnette': False,
