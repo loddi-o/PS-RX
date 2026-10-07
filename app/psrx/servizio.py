@@ -160,6 +160,9 @@ class Psrx:
     def prova_wol(self) -> None:
         self.scrivi(p.CMD_WOL_PROVA)
 
+    def annulla_caricamento(self) -> None:
+        self.scrivi(p.CMD_CARICA_ANNULLA)
+
     def installa_ora(self) -> None:
         self.scrivi(p.CMD_INSTALLA_ORA)
 
@@ -175,6 +178,16 @@ class Psrx:
 
         avanzamento(fase, fatto, totale) con fase in: 'attesa_pad' (serve spegnere i controller),
         'caricamento' (blocchi scritti), 'verifica', 'installazione'."""
+        try:
+            return self._carica(img, avanzamento, interrotto, installa)
+        except Interrotto:
+            try:
+                self.annulla_caricamento()   # l'area di appoggio torna libera
+            except Exception:  # noqa: BLE001 - annullare e' un di piu'
+                pass
+            raise
+
+    def _carica(self, img: Immagine, avanzamento, interrotto, installa: bool) -> p.Caricamento:
         info = self.info()
         if img.dimensione > info.staging_max:
             raise ErrorePsrx(p.ERR_DIMENSIONE, p.CMD_CARICA_INIZIO, p.TESTO_ERRORE[p.ERR_DIMENSIONE])

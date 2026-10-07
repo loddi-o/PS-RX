@@ -1,0 +1,18 @@
+{
+  "name": "PS-RX",
+  "author": "PS-RX",
+  "flags": [
+    "root"
+  ],
+  "api_version": 1,
+  "publish": {
+    "tags": [
+      "controller",
+      "dualsense",
+      "dualshock",
+      "root"
+    ],
+    "description": "Controller collegati, impostazioni, reti WiFi, Wake-on-LAN e aggiornamento del ricevitore PS-RX (DualSense e DualShock 4 su Pico 2 W), tutto via USB.",
+    "image": ""
+  }
+}

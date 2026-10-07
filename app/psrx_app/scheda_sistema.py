@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGroupBox, QLabe
 
 from psrx import protocollo as p
 from psrx.firmware import FirmwareNonValido, leggi as leggi_firmware
+from psrx.servizio import Interrotto
 
 from . import opzioni
 from .controlli import nota, riga
@@ -182,7 +183,10 @@ class SchedaSistema(Scheda):
 
         def errore(e):
             self._chiudi_progresso()
-            self.finestra.messaggio(f'Aggiornamento non riuscito: {testo_errore(e)}', errore=True)
+            if isinstance(e, Interrotto):
+                self.finestra.messaggio('Aggiornamento annullato')
+            else:
+                self.finestra.messaggio(f'Aggiornamento non riuscito: {testo_errore(e)}', errore=True)
 
         self.finestra.ponte.esegui(lambda c: c.carica_firmware(img, avanz, lambda: self._interrotto), fatto, errore)
 
