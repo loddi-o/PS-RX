@@ -1,0 +1,9 @@
+# build e librerie scaricate
+firmware/build/
+firmware/lib/opus/
+app/decky/node_modules/
+app/decky/dist/
+__pycache__/
+*.pyc
+release/**/*.AppImage
+release/**/*.exe

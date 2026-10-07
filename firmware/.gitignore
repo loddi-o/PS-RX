@@ -1,0 +1,12 @@
+build
+build-diag
+build-*
+build_*
+.vscode
+.idea
+example
+code review/
+docs/claude memory/
+docs/claude_memory.md
+AGENTS.md
+CLAUDE.md

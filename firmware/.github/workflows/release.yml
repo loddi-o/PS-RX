@@ -1,0 +1,160 @@
+name: Build release firmware
+
+on:
+  release:
+    types:
+      - published
+
+env:
+  PICO_SDK_REF: 2.2.0
+  # Pin TinyUSB to the exact commit the local SDK 2.2.0 install ships and that is
+  # hardware-verified. NOT a tag: the 0.20.0 tag predates the usbd control-transfer
+  # wLength fixes (e954302c1 / 8a63f9c57) that the MS OS 2.0 descriptor fetch needs;
+  # building against 0.20.0 makes the MINIMAL USB variant fail to enumerate on
+  # Windows (Code 10). The SDK 2.2.0 submodule itself pins an even older 0.18.0, so
+  # we override to this post-0.20.0 commit.
+  TINYUSB_REF: 08f9855e3dc51291a8c30e2eeccab31f8f07d0a9
+  PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+  APT_PACKAGES: >-
+    cmake
+    python3
+    build-essential
+    gcc-arm-none-eabi
+    libnewlib-arm-none-eabi
+    libstdc++-arm-none-eabi-newlib
+    ninja-build
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and upload release UF2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          submodules: recursive
+
+      - name: Set firmware version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: printf 'FIRMWARE_VERSION=%s\n' "$RELEASE_TAG" >> "$GITHUB_ENV"
+
+      - name: Prepare build dependency cache
+        id: apt-cache
+        run: |
+          mkdir -p "$RUNNER_TEMP/apt-cache/partial"
+          . /etc/os-release
+          package_hash="$(printf '%s' "$APT_PACKAGES" | sha256sum | cut -d ' ' -f 1)"
+          echo "dir=$RUNNER_TEMP/apt-cache" >> "$GITHUB_OUTPUT"
+          echo "os=${ID}-${VERSION_ID}" >> "$GITHUB_OUTPUT"
+          echo "package-hash=$package_hash" >> "$GITHUB_OUTPUT"
+
+      - name: Cache build dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.apt-cache.outputs.dir }}
+          key: ${{ runner.os }}-${{ runner.arch }}-apt-${{ steps.apt-cache.outputs.os }}-${{ steps.apt-cache.outputs.package-hash }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-apt-${{ steps.apt-cache.outputs.os }}-
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -o Dir::Cache::archives="${{ steps.apt-cache.outputs.dir }}" install --download-only -y $APT_PACKAGES
+          sudo apt-get -o Dir::Cache::archives="${{ steps.apt-cache.outputs.dir }}" install -y $APT_PACKAGES
+          sudo chmod -R a+rX "${{ steps.apt-cache.outputs.dir }}"
+
+      - name: Cache Pico SDK
+        id: cache-pico-sdk
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PICO_SDK_PATH }}
+          key: ${{ runner.os }}-${{ runner.arch }}-pico-sdk-${{ env.PICO_SDK_REF }}-tinyusb-${{ env.TINYUSB_REF }}
+
+      - name: Download Pico SDK
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "$PICO_SDK_REF" https://github.com/raspberrypi/pico-sdk.git "$PICO_SDK_PATH"
+          git -C "$PICO_SDK_PATH" submodule update --init --recursive
+
+      - name: Switch TinyUSB to pinned commit
+        run: |
+          if ! git -C "$PICO_SDK_PATH/lib/tinyusb" cat-file -e "$TINYUSB_REF^{commit}" 2>/dev/null; then
+            git -C "$PICO_SDK_PATH/lib/tinyusb" fetch --depth 1 origin "$TINYUSB_REF"
+          fi
+          git -C "$PICO_SDK_PATH/lib/tinyusb" checkout --detach "$TINYUSB_REF"
+
+      - name: Build standard firmware
+        run: |
+          cmake -S . -B build/standard -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPICO_SDK_PATH="$PICO_SDK_PATH" \
+            -DVERSION="$FIRMWARE_VERSION"
+          cmake --build build/standard --target ds5-bridge
+          mkdir -p artifacts
+          # Asset naming: every artifact carries its board -- pico2w (the
+          # standard build), picow, waveshare -- so the release page sorts by
+          # board.
+          cp build/standard/ds5-bridge.uf2 "artifacts/ds5-bridge-pico2w-${{ github.event.release.tag_name }}.uf2"
+          # OTA assets: STABLE names (no tag) -- the dongle downloads
+          # releases/download/<tag>/ds5-bridge-pico2w-ota.bin{,.sha256} and its
+          # compiled-in asset name (OTA_ASSET_NAME in CMakeLists.txt) must
+          # match every future release. The .bin is the raw image (half the
+          # UF2's size; no UF2 framing to parse on device); the .sha256 is
+          # what the dongle verifies the staged flash against before
+          # committing the update (src/ota.cpp).
+          cp build/standard/ds5-bridge.bin artifacts/ds5-bridge-pico2w-ota.bin
+          (cd artifacts && sha256sum ds5-bridge-pico2w-ota.bin > ds5-bridge-pico2w-ota.bin.sha256)
+
+      - name: Build verbose-diagnostics firmware
+        # Verbose UART logging (GP0 TX, 115200 8N1). No USB serial -- diagnostics
+        # are UART-only so they don't perturb the USB audio timing.
+        run: |
+          cmake -S . -B build/debug -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPICO_SDK_PATH="$PICO_SDK_PATH" \
+            -DENABLE_VERBOSE=ON \
+            -DVERSION="$FIRMWARE_VERSION"
+          cmake --build build/debug --target ds5-bridge
+          cp build/debug/ds5-bridge.uf2 "artifacts/ds5-bridge-pico2w-debug-${{ github.event.release.tag_name }}.uf2"
+
+      - name: Build Waveshare RP2350B-Plus-W firmware
+        # USB-C / 16MB-flash Pico 2 W alternative. Different RM2 GPIO wiring +
+        # forced boot2 XIP setup for its Puya flash (see CMakeLists.txt).
+        run: |
+          cmake -S . -B build/waveshare -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPICO_SDK_PATH="$PICO_SDK_PATH" \
+            -DWAVESHARE_RP2350B_PLUS_W_BUILD=ON \
+            -DVERSION="$FIRMWARE_VERSION"
+          cmake --build build/waveshare --target ds5-bridge
+          cp build/waveshare/ds5-bridge.uf2 "artifacts/ds5-bridge-waveshare-${{ github.event.release.tag_name }}.uf2"
+          # Stable-named OTA assets for the Waveshare board (see standard build).
+          cp build/waveshare/ds5-bridge.bin artifacts/ds5-bridge-waveshare-ota.bin
+          (cd artifacts && sha256sum ds5-bridge-waveshare-ota.bin > ds5-bridge-waveshare-ota.bin.sha256)
+
+      - name: Build Pico W firmware
+        # Original RP2040 Pico W. Same WiFi/BT feature set on the CYW43 radio; a
+        # separate release artifact so Pico W owners don't have to build locally.
+        run: |
+          cmake -S . -B build/picow -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPICO_SDK_PATH="$PICO_SDK_PATH" \
+            -DPICO_W_BUILD=ON \
+            -DVERSION="$FIRMWARE_VERSION"
+          cmake --build build/picow --target ds5-bridge
+          cp build/picow/ds5-bridge.uf2 "artifacts/ds5-bridge-picow-${{ github.event.release.tag_name }}.uf2"
+
+      - name: Upload firmware files to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # UF2s for humans (BOOTSEL drag-and-drop), stable-named .bin +
+          # .sha256 for the on-device OTA client.
+          gh release upload "${{ github.event.release.tag_name }}" \
+            artifacts/*.uf2 artifacts/*.bin artifacts/*.sha256 --clobber

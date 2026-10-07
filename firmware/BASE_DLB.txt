@@ -1,0 +1,5 @@
+Base: DS5-Linux-Bridge (kungaa) v2.3.0-beta.1, commit 1e15ea2 (25/07/2026)
+https://github.com/kungaa/ds5-linux-bridge
+Licenza GPLv3 (LICENSE), derivato da DS5Dongle di awalol (MIT, LICENSE-MIT).
+lib/opus non e' nella repo: la scarica strumenti/prepara_ambiente.ps1 (commit 2d862ea).
+Le modifiche ai file originali sono in firmware/psrx-su-dlb.patch.
