@@ -244,13 +244,14 @@ class SchedaSistema(Scheda):
         if tipo == 'firmware':
             self._installa_firmware(percorso)
             return
-        if self.finestra.conferma('Aggiornare l\'app?', 'L\'app si chiude e si riapre con la versione nuova.'):
+        if self.finestra.conferma('Aggiornare l\'app?', 'Windows chiede il permesso di installare; poi l\'app si '
+                                  'chiude e si riapre da sola con la versione nuova.'):
             try:
-                nuovo = aggiorna.sostituisci_exe(percorso)
+                aggiorna.esegui_installer(percorso)
             except OSError as e:
                 self.finestra.messaggio(f'Aggiornamento dell\'app non riuscito: {e}', errore=True)
                 return
-            self.finestra.riavvia(nuovo)
+            self.finestra.riavvia()
 
     # --- aggiornamento del firmware -------------------------------------------------------------
     def _aggiorna_firmware(self) -> None:

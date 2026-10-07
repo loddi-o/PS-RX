@@ -16,7 +16,8 @@ RISPOSTA = {
     'assets': [
         {'name': 'ps-rx-firmware-0.2.0.uf2', 'browser_download_url': 'https://x/fw.uf2', 'size': 10,
          'digest': 'sha256:' + 'a' * 64},
-        {'name': 'PS-RX-0.2.0.exe', 'browser_download_url': 'https://x/app.exe', 'size': 20},
+        {'name': 'PS-RX-Setup-0.2.0.exe', 'browser_download_url': 'https://x/app.exe', 'size': 20},
+        {'name': 'PS-RX-0.2.0.exe', 'browser_download_url': 'https://x/portatile.exe', 'size': 20},
         {'name': 'ps-rx-decky-0.2.0.zip', 'browser_download_url': 'https://x/d.zip', 'size': 30},
         {'name': 'ps-rx-0.2.0.html', 'browser_download_url': 'https://x/p.html', 'size': 40},
         {'name': 'altro.txt', 'browser_download_url': 'https://x/altro', 'size': 1},
@@ -44,6 +45,7 @@ class TestRelease(unittest.TestCase):
         self.assertEqual(set(r.file), {'firmware', 'app_windows', 'decky', 'pagina'})
         self.assertEqual(r.file['firmware'].sha256, 'a' * 64)
         self.assertIsNone(r.file['app_windows'].sha256)
+        self.assertEqual(r.file['app_windows'].nome, 'PS-RX-Setup-0.2.0.exe')   # l'installer, non l'exe sciolto
 
     def test_controlla(self):
         vero = ag.ultima_release

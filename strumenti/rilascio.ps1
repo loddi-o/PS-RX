@@ -5,7 +5,7 @@
 # 1. scrive la versione nell'app (app/psrx/__init__.py) e nel plugin (app/decky/package.json) e fa il commit;
 # 2. compila firmware (con confronto del codice macchina), exe Windows e plugin Decky; lancia i test;
 # 3. prepara i file con i nomi che gli aggiornamenti cercano (vedi app/psrx/aggiornamenti.py):
-#      ps-rx-firmware-X.Y.Z.uf2 / .bin, PS-RX-X.Y.Z.exe, ps-rx-decky-X.Y.Z.zip, ps-rx-X.Y.Z.html
+#      ps-rx-firmware-X.Y.Z.uf2 / .bin, PS-RX-Setup-X.Y.Z.exe, ps-rx-decky-X.Y.Z.zip, ps-rx-X.Y.Z.html
 # 4. tag vX.Y.Z, push, release "Latest"; le release precedenti diventano prerelease.
 # -Prova si ferma prima del commit e della pubblicazione (file in %USERPROFILE%\.ds5-build\rilascio\X.Y.Z).
 
@@ -44,6 +44,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'firmware non compilato' }
     & powershell -ExecutionPolicy Bypass -File strumenti\compila_app.ps1
     if ($LASTEXITCODE -ne 0) { throw 'app non compilata' }
+    & powershell -ExecutionPolicy Bypass -File strumenti\compila_installer.ps1 -Versione $Versione
+    if ($LASTEXITCODE -ne 0) { throw 'installer non compilato' }
     & powershell -ExecutionPolicy Bypass -File strumenti\compila_decky.ps1
     if ($LASTEXITCODE -ne 0) { throw 'plugin non compilato' }
 
@@ -53,7 +55,7 @@ try {
     $fw = Join-Path $env:USERPROFILE '.ds5-build\build-psrx\normale'
     Copy-Item "$fw\ds5-bridge.uf2" "$uscita\ps-rx-firmware-$Versione.uf2"
     Copy-Item "$fw\ds5-bridge.bin" "$uscita\ps-rx-firmware-$Versione.bin"
-    Copy-Item (Join-Path $env:USERPROFILE '.ds5-build\build-app\dist\PS-RX.exe') "$uscita\PS-RX-$Versione.exe"
+    Copy-Item (Join-Path $env:USERPROFILE ".ds5-build\build-app\installer\PS-RX-Setup-$Versione.exe") "$uscita\PS-RX-Setup-$Versione.exe"
     Copy-Item (Join-Path $env:USERPROFILE ".ds5-build\build-psrx\app\ps-rx-decky-$Versione.zip") "$uscita\ps-rx-decky-$Versione.zip"
     Copy-Item 'web\ps-rx.html' "$uscita\ps-rx-$Versione.html"
     $controllo = python -c "import sys; sys.path.insert(0, 'app'); from psrx.firmware import leggi; print(leggi(r'$uscita\ps-rx-firmware-$Versione.uf2').versione)"

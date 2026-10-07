@@ -3,7 +3,7 @@ PS-RX - aggiornamenti dalle release di GitHub (github.com/loddi-o/PS-RX), solo l
 
 Ogni release ha il tag vX.Y.Z e questi file (stesso numero di versione per tutto):
     ps-rx-firmware-X.Y.Z.uf2     firmware del Pico (anche ps-rx-firmware-X.Y.Z.bin)
-    PS-RX-X.Y.Z.exe              app Windows
+    PS-RX-Setup-X.Y.Z.exe        installer dell'app Windows (anche per aggiornarla)
     ps-rx-decky-X.Y.Z.zip        plugin Decky
     ps-rx-X.Y.Z.html             pagina WebUSB
 
@@ -33,7 +33,7 @@ TIMEOUT_S = 15
 MODELLI = {
     'firmware': re.compile(r'^ps-rx-firmware-[0-9][^/]*\.uf2$'),
     'firmware_bin': re.compile(r'^ps-rx-firmware-[0-9][^/]*\.bin$'),
-    'app_windows': re.compile(r'^PS-RX-[0-9][^/]*\.exe$'),
+    'app_windows': re.compile(r'^PS-RX-Setup-[0-9][^/]*\.exe$'),
     'decky': re.compile(r'^ps-rx-decky-[0-9][^/]*\.zip$'),
     'pagina': re.compile(r'^ps-rx-[0-9][^/]*\.html$'),
 }

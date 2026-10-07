@@ -1,12 +1,13 @@
 """
 PS-RX app - ricerca e download degli aggiornamenti da GitHub, in un thread a parte (mai in quello USB,
-cosi' la rete non rallenta il ricevitore), e sostituzione dell'exe dell'app.
+cosi' la rete non rallenta il ricevitore). L'app si aggiorna con l'installer della release, lanciato in
+modo silenzioso: Windows chiede il permesso di amministratore, l'installer chiude l'app, la aggiorna in
+Programmi/PS-RX e la riapre.
 """
 
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 import tempfile
 import threading
@@ -24,12 +25,12 @@ INTERVALLO_AUTOMATICO_S = 24 * 3600
 
 
 def exe_sostituibile() -> bool:
-    """L'app si aggiorna da sola solo come exe (PyInstaller); da sorgente mostra il link."""
+    """L'app si aggiorna da sola solo come exe su Windows; da sorgente mostra il link."""
     return bool(getattr(sys, 'frozen', False)) and sys.platform == 'win32'
 
 
 def pulisci_vecchio_exe() -> None:
-    """All'avvio: toglie l'exe precedente lasciato dall'ultimo aggiornamento."""
+    """All'avvio: toglie l'exe lasciato dal vecchio sistema di aggiornamento (versione 0.1.0)."""
     if exe_sostituibile():
         try:
             os.remove(sys.executable + '.vecchio')
@@ -37,26 +38,10 @@ def pulisci_vecchio_exe() -> None:
             pass
 
 
-def sostituisci_exe(nuovo: str) -> str:
-    """Mette il nuovo exe al posto di quello in esecuzione (Windows permette di rinominare un exe aperto,
-    non di cancellarlo) e restituisce il percorso da avviare."""
-    corrente = sys.executable
-    vecchio = corrente + '.vecchio'
-    try:
-        os.remove(vecchio)
-    except OSError:
-        pass
-    os.replace(corrente, vecchio)
-    try:
-        os.replace(nuovo, corrente)
-    except OSError:
-        os.replace(vecchio, corrente)   # rimetto a posto quello di prima
-        raise
-    return corrente
-
-
-def avvia_nuovo(percorso: str) -> None:
-    subprocess.Popen([percorso], close_fds=True, creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0))
+def esegui_installer(percorso: str) -> None:
+    """Avvia l'installer in modo silenzioso. ShellExecute (os.startfile) e non CreateProcess: l'installer
+    chiede i permessi di amministratore e Windows mostra la richiesta."""
+    os.startfile(percorso, 'open', '/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS')
 
 
 class Aggiornatore(QObject):

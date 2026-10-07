@@ -206,11 +206,10 @@ class Finestra(QMainWindow):
                                  f'Versione {c.release.versione} ({cosa}). Apri l\'app → Sistema → Aggiornamenti.',
                                  QSystemTrayIcon.Information, 8000)
 
-    def riavvia(self, exe: str) -> None:
-        """Dopo l'aggiornamento dell'app: libera l'istanza unica, avvia il nuovo exe ed esce."""
+    def riavvia(self) -> None:
+        """Aggiornamento dell'app avviato: libera l'istanza unica ed esce (l'installer riapre l'app)."""
         if self.server is not None:
             self.server.close()
-        aggiorna.avvia_nuovo(exe)
         self.esci()
 
     # --- finestra e vassoio ---------------------------------------------------------------------
