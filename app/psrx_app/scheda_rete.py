@@ -54,12 +54,12 @@ def _durata(ms: Optional[int]) -> str:
 
 
 class DialogoRete(QDialog):
-    def __init__(self, padre, rete: p.Rete):
+    def __init__(self, padre, rete: p.Rete, ssid_proposto: str = '', aperta: bool = False):
         super().__init__(padre)
         self.setWindowTitle(f'Rete {rete.indice + 1}')
         self.rete = rete
         modulo = QFormLayout(self)
-        self.ssid = QLineEdit(rete.ssid)
+        self.ssid = QLineEdit(ssid_proposto or rete.ssid)
         self.ssid.setMaxLength(32)
         self.password = QLineEdit()
         self.password.setMaxLength(63)
@@ -69,7 +69,11 @@ class DialogoRete(QDialog):
         mostra = QCheckBox('Mostra')
         mostra.toggled.connect(lambda v: self.password.setEchoMode(QLineEdit.Normal if v else QLineEdit.Password))
         self.wpa3 = QCheckBox('WPA3')
-        self.wpa3.setChecked(rete.wpa3)
+        self.wpa3.setChecked(rete.wpa3 and not ssid_proposto)
+        if ssid_proposto:
+            self.password.setFocus()
+            if aperta:
+                self.password.setPlaceholderText('rete aperta: nessuna password')
         modulo.addRow('Nome della rete (SSID)', self.ssid)
         modulo.addRow('Password', riga(self.password, mostra, stretch=False))
         modulo.addRow('', self.wpa3)
@@ -145,6 +149,36 @@ class SchedaRete(Scheda):
         v.addWidget(nota('Il ricevitore prova le reti in ordine e si collega alla prima che trova.'))
         self.col.addWidget(gruppo)
 
+        gruppo = QGroupBox('Reti rilevate')
+        v = QVBoxLayout(gruppo)
+        self.cerca = QPushButton('Cerca reti')
+        self.cerca.clicked.connect(self._cerca_reti)
+        self.aggiungi_vista = QPushButton('Usa questa rete…')
+        self.aggiungi_vista.clicked.connect(lambda: self._usa_vista(self.viste.currentRow()))
+        self.aggiungi_vista.setEnabled(False)
+        v.addLayout(riga(self.cerca, self.aggiungi_vista))
+        self.viste = QTableWidget(0, 4)
+        self.viste.setHorizontalHeaderLabels(['Nome della rete', 'Segnale', 'Canale', 'Sicurezza'])
+        self.viste.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.viste.verticalHeader().setVisible(False)
+        self.viste.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.viste.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.viste.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.viste.cellDoubleClicked.connect(lambda r, _c: self._usa_vista(r))
+        self.viste.itemSelectionChanged.connect(lambda: self.aggiungi_vista.setEnabled(self.viste.currentRow() >= 0))
+        self.viste.setVisible(False)
+        v.addWidget(self.viste)
+        self.esito_cerca = QLabel('')
+        self.esito_cerca.setWordWrap(True)
+        v.addWidget(self.esito_cerca)
+        v.addWidget(nota('Le reti che il ricevitore vede da dove si trova (solo 2,4 GHz; le reti nascoste non '
+                         'compaiono). Doppio clic su una rete per salvarla. Solo senza controller collegati.'))
+        self.col.addWidget(gruppo)
+        self._reti_viste = []
+        self._timer_cerca = QTimer(self)
+        self._timer_cerca.timeout.connect(self._leggi_viste)
+        self._t_cerca = 0.0
+
         gruppo = QGroupBox('Wake-on-LAN')
         v = QVBoxLayout(gruppo)
         self.globali = self.controlli_globali('rete', v)
@@ -198,6 +232,8 @@ class SchedaRete(Scheda):
             w.setEnabled(attivo)
         senza_pad = attivo and ist.stato.pad_connessi == 0
         self.prova.setEnabled(senza_pad and not self._timer_prova.isActive())
+        self.cerca.setEnabled(senza_pad and not self._timer_cerca.isActive())
+        self.cerca.setToolTip('' if senza_pad else 'Spegni i controller: con un controller collegato il WiFi è spento')
         self.prova.setToolTip('Controlla password, indirizzo dal router e internet' if senza_pad else
                               'Spegni i controller: con un controller collegato il WiFi è spento')
         for ident, c in self.globali.items():
@@ -226,14 +262,72 @@ class SchedaRete(Scheda):
             for e, mac in zip(self.mac, ist.reti.wol_mac):
                 e.setText(mac)
 
-    def _modifica(self, riga_: int) -> None:
+    # --- reti rilevate --------------------------------------------------------------------------
+    def _cerca_reti(self) -> None:
+        self.cerca.setEnabled(False)
+        self.esito_cerca.setText('Ricerca delle reti (qualche secondo)…')
+
+        def avviata(_):
+            self._t_cerca = time.monotonic()
+            self._timer_cerca.start(700)
+
+        def errore(e):
+            self.cerca.setEnabled(True)
+            self.esito_cerca.setText(f'Ricerca non avviata: {testo_errore(e)}')
+
+        self.finestra.ponte.esegui(lambda c: c.cerca_reti(), avviata, errore)
+
+    def _leggi_viste(self) -> None:
+        if time.monotonic() - self._t_cerca > 25:
+            self._timer_cerca.stop()
+            self.cerca.setEnabled(True)
+            self.esito_cerca.setText('La ricerca non ha dato risposta in tempo: riprova.')
+            return
+        self.finestra.ponte.esegui(lambda c: c.reti_viste(), self._mostra_viste)
+
+    def _mostra_viste(self, viste) -> None:
+        if not viste.finita:
+            return
+        self._timer_cerca.stop()
+        self.cerca.setEnabled(True)
+        if viste.stato == p.SCAN_ANNULLATA:
+            self.esito_cerca.setText('Ricerca interrotta (si è collegato un controller?): riprova.')
+            return
+        salvate = {r.ssid for r in self.ist.reti.reti} if self.ist and self.ist.reti else set()
+        self._reti_viste = viste.reti
+        self.viste.setRowCount(len(viste.reti))
+        for i, r in enumerate(viste.reti):
+            nome = r.ssid + ('  (salvata)' if r.ssid in salvate else '')
+            valori = [nome, f'{"▮" * r.tacche}{"▯" * (4 - r.tacche)}  {r.rssi} dBm', str(r.canale),
+                      'aperta' if r.aperta else 'protetta']
+            for c, testo in enumerate(valori):
+                self.viste.setItem(i, c, QTableWidgetItem(testo))
+        self.viste.setVisible(bool(viste.reti))
+        self.viste.setFixedHeight(self.viste.verticalHeader().defaultSectionSize() * (min(len(viste.reti), 8) + 1) + 6)
+        self.esito_cerca.setText(f'{len(viste.reti)} reti rilevate.' if viste.reti else
+                                 'Nessuna rete rilevata: il router è acceso e trasmette a 2,4 GHz?')
+
+    def _usa_vista(self, riga_: int) -> None:
+        if riga_ < 0 or riga_ >= len(self._reti_viste) or self.ist is None or self.ist.reti is None:
+            return
+        vista = self._reti_viste[riga_]
+        esistente = next((r for r in self.ist.reti.reti if r.ssid == vista.ssid), None)
+        vuota = next((r for r in self.ist.reti.reti if not r.ssid), None)
+        posto = esistente or vuota
+        if posto is None:
+            self.finestra.messaggio(f'Già {p.RETI_MAX} reti salvate: eliminane una per aggiungere "{vista.ssid}"',
+                                    errore=True)
+            return
+        self._modifica(posto.indice, vista.ssid, vista.aperta)
+
+    def _modifica(self, riga_: int, ssid_proposto: str = '', aperta: bool = False) -> None:
         if self.ist is None or self.ist.reti is None:
             return
         if riga_ < 0:
             vuote = [r.indice for r in self.ist.reti.reti if not r.ssid]
             riga_ = vuote[0] if vuote else 0
         rete = self.ist.reti.reti[riga_]
-        d = DialogoRete(self, rete)
+        d = DialogoRete(self, rete, ssid_proposto, aperta)
         if d.exec() != QDialog.Accepted:
             return
         ssid, pw, wpa3, mantieni = d.valori()

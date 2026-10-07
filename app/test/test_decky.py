@@ -115,6 +115,19 @@ class TestBackendDecky(unittest.TestCase):
             await self.plugin._unload()
         asyncio.run(prova())
 
+    def test_reti_viste(self):
+        async def prova():
+            await self.plugin._main()
+            self.pico.scollega_pad(0)
+            self.assertEqual(await self.plugin.cerca_reti(), {'ok': True})
+            await asyncio.sleep(1.1)
+            v = await self.plugin.reti_viste()
+            self.assertTrue(v['finita'])
+            self.assertEqual(v['reti'][0]['ssid'], 'Casa')
+            self.assertEqual(v['reti'][0]['tacche'], 4)
+            await self.plugin._unload()
+        asyncio.run(prova())
+
     def test_estrai_plugin(self):
         import zipfile
         cartella = tempfile.mkdtemp(prefix='psrx-plugin-')

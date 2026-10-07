@@ -70,11 +70,16 @@ try {
         git commit -m "Versione $Versione`n`nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     }
     git tag -a $tag -m "PS-RX $Versione"
+    # git e gh sono comandi esterni: senza questi controlli un errore di GitHub (per esempio un 500) passerebbe
+    # inosservato e lo script direbbe "pubblicata". Se fallisce qui, commit e tag restano in locale: si
+    # rilancia la sola pubblicazione (git push origin main vX.Y.Z, poi gh release create).
     git push origin main $tag
+    if ($LASTEXITCODE -ne 0) { throw "push non riuscito: commit e tag $tag restano in locale" }
     $precedenti = gh release list --repo loddi-o/PS-RX --json tagName --jq '.[].tagName'
     $argomenti = @($tag, '--repo', 'loddi-o/PS-RX', '--title', "PS-RX $Versione", '--latest')
     if ($Note) { $argomenti += @('--notes-file', $Note) } else { $argomenti += @('--generate-notes') }
     gh release create @argomenti (Get-ChildItem $uscita).FullName
+    if ($LASTEXITCODE -ne 0) { throw "release $tag non creata (il tag e' gia' su GitHub)" }
     foreach ($t in $precedenti) { if ($t -and $t -ne $tag) { gh release edit $t --repo loddi-o/PS-RX --prerelease | Out-Null } }
     Write-Host "[PS-RX] release $tag pubblicata: https://github.com/loddi-o/PS-RX/releases/tag/$tag"
 } finally {

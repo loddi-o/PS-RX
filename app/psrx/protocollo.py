@@ -41,6 +41,7 @@ CMD_CARICAMENTO = 0x06
 CMD_EVENTI = 0x07
 CMD_RETI = 0x08
 CMD_PROVA_RETE = 0x09
+CMD_RETI_VISTE = 0x0A
 CMD_IMPOSTA = 0x10
 CMD_SALVA_ORA = 0x11
 CMD_PREDEFINITE = 0x12
@@ -55,6 +56,7 @@ CMD_RETE_CANCELLA = 0x31
 CMD_WOL_DESTINAZIONI = 0x32
 CMD_WOL_PROVA = 0x33
 CMD_RETE_PROVA = 0x34
+CMD_CERCA_RETI = 0x35
 CMD_CARICA_INIZIO = 0x40
 CMD_CARICA_BLOCCO = 0x41
 CMD_CARICA_FINE = 0x42
@@ -171,6 +173,10 @@ FMT_CARICAMENTO = '<BBHHHI'
 FMT_CARICA_INIZIO = '<I32s'
 FMT_ERRORE = '<BB'
 FMT_PROVA_RETE = '<BBbb4s4sHH'   # ProvaRete (firmware/src/psrx/rete.h)
+FMT_RETE_VISTA = '<33sbBB'        # ReteVista (rete.h)
+RETI_VISTE_MAX = 16
+DIM_RETI_VISTE = 2 + RETI_VISTE_MAX * struct.calcsize(FMT_RETE_VISTA)
+SCAN_NESSUNA, SCAN_IN_CORSO, SCAN_FINITA, SCAN_ANNULLATA = range(4)
 
 # Prova del WiFi: fasi ed esiti (rete.h)
 PROVA_NESSUNA, PROVA_CONNESSIONE, PROVA_INDIRIZZO, PROVA_INTERNET, PROVA_FINITA = range(5)
@@ -358,6 +364,43 @@ class ProvaRete:
         if self.esito == ESITO_OK:
             testo += f' (IP {self.ip}, segnale {self.rssi} dBm, internet in {self.ms_internet} ms)'
         return testo
+
+
+@dataclass
+class ReteVista:
+    ssid: str
+    rssi: int
+    canale: int
+    sicurezza: int      # 0 = aperta
+
+    @property
+    def aperta(self) -> bool:
+        return self.sicurezza == 0
+
+    @property
+    def tacche(self) -> int:
+        """Segnale da 1 a 4."""
+        return 4 if self.rssi >= -55 else 3 if self.rssi >= -67 else 2 if self.rssi >= -75 else 1
+
+
+@dataclass
+class RetiViste:
+    stato: int
+    reti: List[ReteVista]
+
+    @property
+    def finita(self) -> bool:
+        return self.stato in (SCAN_FINITA, SCAN_ANNULLATA)
+
+
+def leggi_reti_viste(b: bytes) -> RetiViste:
+    stato, n = b[0], b[1]
+    dim = struct.calcsize(FMT_RETE_VISTA)
+    reti = []
+    for i in range(min(n, RETI_VISTE_MAX)):
+        ssid, rssi, canale, sic = struct.unpack_from(FMT_RETE_VISTA, b, 2 + i * dim)
+        reti.append(ReteVista(_stringa(ssid), rssi, canale, sic))
+    return RetiViste(stato, reti)
 
 
 def leggi_prova_rete(b: bytes) -> ProvaRete:

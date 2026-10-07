@@ -107,6 +107,8 @@ pre { white-space: pre-wrap; font-size: 12px; max-height: 50vh; overflow: auto; 
       <section class="carta"><h2>Reti salvate (fino a 5)</h2>
         <table><thead><tr><th>#</th><th>Nome della rete</th><th>Sicurezza</th><th></th></tr></thead><tbody id="reti"></tbody></table>
         <div id="esito-prova" class="tenue"></div>
+        <div class="riga"><button class="sec" id="cerca-reti">Cerca reti</button></div>
+        <div id="reti-viste" class="tenue"></div>
         <div id="modulo-rete" class="nascosto">
           <div class="riga"><b id="titolo-rete"></b></div>
           <div class="riga"><input type="text" id="ssid" maxlength="32" placeholder="Nome della rete (SSID)">
@@ -160,11 +162,11 @@ const SCHEMA = {"impostazioni":[{"id":1,"chiave":"modalita","tipo":"scelta","sez
 // Protocollo (specchio di app/psrx/protocollo.py)
 const RICHIESTA = 0x50, PAD_MAX = 4, RETI_MAX = 5, SETTORE = 4096;
 const CMD = { INFO: 0x00, STATO: 0x01, IMPOSTAZIONI: 0x02, ABBINATI: 0x03, REGISTRO: 0x04, ERRORE: 0x05,
-  CARICAMENTO: 0x06, EVENTI: 0x07, RETI: 0x08, PROVA_RETE: 0x09, IMPOSTA: 0x10, SALVA_ORA: 0x11, PREDEFINITE: 0x12,
+  CARICAMENTO: 0x06, EVENTI: 0x07, RETI: 0x08, PROVA_RETE: 0x09, RETI_VISTE: 0x0A, IMPOSTA: 0x10, SALVA_ORA: 0x11, PREDEFINITE: 0x12,
   IMPOSTA_PAD: 0x13, RINOMINA: 0x20, DIMENTICA: 0x21, ABBINA: 0x23, SPEGNI_PAD: 0x24,
-  RETE_SALVA: 0x30, RETE_CANCELLA: 0x31, WOL_DESTINAZIONI: 0x32, WOL_PROVA: 0x33, RETE_PROVA: 0x34, CARICA_INIZIO: 0x40,
+  RETE_SALVA: 0x30, RETE_CANCELLA: 0x31, WOL_DESTINAZIONI: 0x32, WOL_PROVA: 0x33, RETE_PROVA: 0x34, CERCA_RETI: 0x35, CARICA_INIZIO: 0x40,
   CARICA_BLOCCO: 0x41, CARICA_FINE: 0x42, CARICA_ANNULLA: 0x43, INSTALLA_ORA: 0x44, BOOTSEL_ORA: 0x45 };
-const LUNGHEZZA = { 0: 76, 1: 112, 2: 64, 3: 128, 4: 2304, 5: 2, 6: 12, 7: 1 + 16 * 14, 8: RETI_MAX * 35 + 13, 9: 16 };
+const LUNGHEZZA = { 0: 76, 1: 112, 2: 64, 3: 128, 4: 2304, 5: 2, 6: 12, 7: 1 + 16 * 14, 8: RETI_MAX * 35 + 13, 9: 16, 10: 2 + 16 * 36 };
 const ESITI_PROVA = { 1: "tutto a posto: password giusta, indirizzo dal router e internet raggiungibile",
   2: "password sbagliata", 3: "rete non trovata: spenta, lontana, nome sbagliato o solo a 5 GHz (il Pico 2 W usa i 2,4 GHz)",
   4: "il router non ha completato il collegamento (controlla WPA2/WPA3)", 5: "collegato, ma il router non ha dato un indirizzo IP",
@@ -466,6 +468,36 @@ async function provaRete(r) {
   }
   esito.textContent = "La prova non ha dato risposta in tempo.";
 }
+
+// Reti rilevate dal ricevitore (solo 2,4 GHz, solo senza controller): clic su una rete per salvarla.
+$("cerca-reti").onclick = async () => {
+  const box = $("reti-viste");
+  box.textContent = "Ricerca delle reti…";
+  try { await scrivi(CMD.CERCA_RETI); } catch (e) { box.textContent = `Ricerca non avviata: ${e.message}`; return; }
+  for (const fine = Date.now() + 25000; Date.now() < fine;) {
+    await sonno(700);
+    const b = await leggi(CMD.RETI_VISTE), v = new DataView(b.buffer, b.byteOffset);
+    if (b[0] < 2) continue;
+    if (b[0] === 3) { box.textContent = "Ricerca interrotta: riprova senza controller collegati."; return; }
+    const viste = [];
+    for (let i = 0; i < b[1]; i++) {
+      const o = 2 + i * 36;
+      viste.push({ ssid: testoUtf8(b.slice(o, o + 33)), rssi: v.getInt8(o + 33), canale: b[o + 34], aperta: b[o + 35] === 0 });
+    }
+    if (!viste.length) { box.textContent = "Nessuna rete rilevata: il router trasmette a 2,4 GHz?"; return; }
+    box.replaceChildren(...viste.map((r) => el("div", { class: "riga" },
+      el("button", { class: "sec", testo: "Usa", onclick: () => {
+        const posto = reti.reti.find((x) => x.ssid === r.ssid) || reti.reti.find((x) => !x.ssid);
+        if (!posto) { messaggio("Già 5 reti salvate: eliminane una.", true); return; }
+        apriRete(posto);
+        $("ssid").value = r.ssid;
+        $("psk").focus();
+      } }),
+      `${r.ssid} · ${r.rssi} dBm · canale ${r.canale} · ${r.aperta ? "aperta" : "protetta"}`)));
+    return;
+  }
+  box.textContent = "La ricerca non ha dato risposta in tempo.";
+};
 
 let reteAperta = null;
 function apriRete(r) {

@@ -72,4 +72,26 @@ static_assert(sizeof(ProvaRete) == 16, "ProvaRete");
 bool rete_avvia_prova(uint8_t indice);
 void rete_esito_prova(ProvaRete *out);
 
+// --- Reti WiFi rilevate (pulsante "Cerca reti" dell'app) -------------------------------------------
+// Scansione delle reti visibili (il Pico 2 W vede solo i 2,4 GHz). Solo senza controller collegati.
+// Le reti nascoste non compaiono; una voce per nome, con il segnale migliore.
+constexpr uint8_t RETI_VISTE_MAX = 16;
+enum StatoScansione : uint8_t { SCAN_NESSUNA = 0, SCAN_IN_CORSO = 1, SCAN_FINITA = 2, SCAN_ANNULLATA = 3 };
+struct ReteVista {
+    char ssid[33];
+    int8_t rssi;                 // dBm
+    uint8_t canale;
+    uint8_t sicurezza;           // auth_mode del chip: 0 = aperta
+};
+struct ScansionePsrx {
+    uint8_t stato;               // StatoScansione
+    uint8_t n;
+    ReteVista reti[RETI_VISTE_MAX];
+};
+static_assert(sizeof(ReteVista) == 36, "ReteVista");
+static_assert(sizeof(ScansionePsrx) == 2 + RETI_VISTE_MAX * 36, "ScansionePsrx");
+
+bool rete_avvia_scansione();
+void rete_scansione(ScansionePsrx *out);
+
 #endif // PSRX_RETE_H

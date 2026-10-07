@@ -4,7 +4,7 @@ PS-RX - riga di comando.
     python -m psrx stato
     python -m psrx impostazioni | imposta CHIAVE VALORE
     python -m psrx abbinati | pad MAC CHIAVE VALORE | rinomina MAC NOME | dimentica MAC | abbina | spegni [POSTO]
-    python -m psrx reti | rete POSTO SSID [PASSWORD] [--wpa3] | rete-cancella POSTO | rete-prova POSTO
+    python -m psrx reti | rete POSTO SSID [PASSWORD] [--wpa3] | rete-cancella POSTO | rete-prova POSTO | reti-vicine
     python -m psrx wol MAC1 [MAC2] | wol-prova
     python -m psrx eventi            (resta in ascolto e stampa le notifiche)
     python -m psrx registro
@@ -176,6 +176,7 @@ def main(argv=None) -> int:
     s.add_argument('--wpa3', action='store_true')
     s = sub.add_parser('rete-cancella')
     s.add_argument('posto', type=int)
+    sub.add_parser('reti-vicine', help='cerca le reti WiFi visibili dal ricevitore (solo 2,4 GHz)')
     s = sub.add_parser('rete-prova', help='prova una rete salvata (password, indirizzo, internet)')
     s.add_argument('posto', type=int, help='1-5')
     s = sub.add_parser('wol')
@@ -257,6 +258,18 @@ def main(argv=None) -> int:
             ps.salva_rete(args.posto - 1, args.ssid, args.password, args.wpa3)
         elif c == 'rete-cancella':
             ps.cancella_rete(args.posto - 1)
+        elif c == 'reti-vicine':
+            ps.cerca_reti()
+            fine = time.monotonic() + 20
+            while True:
+                viste = ps.reti_viste()
+                if viste.finita or time.monotonic() > fine:
+                    break
+                time.sleep(0.5)
+            if not viste.reti:
+                print('nessuna rete rilevata (il ricevitore vede solo le reti a 2,4 GHz)')
+            for r in viste.reti:
+                print(f'{r.ssid:<33} {r.rssi:>4} dBm  canale {r.canale:>2}  {"aperta" if r.aperta else "protetta"}')
         elif c == 'rete-prova':
             ps.prova_rete(args.posto - 1)
             while True:

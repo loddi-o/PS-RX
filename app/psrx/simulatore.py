@@ -35,6 +35,7 @@ class PicoSimulato:
         self.wol = [bytes(6), bytes(6)]
         self.rete_stato = p.RETE_SPENTA
         self.prova = None   # (indice, istante d'inizio) della prova del WiFi
+        self.scansione = None   # istante d'inizio della ricerca delle reti
         self.wol_inviati = 0
         self.eventi: List[bytes] = []
         self.numero_evento = 0
@@ -112,6 +113,16 @@ class PicoSimulato:
             nuovi = [e for e in self.eventi if ((struct.unpack_from('<H', e)[0] - indice) & 0xFFFF) not in (0,) and
                      ((struct.unpack_from('<H', e)[0] - indice) & 0xFFFF) < 0x8000]
             return bytes([len(nuovi)]) + b''.join(nuovi)
+        if comando == p.CMD_RETI_VISTE:
+            if self.scansione is None:
+                return bytes([p.SCAN_NESSUNA, 0]) + bytes(p.DIM_RETI_VISTE - 2)
+            if time.monotonic() - self.scansione < 1.0:
+                return bytes([p.SCAN_IN_CORSO, 0]) + bytes(p.DIM_RETI_VISTE - 2)
+            viste = [('Casa', -48, 6, 4), ('Vicino', -71, 11, 4), ('Bar ospiti', -83, 1, 0)]
+            b = bytes([p.SCAN_FINITA, len(viste)])
+            for ssid, rssi, canale, sic in viste:
+                b += struct.pack(p.FMT_RETE_VISTA, ssid.encode(), rssi, canale, sic)
+            return b.ljust(p.DIM_RETI_VISTE, b'\0')
         if comando == p.CMD_PROVA_RETE:
             if self.prova is None:
                 return struct.pack(p.FMT_PROVA_RETE, 0, 0, -1, 0, bytes(4), bytes(4), 0, 0)
@@ -214,6 +225,11 @@ class PicoSimulato:
             return
         if comando == p.CMD_WOL_DESTINAZIONI:
             self.wol = [dati[:6], dati[6:12]]
+            return
+        if comando == p.CMD_CERCA_RETI:
+            if self.pad_connessi():
+                self._rifiuta(p.ERR_PAD_CONNESSO, comando)
+            self.scansione = time.monotonic()
             return
         if comando == p.CMD_RETE_PROVA:
             if indice >= p.RETI_MAX or not self.reti[indice]['ssid']:

@@ -350,6 +350,18 @@ class Plugin:
             return {'errore': 'MAC non valido (formato AA:BB:CC:DD:EE:FF)'}
         return await self._azione(self.ps.destinazioni_wol, mac1.upper(), mac2.upper())
 
+    async def cerca_reti(self) -> dict:
+        return await self._azione(self.ps.cerca_reti)
+
+    async def reti_viste(self) -> dict:
+        try:
+            v = await self._usb(self.ps.reti_viste)
+        except Exception as ex:  # noqa: BLE001
+            return _errore(ex)
+        return {'finita': v.finita, 'annullata': v.stato == p.SCAN_ANNULLATA,
+                'reti': [{'ssid': r.ssid, 'rssi': r.rssi, 'canale': r.canale, 'aperta': r.aperta, 'tacche': r.tacche}
+                         for r in v.reti]}
+
     async def prova_rete(self, indice: int) -> dict:
         return await self._azione(self.ps.prova_rete, int(indice))
 

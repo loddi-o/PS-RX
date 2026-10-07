@@ -77,6 +77,9 @@ const destinazioniWol = callable<[string, string], Errore>("destinazioni_wol");
 const provaWol = callable<[], Errore>("prova_wol");
 interface EsitoProva extends Errore { fase?: number; finita?: boolean; ok?: boolean; descrizione?: string }
 const provaRete = callable<[number], Errore>("prova_rete");
+interface ReteVista { ssid: string; rssi: number; canale: number; aperta: boolean; tacche: number }
+const cercaReti = callable<[], Errore>("cerca_reti");
+const retiViste = callable<[], Errore & { finita?: boolean; annullata?: boolean; reti?: ReteVista[] }>("reti_viste");
 const esitoProvaRete = callable<[], EsitoProva>("esito_prova_rete");
 
 // Prova di una rete salvata: avvia e segue fino all'esito (al massimo 70 s), poi una notifica.
@@ -223,9 +226,9 @@ function ModaleController(props: { ab: Abbinato; schema: Voce[]; closeModal?: ()
   );
 }
 
-function ModaleRete(props: { rete: Rete; closeModal?: () => void; fatto: () => void }) {
+function ModaleRete(props: { rete: Rete; ssid?: string; closeModal?: () => void; fatto: () => void }) {
   const { rete } = props;
-  const [ssid, setSsid] = useState(rete.ssid);
+  const [ssid, setSsid] = useState(props.ssid || rete.ssid);
   const [pw, setPw] = useState("");
   const [wpa3, setWpa3] = useState(rete.wpa3);
   return (
@@ -320,6 +323,30 @@ function SezioneRete(props: { st: Stato }) {
   const { st } = props;
   const [reti, setReti] = useState<Reti | null>(null);
   const [prova, setProva] = useState<{ indice: number; testo: string } | null>(null);
+  const [viste, setViste] = useState<ReteVista[] | null>(null);
+  const [cercando, setCercando] = useState(false);
+  const cerca = async () => {
+    setCercando(true);
+    if (await esegui(cercaReti())) {
+      for (const fine = Date.now() + 25000; Date.now() < fine;) {
+        await new Promise((r) => setTimeout(r, 700));
+        const v = await retiViste();
+        if (v.errore) { avviso("PS-RX", v.errore); break; }
+        if (v.finita) {
+          if (v.annullata) avviso("PS-RX", "Ricerca interrotta: riprova senza controller collegati.");
+          setViste(v.reti ?? []);
+          break;
+        }
+      }
+    }
+    setCercando(false);
+  };
+  const usa = (v: ReteVista) => {
+    const elenco = reti?.reti ?? [];
+    const posto = elenco.find((r) => r.ssid === v.ssid) ?? elenco.find((r) => !r.ssid);
+    if (!posto) { avviso("PS-RX", "Già 5 reti salvate: eliminane una."); return; }
+    showModal(<ModaleRete rete={posto} ssid={v.ssid} fatto={carica} />);
+  };
   const carica = async () => { const r = await leggiReti(); if (!r.errore) setReti(r); };
   useEffect(() => { carica(); }, []);
   const wol = st.ms_da_ultimo_wol === null ? "mai" : `${durata(Math.floor(st.ms_da_ultimo_wol / 1000))} fa`;
@@ -355,6 +382,25 @@ function SezioneRete(props: { st: Stato }) {
               Elimina
             </ButtonItem>
           )}
+        </PanelSectionRow>
+      ))}
+      <PanelSectionRow>
+        <ButtonItem layout="below" disabled={cercando || st.pad_connessi > 0} onClick={cerca}
+          description={st.pad_connessi > 0 ? "Spegni i controller: con un controller il WiFi è spento." :
+            "Reti visibili dal ricevitore (solo 2,4 GHz). Scegline una per salvarla."}>
+          {cercando ? "Ricerca..." : "Cerca reti"}
+        </ButtonItem>
+      </PanelSectionRow>
+      {viste !== null && viste.length === 0 && (
+        <PanelSectionRow><Field description="Nessuna rete rilevata: il router trasmette a 2,4 GHz?" /></PanelSectionRow>
+      )}
+      {(viste ?? []).map((v) => (
+        <PanelSectionRow key={v.ssid}>
+          <ButtonItem layout="below" label={v.ssid}
+            description={`${"▮".repeat(v.tacche)}${"▯".repeat(4 - v.tacche)} ${v.rssi} dBm · canale ${v.canale} · ${v.aperta ? "aperta" : "protetta"}`}
+            onClick={() => usa(v)}>
+            Usa questa rete
+          </ButtonItem>
         </PanelSectionRow>
       ))}
       <PanelSectionRow>

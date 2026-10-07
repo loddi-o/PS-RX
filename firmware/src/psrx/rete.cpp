@@ -54,6 +54,11 @@ struct StatoProva {
 };
 StatoProva prova;
 
+// Reti rilevate (rete.h).
+ScansionePsrx scansione{};
+uint32_t t_scansione = 0;
+constexpr uint32_t T_SCANSIONE_MAX_MS = 15000;
+
 constexpr uint32_t T_JOIN_MAX_MS = 20000;       // tempo massimo per connettersi a una rete
 constexpr uint32_t T_PROVA_IP_MS = 15000;       // indirizzo dal router
 constexpr uint32_t T_PROVA_DNS_MS = 1500;       // fra una domanda DNS e l'altra
@@ -279,6 +284,49 @@ void sorveglia_prova(uint32_t ora) {
     }
 }
 
+// --- reti rilevate -------------------------------------------------------------------------------
+int risultato_scansione(void *, const cyw43_ev_scan_result_t *r) {
+    if (!r || r->ssid_len == 0 || r->ssid_len > 32) return 0;   // reti nascoste: niente nome
+    char ssid[33] = {};
+    memcpy(ssid, r->ssid, r->ssid_len);
+    const int8_t rssi = static_cast<int8_t>(r->rssi < -127 ? -127 : r->rssi > 0 ? 0 : r->rssi);
+    ReteVista *dove = nullptr;
+    for (uint8_t i = 0; i < scansione.n; i++) {
+        if (strcmp(scansione.reti[i].ssid, ssid) == 0) {
+            if (rssi <= scansione.reti[i].rssi) return 0;   // stessa rete, segnale peggiore (altro access point)
+            dove = &scansione.reti[i];
+            break;
+        }
+    }
+    if (!dove && scansione.n < RETI_VISTE_MAX) dove = &scansione.reti[scansione.n++];
+    if (!dove) {   // elenco pieno: sostituisce la piu' debole, se questa e' piu' forte
+        ReteVista *debole = &scansione.reti[0];
+        for (auto &v : scansione.reti) if (v.rssi < debole->rssi) debole = &v;
+        if (rssi <= debole->rssi) return 0;
+        dove = debole;
+    }
+    memcpy(dove->ssid, ssid, sizeof ssid);
+    dove->rssi = rssi;
+    dove->canale = static_cast<uint8_t>(r->channel);
+    dove->sicurezza = r->auth_mode;
+    return 0;
+}
+
+void sorveglia_scansione(uint32_t ora) {
+    if (cyw43_wifi_scan_active(&cyw43_state) && ora - t_scansione < T_SCANSIONE_MAX_MS) return;
+    scansione.stato = SCAN_FINITA;
+    // dalla piu' forte alla piu' debole
+    for (uint8_t i = 1; i < scansione.n; i++) {
+        for (uint8_t j = i; j > 0 && scansione.reti[j].rssi > scansione.reti[j - 1].rssi; j--) {
+            const ReteVista t = scansione.reti[j];
+            scansione.reti[j] = scansione.reti[j - 1];
+            scansione.reti[j - 1] = t;
+        }
+    }
+    psrx_log("WiFi: %u reti rilevate", scansione.n);
+    t_prossimo_tentativo = ora;   // si riprende a collegarsi alle reti salvate
+}
+
 } // namespace
 
 // --- interfaccia di wifi_net.h (usata da main.cpp) --------------------------------------------
@@ -325,10 +373,12 @@ void wifi_net_task() {
     if (d.wifi_acceso && !radio_accesa) accendi();
     if (!d.wifi_acceso && radio_accesa) {
         if (prova.attiva) fine_prova(ESITO_ANNULLATA, ora);   // un controller si e' collegato
+        if (scansione.stato == SCAN_IN_CORSO) scansione.stato = SCAN_ANNULLATA;
         spegni();
     }
     if (radio_accesa) {
-        if (prova.attiva) sorveglia_prova(ora);
+        if (scansione.stato == SCAN_IN_CORSO) sorveglia_scansione(ora);
+        else if (prova.attiva) sorveglia_prova(ora);
         else sorveglia_join(ora);
     }
 }
@@ -407,4 +457,26 @@ bool rete_avvia_prova(uint8_t indice) {
 void rete_esito_prova(ProvaRete *out) {
     *out = prova.esito;
     if (prova.attiva) out->ms_totale = static_cast<uint16_t>(ora_ms() - prova.t_inizio);
+}
+
+bool rete_avvia_scansione() {
+    if (!radio_accesa || prova.attiva || scansione.stato == SCAN_IN_CORSO) return false;
+    if (join_in_corso) {   // un collegamento a meta' impedisce la scansione: lo si riprende dopo
+        cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+        join_in_corso = false;
+    }
+    scansione = ScansionePsrx{};
+    cyw43_wifi_scan_options_t opzioni = {};
+    if (cyw43_wifi_scan(&cyw43_state, &opzioni, nullptr, risultato_scansione) != 0) {
+        scansione.stato = SCAN_ANNULLATA;
+        return false;
+    }
+    scansione.stato = SCAN_IN_CORSO;
+    t_scansione = ora_ms();
+    psrx_log("WiFi: ricerca delle reti");
+    return true;
+}
+
+void rete_scansione(ScansionePsrx *out) {
+    *out = scansione;
 }
