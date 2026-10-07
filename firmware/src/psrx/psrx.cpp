@@ -15,6 +15,7 @@
 #include "salvataggio.h"
 #include "servizio_usb.h"
 #include "uart_asincrona.h"
+#include "steam_usb.h"
 #include "xbox.h"
 
 #include "pico/time.h"
@@ -35,6 +36,7 @@ void psrx_task() {
     posti_task(ora);
     mouse_task();
     xbox_task();
+    steam_task(ora);
     pad_task(ora);
     servizio_usb_task();
     salvataggio_task();

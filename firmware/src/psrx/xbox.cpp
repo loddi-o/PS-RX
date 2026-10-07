@@ -104,18 +104,12 @@ bool x_xfer(uint8_t rhport, uint8_t ep, xfer_result_t risultato, uint32_t n) {
     return true;   // report IN consegnato: niente da fare
 }
 
-const usbd_class_driver_t driver_xinput = {
-    "PSRX-XINPUT", x_init, x_deinit, x_reset, x_open, x_control, x_xfer, nullptr, nullptr,
-};
-
 } // namespace
 
-// TinyUSB: driver dell'applicazione, provati prima di quelli interni (HID, audio, vendor). Il nostro
-// prende solo le interfacce FF/5D/01, quindi in modalita' PlayStation non cambia nulla.
-usbd_class_driver_t const *usbd_app_driver_get_cb(uint8_t *quanti) {
-    *quanti = 1;
-    return &driver_xinput;
-}
+// Prende solo le interfacce FF/5D/01: in modalita' PlayStation non cambia nulla (vedi driver_usb.cpp).
+extern const usbd_class_driver_t psrx_driver_xinput = {
+    "PSRX-XINPUT", x_init, x_deinit, x_reset, x_open, x_control, x_xfer, nullptr, nullptr,
+};
 
 void xbox_descrittore_interfaccia(uint8_t *dest, uint8_t posto) {
     const uint8_t ep_in = static_cast<uint8_t>(0x81 + posto);

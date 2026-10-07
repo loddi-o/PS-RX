@@ -28,7 +28,10 @@ bool pad_setup_bt() { return bt_setup_attivo(); }
 
 void pad_avvia_abbinamento() { bt_start_pairing(); }
 bool pad_finestra_abbinamento() { return bt_pairing_window_open(); }
-void pad_spegni(uint8_t posto) { bt_slot_power_off(posto); }
+void pad_spegni(uint8_t posto) {
+    if (bt_slot_ds4(posto)) bt_disconnetti_posto(posto);   // il DualShock 4 si spegne da solo, scollegato
+    else bt_slot_power_off(posto);
+}
 void pad_spegni_tutti() { bt_dualsense_power_off(); }
 
 void pad_info(uint8_t posto, PadPerEventi &out) {

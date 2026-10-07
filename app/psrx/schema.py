@@ -14,11 +14,12 @@ IMPOSTAZIONI = [
     {
         'id': p.IMP_MODALITA, 'chiave': 'modalita', 'tipo': 'scelta', 'sezione': 'sistema', 'riconnette': True,
         'titolo': 'Modalità del ricevitore',
-        'opzioni': [(0, 'PlayStation'), (1, 'Xbox'), (2, 'Steam Controller (sperimentale)')],
+        'opzioni': [(0, 'PlayStation'), (1, 'Xbox'), (2, 'Steam Controller 2026 (sperimentale)')],
         'predefinito': 0,
         'nota': 'Come il PC vede i controller. PlayStation: DualSense (anche il DualShock 4), con tutto. Xbox: '
                 'controller Xbox 360 (XInput), senza giroscopio e audio; il touchpad funziona solo come mouse. '
-                'Steam: mouse e tastiera finché Steam non lo prende.',
+                'Steam: ogni controller diventa un nuovo Steam Controller (2026), con giroscopio e il touchpad '
+                'diviso nei due trackpad; funziona solo con Steam aperto.',
     },
     {
         'id': p.IMP_POSTI_FISSI, 'chiave': 'posti_fissi', 'tipo': 'booleano', 'sezione': 'sistema', 'riconnette': True,

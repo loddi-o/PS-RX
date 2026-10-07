@@ -31,6 +31,7 @@
 #include "psrx/servizio_usb.h"
 #include "psrx/protocollo.h"
 #include "psrx/xbox.h"
+#include "psrx/steam_usb.h"
 
 bool ds_mode() {
     if (get_config().controller_mode == 2) {
@@ -157,6 +158,7 @@ tusb_desc_device_t desc_device =
 bool usb_descriptor_variant_is_full(void);
 static uint16_t usb_active_bcd_device(void);
 static bool usb_xbox_servita(void);
+bool usb_steam_servita(void);
 uint8_t usb_xbox_posti(void);
 #endif
 
@@ -170,6 +172,15 @@ uint8_t const *tud_descriptor_device_cb(void) {
     if (usb_xbox_servita()) {
         desc_device.idVendor = XBOX_VID;
         desc_device.idProduct = XBOX_PID;
+    }
+    // PS-RX: modalita' Steam, dongle del nuovo Steam Controller; IAD per le interfacce di configurazione.
+    const bool steam = usb_steam_servita();
+    desc_device.bDeviceClass = steam ? TUSB_CLASS_MISC : 0x00;
+    desc_device.bDeviceSubClass = steam ? MISC_SUBCLASS_COMMON : 0x00;
+    desc_device.bDeviceProtocol = steam ? MISC_PROTOCOL_IAD : 0x00;
+    if (steam) {
+        desc_device.idVendor = STEAM_VID;
+        desc_device.idProduct = STEAM_PID;
     }
     // S3-wake wedge fix. Per Microsoft's USB docs, the
     // Windows hub driver CACHES a device's descriptors keyed on
@@ -664,11 +675,12 @@ typedef struct {
     // desc_target_differs() can't see a stale count.
     uint8_t multi_slots;
     bool xbox;                // PS-RX: modalita' Xbox (interfacce XInput al posto di audio e HID; mai tastiera)
+    bool steam;               // PS-RX: modalita' Steam (dongle con 4 posti fissi; mai tastiera ne' mouse)
 } usb_desc_target;
 // Field-wise volatile access is enough: all fields are only written from
 // main-loop context (BT event handlers, httpd POST handlers, usb_variant_task).
-static volatile usb_desc_target active_target  = {DESC_VARIANT_MINIMAL, false, false, 0, false};
-static volatile usb_desc_target desired_target = {DESC_VARIANT_MINIMAL, false, false, 0, false};
+static volatile usb_desc_target active_target  = {DESC_VARIANT_MINIMAL, false, false, 0, false, false};
+static volatile usb_desc_target desired_target = {DESC_VARIANT_MINIMAL, false, false, 0, false, false};
 
 bool usb_descriptor_variant_is_full(void) {
     return active_target.variant == DESC_VARIANT_FULL;
@@ -677,10 +689,13 @@ bool usb_descriptor_variant_is_full(void) {
 // gets a distinct value so no swap can be answered from a stale cache (see
 // tud_descriptor_device_cb).
 static bool usb_xbox_servita(void) { return active_target.xbox; }
+bool usb_steam_servita(void) { return active_target.steam; }
+uint8_t usb_steam_posti(void) { return active_target.steam ? STEAM_POSTI : 0; }
 
 static uint16_t usb_active_bcd_device(void) {
     uint16_t bcd;
     // PS-RX: modalita' Xbox, un valore per numero di interfacce XInput (altro VID/PID, nessun conflitto).
+    if (active_target.steam) return STEAM_BCD;   // come il dongle vero (altro VID/PID, nessun conflitto)
     if (active_target.xbox) return (uint16_t) (0x0200 + usb_xbox_posti() + (active_target.mouse ? 0x80 : 0));
     switch (active_target.variant) {
         case DESC_VARIANT_MINIMAL: bcd = 0x0101; break;
@@ -715,7 +730,7 @@ bool usb_wake_kbd_active(void) { return active_target.kbd; }
 // variant): MULTI exposes the latched high-water count, FULL exactly one,
 // MINIMAL none.
 uint8_t usb_active_gamepad_slots(void) {
-    if (active_target.xbox) return 0;   // PS-RX: nessun gamepad HID in modalita' Xbox (vedi usb_xbox_posti)
+    if (active_target.xbox || active_target.steam) return 0;   // PS-RX: nessun gamepad HID di DS5-Linux-Bridge
     switch (active_target.variant) {
 #if MULTI_SLOT_COUNT > 1
         case DESC_VARIANT_FISSO:   return MULTI_SLOT_COUNT;   // PS-RX
@@ -856,6 +871,7 @@ void usb_request_wake_kbd(bool enabled) { desired_target.kbd = enabled; }
 // PS-RX: mouse del touchpad (almeno un controller abbinato con "touchpad come mouse").
 void usb_request_mouse(bool enabled) { desired_target.mouse = enabled; }
 void usb_request_xbox(bool enabled) { desired_target.xbox = enabled; }
+void usb_request_steam(bool enabled) { desired_target.steam = enabled; }
 // One-time boot init, called after config_load() and BEFORE the first
 // tud_connect(): seed BOTH desired and active with the persisted kbd choice so
 // the very first enumeration already matches the config (no cosmetic bounce a
@@ -865,14 +881,17 @@ void usb_descriptor_init_from_config(void) {
     desired_target.kbd = kbd;
     // PS-RX: modalita' Xbox fin dalla prima enumerazione; in modalita' Xbox niente tastiera.
     const bool xbox = get_config().psrx_modalita == PSRX_MODALITA_XBOX;
+    const bool steam = get_config().psrx_modalita == PSRX_MODALITA_STEAM;
     desired_target.xbox = xbox;
     active_target.xbox = xbox;
-    active_target.kbd  = kbd && !xbox;
+    desired_target.steam = steam;
+    active_target.steam = steam;
+    active_target.kbd  = kbd && !xbox && !steam;
     // PS-RX: posti fissi e mouse fin dalla prima enumerazione (niente ricollegamenti dopo l'avvio).
     bool mouse = false;
     for (const auto &p : get_config().psrx_pad) mouse = mouse || p.trackpad;
     desired_target.mouse = mouse;
-    active_target.mouse = mouse;
+    active_target.mouse = mouse && !steam;
 #if MULTI_SLOT_COUNT > 1
     if (get_config().psrx_posti_fissi) {
         desired_target.variant = DESC_VARIANT_FISSO;
@@ -890,7 +909,11 @@ bool usb_host_suspended(void)          { return host_suspended_flag; }
 bool usb_variant_swap_in_progress(void) { return swap_state != SWAP_IDLE; }
 
 static bool desc_target_differs(void) {
-    return desired_target.variant != active_target.variant ||
+    // PS-RX: in modalita' Steam la forma USB e' sempre la stessa (4 posti fissi, niente tastiera e mouse):
+    // le richieste di variante dei controller che arrivano non la cambiano.
+    if (desired_target.steam && active_target.steam) return false;
+    return desired_target.steam != active_target.steam ||
+           desired_target.variant != active_target.variant ||
            (desired_target.kbd && !desired_target.xbox) != active_target.kbd ||
            desired_target.xbox != active_target.xbox ||
            desired_target.mouse != active_target.mouse ||
@@ -961,9 +984,10 @@ void usb_variant_task(void) {
             // MINIMAL->FULL swap enumerate cleanly instead of reusing a stale
             // cached MINIMAL.
             active_target.variant     = desired_target.variant;
-            active_target.kbd         = desired_target.kbd && !desired_target.xbox;
-            active_target.mouse       = desired_target.mouse;
+            active_target.kbd         = desired_target.kbd && !desired_target.xbox && !desired_target.steam;
+            active_target.mouse       = desired_target.mouse && !desired_target.steam;
             active_target.xbox        = desired_target.xbox;
+            active_target.steam       = desired_target.steam;
             active_target.multi_slots = desired_target.multi_slots;
             // Audio alt-setting state resets with the bus: variants without an
             // audio function (MINIMAL/MULTI) never receive the SET_INTERFACE
@@ -1147,6 +1171,11 @@ static const uint8_t *descrittore_xbox(void) {
 }
 
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
+    if (active_target.steam) {   // PS-RX: forma completa del dongle Steam, configurazione sull'interfaccia 0
+        itf_vendor = 0;
+        inst_mouse = 0xFF;
+        return steam_descrittore_configurazione();
+    }
     const uint8_t *base = active_target.xbox ? descrittore_xbox() : descrittore_dlb(index);
     const uint16_t len = static_cast<uint16_t>(base[2] | base[3] << 8);
     const uint8_t n_itf = base[4];
@@ -1647,6 +1676,10 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
         string_desc_arr[1] = "PS-RX";
         string_desc_arr[2] = "PS-RX (Xbox 360)";
     }
+    if (usb_steam_servita()) {  // PS-RX: come il dongle vero
+        string_desc_arr[1] = "Valve Software";
+        string_desc_arr[2] = "Steam Controller Puck";
+    }
 #endif
 
     switch (index) {
@@ -1656,6 +1689,14 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
             break;
 
         case STRID_SERIAL:
+#ifdef ENABLE_WAKE_HID
+            if (usb_steam_servita()) {   // PS-RX: seriale nel formato del dongle
+                const char *ser = steam_seriale_usb();
+                chr_count = strlen(ser);
+                for (size_t i = 0; i < chr_count; i++) _desc_str[1 + i] = ser[i];
+                break;
+            }
+#endif
             chr_count = board_usb_get_serial(_desc_str + 1, 32);
             break;
 
@@ -1757,7 +1798,7 @@ static uint8_t desc_bos_xbox[sizeof(desc_bos)];
 static uint16_t ms_os_xbox_len(void);
 
 uint8_t const *tud_descriptor_bos_cb(void) {
-    if (active_target.xbox) {
+    if (active_target.xbox || active_target.steam) {
         memcpy(desc_bos_xbox, desc_bos, sizeof desc_bos);
         const uint16_t len = ms_os_xbox_len();
         desc_bos_xbox[29] = (uint8_t) (len & 0xFF);
@@ -1902,7 +1943,7 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
     if (stage != CONTROL_STAGE_SETUP) return true;
     if (request->bRequest == MS_OS_20_VENDOR_CODE && request->wIndex == 7) {
         // wIndex == 7 -> MS_OS_20_DESCRIPTOR_INDEX
-        if (active_target.xbox) {   // PS-RX
+        if (active_target.xbox || active_target.steam) {   // PS-RX (Steam: solo la funzione di configurazione)
             const uint16_t len = prepara_ms_os_xbox();
             return tud_control_xfer(rhport, request, ms_os_xbox, len);
         }

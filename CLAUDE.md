@@ -68,7 +68,20 @@ pacchetti va detta all'utente con il costo misurato. Le alternative più leggere
    - Plugin Decky `app/decky`: zip con `strumenti/compila_decky.ps1`.
    - Pagina WebUSB `web/ps-rx.html`: lo schema lo inserisce `strumenti/genera_pagina.py` e un test controlla
      che sia aggiornato.
-8. **Modalità Steam Controller (sperimentale):** da fare.
+8. **Modalità Steam (sperimentale):** firmware scritto (`steam.cpp` puro e testato, `steam_usb.cpp`), **non provato
+   con Steam**. Si intende il **nuovo Steam Controller (2026)**, con due stick.
+   - Il ricevitore si presenta come il suo dongle (28DE:1304, bcdDevice 2, "Valve Software" / "Steam Controller
+     Puck"). Interfacce 0-1: configurazione PS-RX (IAD, WinUSB); 2-5: i 4 posti HID, sempre presenti. Collegare
+     un pad manda il report 0x79 e non ricollega mai l'USB.
+   - Ogni pad diventa uno Steam Controller: report 0x45; il touchpad diviso in due trackpad; giroscopio;
+     mute = menu rapido; levette dell'Edge = L4/R4. Vibrazione dal report 0x80; il comando di Steam "spegni"
+     (0x9F) spegne il pad.
+   - Risposte ai comandi feature: attributi 0x83 e stringhe 0xAE del controller vero (da openpuck), eco per il
+     resto. I comandi di riavvio e aggiornamento non fanno nulla.
+   - Fonti: SDL3 `SDL_hidapi_steam_triton.c`, CouchTurtle/sc2-research, safijari/openpuck (AGPL: usato come
+     documentazione, codice nostro).
+   - Rischi: funziona solo con Steam aperto; Steam potrebbe proporre aggiornamenti del firmware, che non hanno
+     effetto; le scale del giroscopio e dei trackpad sono da verificare.
 9. **Documenti e release GitHub:** da fare.
 
 **Prove sull'hardware:** nessuna finora. Primo flash con BOOTSEL e `strumenti/flash.ps1`. Poi:

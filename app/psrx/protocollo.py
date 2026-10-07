@@ -26,8 +26,7 @@ IDENTITA = [
     (0x054C, 0x0CE6),   # PlayStation: DualSense
     (0x054C, 0x0DF2),   # PlayStation: DualSense Edge
     (0x1209, 0x0001),   # Xbox: composito con interfacce XInput (pid.codes, vedi firmware/src/psrx/xbox.h)
-    (0x28DE, 0x1102),   # Steam Controller (cablato)
-    (0x28DE, 0x1142),   # Steam Controller (ricevitore)
+    (0x28DE, 0x1304),   # Steam: dongle del nuovo Steam Controller (firmware/src/psrx/steam_usb.h)
 ]
 GUID_INTERFACCIA = '{6F1D2C3B-8A4E-4C59-9B7A-52A1D3E0C7F1}'   # Windows: interfaccia WinUSB di PS-RX
 

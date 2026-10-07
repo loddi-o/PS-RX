@@ -35,6 +35,8 @@ void mouse_task() {
     // L'interfaccia mouse c'e' se almeno un controller abbinato ha l'opzione attiva.
     bool voluto = false;
     for (const auto &p : get_config().psrx_pad) voluto = voluto || p.trackpad;
+    // In modalita' Steam i trackpad li gestisce Steam: niente mouse nostro.
+    if (get_config().psrx_modalita == PSRX_MODALITA_STEAM) voluto = false;
     if (voluto != mouse_voluto || primo) {
         primo = false;
         mouse_voluto = voluto;

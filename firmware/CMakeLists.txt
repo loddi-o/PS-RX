@@ -191,6 +191,9 @@ target_sources(ds5-bridge PRIVATE
         src/psrx/servizio_usb.cpp
         src/psrx/trackpad.cpp
         src/psrx/uart_asincrona.cpp
+        src/psrx/driver_usb.cpp
+        src/psrx/steam.cpp
+        src/psrx/steam_usb.cpp
         src/psrx/xbox.cpp
         src/psrx/xinput.cpp
 )

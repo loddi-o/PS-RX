@@ -19,6 +19,7 @@
 #include "psrx_config.h"
 #include "trackpad.h"
 #include "xinput.h"
+#include "steam.h"
 
 namespace {
 
@@ -696,6 +697,81 @@ void test_xinput() {
     VERIFICA(!xinput_vibrazione(vib, 4, &forte, &debole));
 }
 
+// --- Modalita' Steam: DualSense -> Steam Controller (2026) ---------------------------------------
+
+uint32_t tasti_steam(const uint8_t *p) { return p[1] | p[2] << 8 | p[3] << 16 | static_cast<uint32_t>(p[4]) << 24; }
+
+void test_steam() {
+    printf("[test] modalita' Steam (Steam Controller 2026)\n");
+    uint8_t ds[63] = {};
+    ds[0] = 128; ds[1] = 128; ds[2] = 128; ds[3] = 128; ds[7] = 0x08;
+    ds[32] = 0x80; ds[36] = 0x80;                 // nessun dito sul touchpad
+    uint8_t p[STEAM_LEN_STATO];
+    steam_da_dualsense(ds, 7, 123456, p);
+    VERIFICA(p[0] == 7 && tasti_steam(p) == 0);
+    VERIFICA(leggi16(p + 9) == 0 && leggi16(p + 11) == 0 && leggi16(p + 13) == 0 && leggi16(p + 15) == 0);
+    VERIFICA((p[29] | p[30] << 8 | p[31] << 16 | static_cast<uint32_t>(p[32]) << 24) == 123456);
+    // stick: Y positivo in alto; grilletti 0..32640 con click a fine corsa
+    ds[1] = 0; ds[2] = 255; ds[4] = 255; ds[5] = 100;
+    steam_da_dualsense(ds, 0, 0, p);
+    VERIFICA(leggi16(p + 11) == 32767 && leggi16(p + 13) == 32766);
+    VERIFICA(static_cast<uint16_t>(leggi16(p + 5)) == 32640 && leggi16(p + 7) == 12800);
+    VERIFICA((tasti_steam(p) & TRI_CLICK_GRILLETTO_SX) && !(tasti_steam(p) & TRI_CLICK_GRILLETTO_DX));
+    // tasti
+    ds[4] = 0; ds[5] = 0;
+    ds[7] = 0x20 | 0x40 | 0x10 | 0x80 | 0x05;     // croce cerchio quadrato triangolo, croce direzionale giu'-sinistra
+    ds[8] = 0x01 | 0x02 | 0x10 | 0x20 | 0x40 | 0x80;
+    ds[9] = 0x01 | 0x04 | 0x40 | 0x80;            // PS, microfono, levette dell'Edge
+    steam_da_dualsense(ds, 0, 0, p);
+    const uint32_t atteso = TRI_A | TRI_B | TRI_X | TRI_Y | TRI_SINISTRA | TRI_GIU | TRI_LB | TRI_RB | TRI_VIEW |
+                            TRI_MENU | TRI_L3 | TRI_R3 | TRI_STEAM | TRI_QAM | TRI_L4 | TRI_R4;
+    VERIFICA(tasti_steam(p) == atteso);
+    // touchpad: un dito a sinistra in alto, uno a destra in basso, click
+    ds[7] = 0x08; ds[8] = 0; ds[9] = 0x02;
+    ds[32] = 0x01; ds[33] = 0; ds[34] = 0x00; ds[35] = 0;          // x 0, y 0
+    ds[36] = 0x02; ds[37] = 0x7F; ds[38] = 0x77; ds[39] = 0x43;    // x 0x77F = 1919, y 0x437 = 1079
+    steam_da_dualsense(ds, 0, 0, p);
+    VERIFICA(leggi16(p + 17) == -32768 && leggi16(p + 19) == 32767);
+    VERIFICA(leggi16(p + 23) == 32767 && leggi16(p + 25) == -32768);
+    const uint32_t tp = TRI_TOCCO_PAD_SX | TRI_TOCCO_PAD_DX | TRI_CLICK_PAD_SX | TRI_CLICK_PAD_DX;
+    VERIFICA((tasti_steam(p) & tp) == tp);
+    // vibrazione
+    const uint8_t vib[9] = {0, 0, 0, 0x34, 0x12, 0, 0xCD, 0xAB, 0};
+    uint16_t sx = 0, dx = 0;
+    VERIFICA(steam_vibrazione(vib, sizeof vib, &sx, &dx) && sx == 0x1234 && dx == 0xABCD);
+    VERIFICA(!steam_vibrazione(vib, 5, &sx, &dx));
+    // comandi di Steam
+    SteamIdentita id{};
+    const uint8_t mac[6] = {1, 2, 3, 4, 5, 6};
+    steam_seriali(mac, 6, 'A', id.seriale_pad, id.scheda_pad, &id.uuid_pad);
+    VERIFICA(strncmp(id.seriale_pad, "FXA99602", 8) == 0 && strlen(id.seriale_pad) == 13);
+    id.collegato = true;
+    uint8_t r[STEAM_LEN_FEATURE];
+    const uint8_t attr[2] = {0x83, 0};
+    VERIFICA(steam_comando(1, attr, 2, id, r) == STEAM_AZ_NESSUNA);
+    VERIFICA(r[0] == 0x83 && r[1] == 25 && r[2] == 0x01 && r[3] == 0x02 && r[4] == 0x13);
+    steam_comando(2, attr, 2, id, r);
+    VERIFICA(r[3] == 0x04);                        // attributi del dongle: 0x1304
+    const uint8_t ser[3] = {0xAE, 1, 1};
+    steam_comando(1, ser, 3, id, r);
+    VERIFICA(r[0] == 0xAE && r[1] == 0x14 && r[2] == 1 && memcmp(r + 3, id.seriale_pad, 13) == 0);
+    const uint8_t stato_radio[2] = {0xB4, 0};
+    steam_comando(2, stato_radio, 2, id, r);
+    VERIFICA(r[0] == 0xB4 && r[2] == 0x02);
+    const uint8_t off[6] = {0x9F, 4, 'o', 'f', 'f', '!'};
+    VERIFICA(steam_comando(1, off, 6, id, r) == STEAM_AZ_SPEGNI && r[0] == 0x9F);
+    const uint8_t lizard[5] = {0x87, 3, 9, 0, 0};
+    VERIFICA(steam_comando(1, lizard, 5, id, r) == STEAM_AZ_STEAM_ATTIVO);
+    const uint8_t bootloader[2] = {0x90, 0};
+    VERIFICA(steam_comando(1, bootloader, 2, id, r) == STEAM_AZ_NESSUNA && r[0] == 0x90);   // solo eco
+    uint8_t b[14];
+    steam_batteria(55, true, false, b);
+    VERIFICA(b[0] == 2 && b[1] == 55);
+    uint8_t s7b[12];
+    steam_stato_link(-60, s7b);
+    VERIFICA(static_cast<int8_t>(s7b[8]) == -60 && s7b[0] == 0xF7);
+}
+
 } // namespace
 
 int esegui_test_logica() {
@@ -711,6 +787,7 @@ int esegui_test_logica() {
     test_combo();
     test_trackpad();
     test_xinput();
+    test_steam();
     printf("[test] %d controlli, %d falliti: %s\n", controlli, fallimenti, fallimenti ? "ERRORE" : "OK");
     return fallimenti;
 }

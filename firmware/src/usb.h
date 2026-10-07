@@ -119,5 +119,9 @@ uint8_t usb_mouse_hid_instance(void);
 void usb_request_xbox(bool enabled);
 // Interfacce XInput servite (0 fuori dalla modalita' Xbox). In modalita' Xbox usb_active_gamepad_slots() = 0.
 uint8_t usb_xbox_posti(void);
+// Modalita' Steam (dongle del nuovo Steam Controller, 4 posti fissi): cambia la forma USB.
+void usb_request_steam(bool enabled);
+bool usb_steam_servita(void);
+uint8_t usb_steam_posti(void);
 
 #endif //DS5_BRIDGE_USB_H
