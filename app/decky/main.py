@@ -11,6 +11,10 @@ anche a pannello chiuso, una lettura "silenziosa" dello stato (il Pico non la co
 non interroga la radio); solo con eventi nuovi si leggono eventi e nomi. Il frontend le mostra come
 notifiche di Steam (evento "psrx_notifica").
 
+Aggiornamenti: ricerca sulle release di GitHub (all'avvio al massimo una volta al giorno, con notifica, e a
+richiesta), installazione del firmware scaricato e aggiornamento del plugin stesso (lo zip si estrae nella
+cartella del plugin, poi Decky Loader si riavvia).
+
 All'avvio installa la regola udev che permette anche alla riga di comando (senza root) di parlare col
 ricevitore.
 """
@@ -18,17 +22,24 @@ ricevitore.
 import asyncio
 import json
 import os
+import subprocess
+import tempfile
 import threading
+import time
+import zipfile
 
 import decky
 
-from psrx import VERSIONE_APP, permessi, protocollo as p, schema
+from psrx import VERSIONE_APP, aggiornamenti as ag, permessi, protocollo as p, schema
 from psrx.errori import ErrorePsrx, PermessoNegato, Scollegato
 from psrx.firmware import FirmwareNonValido, leggi as leggi_firmware
 from psrx.notifiche import Sorvegliante
 from psrx.servizio import Interrotto, Psrx
 
 INTERVALLO_NOTIFICHE_S = 2
+RITARDO_RICERCA_S = 30
+INTERVALLO_RICERCA_S = 24 * 3600
+CARTELLA_DOWNLOAD = os.path.join(tempfile.gettempdir(), 'ps-rx-aggiornamenti')
 FILE_IMPOSTAZIONI = 'impostazioni.json'
 
 
@@ -53,6 +64,8 @@ class Plugin:
         self.sorvegliante = Sorvegliante(self.ps)
         self.opzioni = self._leggi_opzioni()
         self.sorveglianza = self.loop.create_task(self._sorveglia())
+        self.controllo = None             # ultimo esito della ricerca degli aggiornamenti
+        self.ricerca_automatica = self.loop.create_task(self._ricerca_all_avvio())
         ok, messaggio = await asyncio.to_thread(permessi.installa_come_root) if not permessi.regola_installata() \
             else (True, 'regola udev gia\' presente')
         decky.logger.info(f'PS-RX plugin {VERSIONE_APP}: {messaggio}')
@@ -61,6 +74,7 @@ class Plugin:
         if self.caricatore:
             self.ferma_caricamento.set()
         self.sorveglianza.cancel()
+        self.ricerca_automatica.cancel()
         self.ps.chiudi()
 
     # --- opzioni del plugin (non del ricevitore) ----------------------------------------------------
@@ -68,7 +82,7 @@ class Plugin:
         return os.path.join(getattr(decky, 'DECKY_PLUGIN_SETTINGS_DIR', '.'), FILE_IMPOSTAZIONI)
 
     def _leggi_opzioni(self) -> dict:
-        opzioni = {'notifiche': True}
+        opzioni = {'notifiche': True, 'cerca_aggiornamenti': True, 'ultima_ricerca': 0}
         try:
             with open(self._percorso_opzioni()) as f:
                 opzioni.update(json.load(f))
@@ -90,6 +104,73 @@ class Plugin:
     async def imposta_notifiche(self, attive: bool) -> dict:
         self.opzioni['notifiche'] = bool(attive)
         self._salva_opzioni()
+        return {'ok': True}
+
+    async def cerca_aggiornamenti_attivo(self) -> bool:
+        return bool(self.opzioni.get('cerca_aggiornamenti', True))
+
+    async def imposta_cerca_aggiornamenti(self, attivo: bool) -> dict:
+        self.opzioni['cerca_aggiornamenti'] = bool(attivo)
+        self._salva_opzioni()
+        return {'ok': True}
+
+    # --- aggiornamenti da GitHub ----------------------------------------------------------------------
+    async def _ricerca_all_avvio(self) -> None:
+        await asyncio.sleep(RITARDO_RICERCA_S)
+        if not self.opzioni.get('cerca_aggiornamenti', True):
+            return
+        if time.time() - float(self.opzioni.get('ultima_ricerca', 0) or 0) < INTERVALLO_RICERCA_S:
+            return
+        esito = await self.aggiornamenti()
+        if esito.get('firmware_nuovo') or esito.get('plugin_nuovo'):
+            cosa = ' e '.join(x for x, s in (('firmware', esito['firmware_nuovo']), ('plugin', esito['plugin_nuovo'])) if s)
+            await decky.emit('psrx_notifica', 'PS-RX: aggiornamento disponibile',
+                             f'Versione {esito["versione"]} ({cosa}): menu di PS-RX, sezione Sistema.', False)
+
+    async def aggiornamenti(self) -> dict:
+        firmware = None
+        try:
+            firmware = (await self._usb(self.ps.info)).versione
+        except Exception:  # noqa: BLE001 - senza ricevitore si controlla solo il plugin
+            self.ps.chiudi()
+        try:
+            c = await asyncio.to_thread(ag.controlla, firmware, VERSIONE_APP, 'decky')
+        except ag.ErroreAggiornamento as e:
+            return {'errore': str(e)}
+        self.controllo = c
+        self.opzioni['ultima_ricerca'] = time.time()
+        self._salva_opzioni()
+        return {'versione': c.release.versione, 'pagina': c.release.pagina, 'note': c.release.note[:600],
+                'firmware_installato': firmware or '', 'firmware_nuovo': c.firmware_nuovo,
+                'plugin_installato': VERSIONE_APP, 'plugin_nuovo': c.app_nuova}
+
+    async def installa_firmware_github(self) -> dict:
+        if self.controllo is None or not self.controllo.firmware_nuovo:
+            return {'errore': 'cerca prima gli aggiornamenti'}
+        f = ag.file_firmware(self.controllo.release)
+        try:
+            percorso = await asyncio.to_thread(ag.scarica, f, CARTELLA_DOWNLOAD)
+        except ag.ErroreAggiornamento as e:
+            return {'errore': str(e)}
+        r = await self.prepara_firmware(percorso)
+        if r.get('errore'):
+            return r
+        return await self.carica_firmware()
+
+    async def aggiorna_plugin(self) -> dict:
+        if self.controllo is None or not self.controllo.app_nuova:
+            return {'errore': 'cerca prima gli aggiornamenti'}
+        cartella = getattr(decky, 'DECKY_PLUGIN_DIR', '')
+        if not cartella or not os.path.isdir(cartella):
+            return {'errore': 'cartella del plugin non trovata'}
+        try:
+            zip_ = await asyncio.to_thread(ag.scarica, self.controllo.release.file['decky'], CARTELLA_DOWNLOAD)
+            await asyncio.to_thread(estrai_plugin, zip_, cartella)
+        except (ag.ErroreAggiornamento, OSError, zipfile.BadZipFile, ValueError) as e:
+            return {'errore': f'aggiornamento del plugin non riuscito: {e}'}
+        decky.logger.info(f'PS-RX: plugin aggiornato a {self.controllo.release.versione}, riavvio Decky Loader')
+        # Riavvio di Decky Loader poco dopo, per lasciare il tempo alla risposta di arrivare al pannello.
+        self.loop.call_later(2, lambda: subprocess.Popen(['systemctl', 'restart', 'plugin_loader']))
         return {'ok': True}
 
     # --- notifiche ------------------------------------------------------------------------------------
@@ -291,3 +372,26 @@ class Plugin:
             self.ps.chiudi()
         decky.logger.info(f'PS-RX aggiornamento del firmware: {messaggio}')
         await decky.emit('psrx_avanzamento', 'fine' if ok else 'errore', 0, 0, messaggio)
+
+
+def estrai_plugin(zip_: str, cartella: str) -> None:
+    """Estrae lo zip del plugin (cartella ps-rx-decky/ al suo interno) sopra la cartella del plugin installato.
+    Prima controlla tutti i percorsi: niente file fuori dalla cartella."""
+    radice = os.path.realpath(cartella)
+    with zipfile.ZipFile(zip_) as z:
+        voci = []
+        for info in z.infolist():
+            parti = info.filename.split('/', 1)
+            if len(parti) < 2 or not parti[1] or info.is_dir():
+                continue
+            destinazione = os.path.realpath(os.path.join(radice, parti[1]))
+            if not destinazione.startswith(radice + os.sep):
+                raise ValueError(f'percorso non ammesso nello zip: {info.filename}')
+            voci.append((info, destinazione))
+        if not any(d.endswith(os.sep + 'plugin.json') for _, d in voci):
+            raise ValueError('lo zip non contiene un plugin')
+        for info, destinazione in voci:
+            os.makedirs(os.path.dirname(destinazione), exist_ok=True)
+            with z.open(info) as sorgente, open(destinazione + '.nuovo', 'wb') as out:
+                out.write(sorgente.read())
+            os.replace(destinazione + '.nuovo', destinazione)

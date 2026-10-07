@@ -9,6 +9,7 @@ PS-RX - riga di comando.
     python -m psrx eventi            (resta in ascolto e stampa le notifiche)
     python -m psrx registro
     python -m psrx carica firmware.uf2 | bootsel
+    python -m psrx aggiornamenti | aggiorna-firmware   (release su GitHub)
     python -m psrx regola-udev       (Linux: regola udev per l'accesso senza root)
 
 Con --simulatore usa un ricevitore finto (per provare senza hardware).
@@ -17,6 +18,7 @@ Con --simulatore usa un ricevitore finto (per provare senza hardware).
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 
@@ -74,6 +76,37 @@ def comando_carica(ps: Psrx, percorso: str) -> None:
     print('\nfatto: il ricevitore si riavvia col firmware nuovo (circa 15 s, non staccarlo)')
 
 
+def comando_aggiornamenti(ps: Psrx, installa: bool) -> int:
+    from . import aggiornamenti as ag
+    try:
+        installato = ps.info().versione
+    except Scollegato:
+        installato = None
+    try:
+        c = ag.controlla(installato)
+    except ag.ErroreAggiornamento as e:
+        print(f'ricerca non riuscita: {e}')
+        return 1
+    for riga in ag.riepilogo(c):
+        print(riga)
+    print(c.release.pagina)
+    if not installa:
+        return 0
+    f = ag.file_firmware(c.release)
+    if f is None:
+        print('la release non contiene il firmware')
+        return 1
+    if not c.firmware_nuovo:
+        print('il firmware installato è già il più recente')
+        return 0
+    import tempfile
+    percorso = ag.scarica(f, os.path.join(tempfile.gettempdir(), 'ps-rx'),
+                          lambda fatti, totali: print(f'\rdownload {fatti * 100 // max(totali, 1)}%', end='', flush=True))
+    print()
+    comando_carica(ps, percorso)
+    return 0
+
+
 def main(argv=None) -> int:
     a = argparse.ArgumentParser(prog='python -m psrx', description='Gestione del ricevitore PS-RX via USB')
     a.add_argument('--simulatore', action='store_true', help='usa un ricevitore simulato')
@@ -115,6 +148,8 @@ def main(argv=None) -> int:
     s.add_argument('file')
     sub.add_parser('bootsel')
     sub.add_parser('regola-udev')
+    sub.add_parser('aggiornamenti', help='cerca una nuova versione su GitHub')
+    sub.add_parser('aggiorna-firmware', help='scarica da GitHub e installa l\'ultimo firmware')
     args = a.parse_args(argv)
 
     if args.comando == 'regola-udev':
@@ -194,6 +229,8 @@ def main(argv=None) -> int:
             comando_carica(ps, args.file)
         elif c == 'bootsel':
             ps.bootsel_ora()
+        elif c in ('aggiornamenti', 'aggiorna-firmware'):
+            return comando_aggiornamenti(ps, c == 'aggiorna-firmware')
         return 0
     except PermessoNegato as e:
         print(f'manca il permesso sul nodo USB {e}: python -m psrx regola-udev | sudo tee {""}/etc/udev/rules.d/70-ps-rx.rules')

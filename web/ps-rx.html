@@ -135,6 +135,12 @@ pre { white-space: pre-wrap; font-size: 12px; max-height: 50vh; overflow: auto; 
         <div class="barra nascosto" id="fw-barra"><div style="width:0"></div></div>
         <pre id="registro" class="nascosto"></pre>
       </section>
+      <section class="carta"><h2>Aggiornamenti (GitHub)</h2>
+        <div class="riga"><button class="sec" id="cerca-agg">Cerca aggiornamenti</button></div>
+        <div id="esito-agg" class="tenue"></div>
+        <div class="nota">Il browser non può scaricare da GitHub per conto suo: il link apre il download, poi carica il
+          file con "Aggiorna il firmware…". L'app Windows e il plugin Decky fanno tutto da soli.</div>
+      </section>
     </div>
   </div>
 </main>
@@ -676,6 +682,36 @@ $("file-fw").onchange = async (e) => {
   e.target.value = "";
   if (!f) return;
   try { await caricaFirmware(f); } catch (err) { messaggio(`File non valido: ${err.message}`, true); }
+};
+
+// --- aggiornamenti da GitHub (solo ricerca: il download lo fa l'utente dal link) ----------------------
+const RELEASE = "https://api.github.com/repos/loddi-o/PS-RX/releases/latest";
+const numeroVersione = (t) => { const m = /(\d+)\.(\d+)(?:\.(\d+))?/.exec(t || ""); return m ? [m[1], m[2], m[3] || 0].map(Number) : null; };
+function piuNuova(disp, inst) {
+  const d = numeroVersione(disp), i = numeroVersione(inst);
+  if (!d) return false;
+  if (!i) return true;   // build di sviluppo
+  for (let k = 0; k < 3; k++) if (d[k] !== i[k]) return d[k] > i[k];
+  return false;
+}
+$("cerca-agg").onclick = async () => {
+  const esito = $("esito-agg");
+  esito.textContent = "Ricerca su GitHub…";
+  try {
+    const r = await fetch(RELEASE, { headers: { Accept: "application/vnd.github+json" } });
+    if (r.status === 404) { esito.textContent = "Nessuna release pubblicata."; return; }
+    if (!r.ok) throw new Error(`errore ${r.status}`);
+    const rel = await r.json();
+    const fw = (rel.assets || []).find((a) => /^ps-rx-firmware-.*\.uf2$/.test(a.name));
+    const installata = info ? info.versione : null;
+    const nuovo = installata && piuNuova(rel.tag_name, installata);
+    esito.replaceChildren(`Ultima versione: ${rel.tag_name} · installata: ${installata || "?"} · `,
+      el("a", { href: rel.html_url, target: "_blank", rel: "noopener", testo: "note della release" }),
+      nuovo && fw ? el("span", {}, " · ", el("a", { href: fw.browser_download_url, testo: `scarica ${fw.name}` })) : "",
+      nuovo ? "" : " · il firmware è aggiornato");
+  } catch (e) {
+    esito.textContent = `Ricerca non riuscita: ${e.message}`;
+  }
 };
 
 setInterval(() => aggiorna(false), 1000);

@@ -102,6 +102,27 @@ class TestBackendDecky(unittest.TestCase):
             await self.plugin._unload()
         asyncio.run(prova())
 
+    def test_estrai_plugin(self):
+        import zipfile
+        cartella = tempfile.mkdtemp(prefix='psrx-plugin-')
+        with open(os.path.join(cartella, 'main.py'), 'w') as f:
+            f.write('vecchio')
+        zip_ = os.path.join(tempfile.mkdtemp(), 'p.zip')
+        with zipfile.ZipFile(zip_, 'w') as z:
+            z.writestr('ps-rx-decky/plugin.json', '{}')
+            z.writestr('ps-rx-decky/main.py', 'nuovo')
+            z.writestr('ps-rx-decky/dist/index.js', 'js')
+        self.backend.estrai_plugin(zip_, cartella)
+        with open(os.path.join(cartella, 'main.py')) as f:
+            self.assertEqual(f.read(), 'nuovo')
+        self.assertTrue(os.path.exists(os.path.join(cartella, 'dist', 'index.js')))
+        cattivo = os.path.join(tempfile.mkdtemp(), 'c.zip')
+        with zipfile.ZipFile(cattivo, 'w') as z:
+            z.writestr('ps-rx-decky/plugin.json', '{}')
+            z.writestr('ps-rx-decky/../../fuori.txt', 'no')
+        with self.assertRaises(ValueError):
+            self.backend.estrai_plugin(cattivo, cartella)
+
 
 if __name__ == '__main__':
     unittest.main()

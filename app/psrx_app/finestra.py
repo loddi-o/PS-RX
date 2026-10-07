@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (QApplication, QLabel, QMainWindow, QMenu, QMessag
 from psrx import protocollo as p
 from psrx import schema
 
-from . import icona, opzioni
+from . import aggiorna, icona, opzioni
 from .lavoratore import Istantanea, Ponte, testo_errore
 from .scheda_gamepad import SchedaGamepad
 from .scheda_rete import SchedaRete
@@ -26,6 +26,10 @@ class Finestra(QMainWindow):
         super().__init__()
         self.ponte = ponte
         self.ist: Optional[Istantanea] = None
+        self.server = None   # istanza unica (__main__): si chiude prima di riavviare l'app aggiornata
+        self.aggiornatore = aggiorna.Aggiornatore()
+        self.aggiornatore.esito.connect(self._su_esito_aggiornamenti)
+        self._ricerca_automatica = False
         self.setWindowTitle('PS-RX' + (' (simulato)' if simulato else ''))
         self.setWindowIcon(icona.icona())
         self.resize(900, 760)
@@ -65,6 +69,9 @@ class Finestra(QMainWindow):
 
         ponte.lav.istantanea.connect(self._su_istantanea)
         ponte.lav.notifiche.connect(self._su_notifiche)
+        # Ricerca automatica degli aggiornamenti: dopo qualche secondo, cosi' la versione del firmware e' gia'
+        # nota se il ricevitore e' collegato.
+        QTimer.singleShot(8000, self._ricerca_all_avvio)
 
     # --- servizi per le schede --------------------------------------------------------------------
     def esegui(self, funzione: Callable, fatto_testo: str = '', fatto: Optional[Callable] = None) -> None:
@@ -137,6 +144,28 @@ class Finestra(QMainWindow):
             critica = any(c for _, _, c in notifiche)
         icona_msg = QSystemTrayIcon.Warning if critica else QSystemTrayIcon.Information
         self.vassoio.showMessage(titolo, testo, icona_msg, 6000)
+
+    # --- aggiornamenti ---------------------------------------------------------------------------
+    def _ricerca_all_avvio(self) -> None:
+        if self.aggiornatore.dovuta():
+            versione = self.ist.info.versione if self.ist and self.ist.info else None
+            self._ricerca_automatica = self.aggiornatore.cerca(versione)
+
+    def _su_esito_aggiornamenti(self, c, errore: str) -> None:
+        automatica, self._ricerca_automatica = self._ricerca_automatica, False
+        if not automatica or c is None or not c.qualcosa or not self.vassoio:
+            return
+        cosa = ' e '.join(x for x, s in (('firmware', c.firmware_nuovo), ('app', c.app_nuova)) if s)
+        self.vassoio.showMessage('PS-RX: aggiornamento disponibile',
+                                 f'Versione {c.release.versione} ({cosa}). Apri l\'app → Sistema → Aggiornamenti.',
+                                 QSystemTrayIcon.Information, 8000)
+
+    def riavvia(self, exe: str) -> None:
+        """Dopo l'aggiornamento dell'app: libera l'istanza unica, avvia il nuovo exe ed esce."""
+        if self.server is not None:
+            self.server.close()
+        aggiorna.avvia_nuovo(exe)
+        self.esci()
 
     # --- finestra e vassoio ---------------------------------------------------------------------
     def mostra(self) -> None:

@@ -80,6 +80,15 @@ const preparaFirmware = callable<[string], Firmware>("prepara_firmware");
 const caricaFirmware = callable<[], Errore>("carica_firmware");
 const annullaCaricamento = callable<[], Errore>("annulla_caricamento");
 const leggiNotifiche = callable<[], boolean>("notifiche");
+interface Aggiornamenti extends Errore {
+  versione?: string; pagina?: string; note?: string; firmware_installato?: string; firmware_nuovo?: boolean;
+  plugin_installato?: string; plugin_nuovo?: boolean;
+}
+const cercaAggiornamenti = callable<[], Aggiornamenti>("aggiornamenti");
+const installaFirmwareGithub = callable<[], Errore>("installa_firmware_github");
+const aggiornaPlugin = callable<[], Errore>("aggiorna_plugin");
+const leggiCercaAggiornamenti = callable<[], boolean>("cerca_aggiornamenti_attivo");
+const impostaCercaAggiornamenti = callable<[boolean], Errore>("imposta_cerca_aggiornamenti");
 const impostaNotifiche = callable<[boolean], Errore>("imposta_notifiche");
 
 function avviso(titolo: string, testo: string) {
@@ -390,6 +399,53 @@ function SezioneFirmware(props: { st: Stato }) {
   );
 }
 
+function SezioneAggiornamenti() {
+  const [agg, setAgg] = useState<Aggiornamenti | null>(null);
+  const [cercando, setCercando] = useState(false);
+  const [automatico, setAutomatico] = useState<boolean | null>(null);
+  useEffect(() => { leggiCercaAggiornamenti().then(setAutomatico); }, []);
+  const cerca = async () => {
+    setCercando(true);
+    const r = await cercaAggiornamenti();
+    setCercando(false);
+    if (r.errore) avviso("PS-RX", r.errore); else setAgg(r);
+  };
+  return (
+    <>
+      <PanelSectionRow>
+        <ButtonItem layout="below" disabled={cercando} onClick={cerca}
+          description={agg && !agg.errore ? `Ultima versione ${agg.versione}: firmware ${agg.firmware_nuovo ? "da aggiornare" : "aggiornato"}` +
+            ` (${agg.firmware_installato || "ricevitore non collegato"}), plugin ${agg.plugin_nuovo ? "da aggiornare" : "aggiornato"} (${agg.plugin_installato}).`
+            : "Controlla le release su GitHub."}>
+          {cercando ? "Ricerca..." : "Cerca aggiornamenti"}
+        </ButtonItem>
+      </PanelSectionRow>
+      {agg?.firmware_nuovo && (
+        <PanelSectionRow>
+          <ButtonItem layout="below" description="Scarica da GitHub e installa: servono i controller spenti."
+            onClick={() => esegui(installaFirmwareGithub(), "Download del firmware avviato.")}>
+            Installa il firmware {agg.versione}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+      {agg?.plugin_nuovo && (
+        <PanelSectionRow>
+          <ButtonItem layout="below" description="Scarica il plugin nuovo e riavvia Decky Loader (pochi secondi)."
+            onClick={() => esegui(aggiornaPlugin(), "Plugin aggiornato: Decky Loader si riavvia.")}>
+            Aggiorna il plugin a {agg.versione}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+      {automatico !== null && (
+        <PanelSectionRow>
+          <ToggleField label="Cerca aggiornamenti all'avvio" description="Al massimo una volta al giorno, con una notifica."
+            checked={automatico} onChange={async (on) => { setAutomatico(on); await impostaCercaAggiornamenti(on); }} />
+        </PanelSectionRow>
+      )}
+    </>
+  );
+}
+
 function SezioneSistema(props: { st: Stato }) {
   const { st } = props;
   const [notifiche, setNotifiche] = useState<boolean | null>(null);
@@ -410,6 +466,7 @@ function SezioneSistema(props: { st: Stato }) {
       )}
       <ImpostazioniSezione sezione="sistema" />
       <SezioneFirmware st={st} />
+      <SezioneAggiornamenti />
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={st.pad_connessi > 0}
           description="Il ricevitore si riavvia come chiavetta RP2350 (solo senza controller)."

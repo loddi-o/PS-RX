@@ -60,8 +60,11 @@ def main(argv=None) -> int:
         pico = PicoSimulato()
         apri = lambda: pico.trasporto  # noqa: E731
 
+    from .aggiorna import pulisci_vecchio_exe
+    pulisci_vecchio_exe()
     ponte = Ponte(apri)
     finestra = Finestra(ponte, simulato=args.simulatore)
+    finestra.server = server
 
     def nuova_connessione():
         c = server.nextPendingConnection()

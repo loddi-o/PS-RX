@@ -12,10 +12,11 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGroupBox, QLabe
                                QPushButton, QVBoxLayout)
 
 from psrx import protocollo as p
+from psrx import aggiornamenti as ag
 from psrx.firmware import FirmwareNonValido, leggi as leggi_firmware
 from psrx.servizio import Interrotto
 
-from . import opzioni
+from . import aggiorna, opzioni
 from .controlli import nota, riga
 from .lavoratore import Istantanea, testo_errore
 from .scheda_gamepad import Scheda
@@ -93,6 +94,32 @@ class SchedaSistema(Scheda):
                          'chiavetta e il file .uf2 si copia a mano.'))
         self.col.addWidget(gruppo)
 
+        gruppo = QGroupBox('Aggiornamenti (GitHub)')
+        v = QVBoxLayout(gruppo)
+        self.stato_agg = QLabel('Nessuna ricerca in questa sessione.')
+        self.stato_agg.setWordWrap(True)
+        self.stato_agg.setOpenExternalLinks(True)
+        self.stato_agg.setTextFormat(Qt.RichText)
+        v.addWidget(self.stato_agg)
+        self.cerca = QPushButton('Cerca aggiornamenti')
+        self.cerca.clicked.connect(self._cerca)
+        self.installa_fw = QPushButton('Installa il firmware')
+        self.installa_fw.clicked.connect(self._scarica_firmware)
+        self.aggiorna_app = QPushButton('Aggiorna l\'app')
+        self.aggiorna_app.clicked.connect(self._scarica_app)
+        for w in (self.installa_fw, self.aggiorna_app):
+            w.setVisible(False)
+        v.addLayout(riga(self.cerca, self.installa_fw, self.aggiorna_app))
+        self.automatico = QCheckBox('Cerca aggiornamenti all\'avvio (al massimo una volta al giorno)')
+        self.automatico.setChecked(opzioni.leggi('cerca_aggiornamenti', True))
+        self.automatico.toggled.connect(lambda v_: opzioni.scrivi('cerca_aggiornamenti', v_))
+        v.addWidget(self.automatico)
+        self.col.addWidget(gruppo)
+        agg = finestra.aggiornatore
+        agg.esito.connect(self._su_esito)
+        agg.avanzamento.connect(self._su_download)
+        agg.scaricato.connect(self._su_scaricato)
+
         gruppo = QGroupBox('App')
         v = QVBoxLayout(gruppo)
         self.avvio = QCheckBox('Avvia con Windows (nell\'area di notifica)')
@@ -118,7 +145,7 @@ class SchedaSistema(Scheda):
     def aggiorna(self, ist: Optional[Istantanea]) -> None:
         super().aggiorna(ist)
         attivo = ist is not None and ist.stato is not None and ist.info is not None
-        for w in (self.predefinite, self.salva, self.aggiorna_fw, self.bootsel, self.registro):
+        for w in (self.predefinite, self.salva, self.aggiorna_fw, self.bootsel, self.registro, self.installa_fw):
             w.setEnabled(attivo)
         for ident, c in self.globali.items():
             c.mostra(ist.impostazioni.get(ident) if attivo else None)
@@ -150,11 +177,84 @@ class SchedaSistema(Scheda):
                                   'interno. Servono i controller spenti.'):
             self.esegui(lambda c: c.bootsel_ora(), 'Ricevitore in modalità BOOTSEL')
 
+    # --- aggiornamenti da GitHub ------------------------------------------------------------------
+    def _versione_firmware(self) -> Optional[str]:
+        return self.ist.info.versione if self.ist and self.ist.info else None
+
+    def _cerca(self) -> None:
+        if self.finestra.aggiornatore.cerca(self._versione_firmware()):
+            self.cerca.setEnabled(False)
+            self.stato_agg.setText('Ricerca su GitHub…')
+
+    def _su_esito(self, c, errore: str) -> None:
+        self.cerca.setEnabled(True)
+        if c is None:
+            self.stato_agg.setText(f'Ricerca non riuscita: {errore}')
+            return
+        rel = c.release
+        righe = [f'Ultima versione: <b>{rel.versione}</b> · <a href="{rel.pagina}">note della release</a>']
+        fw = c.firmware_installato or 'ricevitore non collegato'
+        righe.append(f'Firmware del ricevitore: {fw}' + (' → <b>aggiornamento disponibile</b>' if c.firmware_nuovo else ''))
+        righe.append(f'App: {c.app_installata}' + (' → <b>aggiornamento disponibile</b>' if c.app_nuova else ''))
+        if c.app_nuova and not aggiorna.exe_sostituibile():
+            righe.append('L\'app gira da sorgente: aggiornala dalla repo (git pull).')
+        self.stato_agg.setText('<br>'.join(righe))
+        self.installa_fw.setText(f'Installa il firmware {rel.versione}')
+        self.installa_fw.setVisible(c.firmware_nuovo)
+        self.aggiorna_app.setText(f'Aggiorna l\'app a {rel.versione}')
+        self.aggiorna_app.setVisible(c.app_nuova and aggiorna.exe_sostituibile())
+
+    def _avvia_download(self, tipo: str, f, titolo: str) -> None:
+        self._interrotto = False
+        self.finestra.aggiornatore.interrompi = False
+        self._progresso = QProgressDialog(f'Download di {f.nome}…', 'Annulla', 0, 100, self)
+        self._progresso.setWindowTitle(titolo)
+        self._progresso.setWindowModality(Qt.WindowModal)
+        self._progresso.setMinimumDuration(0)
+        self._progresso.canceled.connect(self._annulla)
+        self._progresso.show()
+        self.finestra.aggiornatore.scarica(tipo, f)
+
+    def _scarica_firmware(self) -> None:
+        c = self.finestra.aggiornatore.ultimo
+        f = ag.file_firmware(c.release) if c else None
+        if f is None:
+            return
+        self._avvia_download('firmware', f, 'Aggiornamento del firmware')
+
+    def _scarica_app(self) -> None:
+        c = self.finestra.aggiornatore.ultimo
+        if not c or 'app_windows' not in c.release.file:
+            return
+        self._avvia_download('app', c.release.file['app_windows'], 'Aggiornamento dell\'app')
+
+    def _su_download(self, fatti: int, totali: int) -> None:
+        if self._progresso and totali:
+            self._progresso.setValue(int(fatti * 100 / totali))
+
+    def _su_scaricato(self, tipo: str, percorso: str, errore: str) -> None:
+        self._chiudi_progresso()
+        if errore:
+            self.finestra.messaggio(f'Download non riuscito: {errore}', errore=not self._interrotto)
+            return
+        if tipo == 'firmware':
+            self._installa_firmware(percorso)
+            return
+        if self.finestra.conferma('Aggiornare l\'app?', 'L\'app si chiude e si riapre con la versione nuova.'):
+            try:
+                nuovo = aggiorna.sostituisci_exe(percorso)
+            except OSError as e:
+                self.finestra.messaggio(f'Aggiornamento dell\'app non riuscito: {e}', errore=True)
+                return
+            self.finestra.riavvia(nuovo)
+
     # --- aggiornamento del firmware -------------------------------------------------------------
     def _aggiorna_firmware(self) -> None:
         percorso, _ = QFileDialog.getOpenFileName(self, 'Firmware PS-RX', '', 'Firmware (*.uf2 *.bin)')
-        if not percorso:
-            return
+        if percorso:
+            self._installa_firmware(percorso)
+
+    def _installa_firmware(self, percorso: str) -> None:
         capacita = self.ist.info.staging_max if self.ist and self.ist.info else None
         try:
             img = leggi_firmware(percorso, capacita)
@@ -192,6 +292,7 @@ class SchedaSistema(Scheda):
 
     def _annulla(self) -> None:
         self._interrotto = True
+        self.finestra.aggiornatore.interrompi = True
 
     def _chiudi_progresso(self) -> None:
         if self._progresso:
