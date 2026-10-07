@@ -1,7 +1,7 @@
 # PS-RX: note per Claude
 
 Ricevitore Bluetooth per DualSense, DualSense Edge e DualShock 4 (fino a 4) su Raspberry Pi Pico 2 W.
-Repo GitHub privata `loddi-o/PS-RX`. L'utente scrive in italiano: rispondere in italiano.
+Repo GitHub pubblica `loddi-o/PS-RX`; README per gli utenti in `README.md` (italiano) e `README.en.md`. L'utente scrive in italiano: rispondere in italiano.
 
 **Priorità assoluta: la stabilità dell'input.** Niente singhiozzi. Ogni modifica che tocca il percorso dei
 pacchetti va detta all'utente con il costo misurato. Le alternative più leggere si discutono prima.
@@ -32,7 +32,10 @@ pacchetti va detta all'utente con il costo misurato. Le alternative più leggere
 | `cd app; python -m unittest discover -s test` | Test della libreria, del plugin Decky e della pagina con il Pico simulato |
 | `strumenti/compila_app.ps1` | Exe dell'app Windows (PyInstaller) |
 | `strumenti/compila_decky.ps1` | Zip del plugin Decky |
-| `python strumenti/genera_pagina.py` | Schema delle impostazioni nella pagina WebUSB |
+| `python strumenti/genera_pagina.py` | Schema delle impostazioni (e il suo inglese) nella pagina WebUSB |
+| `python strumenti/chiavi_lingua.py --mancanti` | Testi Python senza traduzione inglese |
+| `python strumenti/chiavi_ts.py file --mancanti dizionario` | Lo stesso per il plugin Decky e la pagina |
+| `strumenti/rilascio.ps1 -Versione X.Y.Z -Note note.md` | Build completa, test, release GitHub |
 
 ## Stato delle fasi (piano approvato)
 
@@ -82,12 +85,24 @@ pacchetti va detta all'utente con il costo misurato. Le alternative più leggere
      documentazione, codice nostro).
    - Rischi: funziona solo con Steam aperto; Steam potrebbe proporre aggiornamenti del firmware, che non hanno
      effetto; le scale del giroscopio e dei trackpad sono da verificare.
-9. **Documenti e release GitHub:** da fare.
+9. **Documenti e release GitHub:** fatta. 1.0.0 è la prima versione ufficiale.
+10. **Italiano e inglese:** l'italiano solo se la lingua è italiana, altrimenti l'inglese. Il testo italiano è la
+    chiave.
+    - Python: `tr()` di `psrx/lingua.py`, dizionario `psrx/lingua_en.py`, tabelle con `Testi({...})` (tradotte
+      alla lettura). App: opzione `lingua` (auto/it/en, Sistema → App), poi `HKLM\Software\PS-RX\Lingua` scritta
+      dall'installer, poi la lingua di Windows.
+    - Decky: `src/lingua.ts` (lingua di Steam), il backend riceve la lingua con `imposta_lingua`.
+    - Pagina: `EN` nello script (lingua del browser), `SCHEMA_EN` generato; i testi fissi dell'HTML li traduce
+      `traduciPagina()`.
+    - Installer: English per primo, Italiano; `{language}` nel registro.
+    - I test (`test_lingua`, `test_pagina`) falliscono se un testo nuovo non ha la traduzione.
 
-**Prove sull'hardware:** nessuna finora. Primo flash con BOOTSEL e `strumenti/flash.ps1`. Poi:
-- `python -m psrx stato` (da `app/`);
-- DualSense e DualShock 4;
-- modalità Xbox con `XInputGetState` e con xpad su SteamOS.
+**Prove sull'hardware:** l'utente usa il ricevitore su Windows con DualSense (modalità PlayStation, app,
+aggiornamenti, WiFi e risveglio). Restano da provare: DualShock 4, modalità Xbox (`XInputGetState`, xpad su
+SteamOS), modalità Steam, plugin Decky su SteamOS.
+
+**Installazione dell'utente:** non aggiornare app o firmware sul suo PC o sul suo Pico se non lo chiede; per le
+release si pubblica soltanto.
 
 ## Release
 
