@@ -73,6 +73,11 @@ static void send_mic_transport_status() {
     bt_write(tier_audio_slot(), pkt, sizeof(pkt));
 }
 
+// PS-RX: il microfono trasmette (un'app lo ha aperto), per lo stato letto dall'app.
+bool audio_mic_attivo() {
+    return mic_active;
+}
+
 void audio_set_mic_active(bool active) {
     if (mic_active == active) return;
     mic_active = active;

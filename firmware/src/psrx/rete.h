@@ -30,6 +30,9 @@ struct InfoRete {
 
 void rete_info(InfoRete *out);
 
+// WiFi connesso con indirizzo IP (il WoL puo' partire).
+bool rete_info_connessa();
+
 // Manda subito i pacchetti magici (pulsante "Prova" dell'app). false se il WiFi non e' connesso.
 bool rete_invia_wol_ora();
 

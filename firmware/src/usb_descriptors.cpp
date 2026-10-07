@@ -28,6 +28,8 @@
 #include "audio.h"
 #include "config.h"
 #include "slots.h"
+#include "psrx/servizio_usb.h"
+#include "psrx/protocollo.h"
 
 bool ds_mode() {
     if (get_config().controller_mode == 2) {
@@ -886,7 +888,7 @@ void usb_variant_task(void) {
 // Invoked when received GET CONFIGURATION DESCRIPTOR
 // Application return pointer to descriptor
 // Descriptor contents must exist long enough for transfer to complete
-uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
+static uint8_t const *descrittore_dlb(uint8_t index) {
     (void) index; // for multiple configurations
 #ifdef ENABLE_WAKE_HID
     // Reads ONLY the latched active_target (set at swap time); never the live
@@ -965,6 +967,41 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
     desc_full[offset - 8] = bInterval;
     desc_full[offset - 16] = report_len_lo;
     return desc_full;
+}
+
+//--------------------------------------------------------------------+
+// PS-RX: interfaccia di configurazione per le app
+//
+// In coda a OGNI variante (MINIMAL, FULL, MULTI, con o senza tastiera) c'e' un'interfaccia
+// vendor senza endpoint. Le app parlano col Pico con richieste di controllo sull'endpoint 0
+// (protocollo.h); l'interfaccia serve perche' Windows ci agganci WinUSB da solo (descrittore MS
+// OS 2.0 qui sotto) e Chrome/Edge la possano aprire con WebUSB. La reclama il driver vendor di
+// TinyUSB (CFG_TUD_VENDOR), che non apre endpoint. Le interfacce di DS5-Linux-Bridge restano
+// identiche e nello stesso ordine: quella nuova e' l'ultima.
+//--------------------------------------------------------------------+
+#define PSRX_ITF_VENDOR_LEN 9
+#define PSRX_STRID_CONFIG   4
+static uint8_t cfg_psrx[512];
+static volatile uint8_t itf_vendor = 0;   // numero dell'interfaccia vendor nella variante servita
+
+uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
+    const uint8_t *base = descrittore_dlb(index);
+    const uint16_t len = static_cast<uint16_t>(base[2] | base[3] << 8);
+    const uint8_t n_itf = base[4];
+    if (len + PSRX_ITF_VENDOR_LEN > sizeof cfg_psrx) return base;
+    memcpy(cfg_psrx, base, len);
+    const uint8_t vendor[PSRX_ITF_VENDOR_LEN] = {
+        0x09, 0x04, n_itf, 0x00, 0x00,   // interfaccia n_itf, nessun endpoint
+        0xFF, 0x50, 0x00,                // classe vendor, sottoclasse 'P'
+        PSRX_STRID_CONFIG,               // "PS-RX configurazione"
+    };
+    memcpy(cfg_psrx + len, vendor, sizeof vendor);
+    const uint16_t totale = len + PSRX_ITF_VENDOR_LEN;
+    cfg_psrx[2] = static_cast<uint8_t>(totale & 0xFF);
+    cfg_psrx[3] = static_cast<uint8_t>(totale >> 8);
+    cfg_psrx[4] = static_cast<uint8_t>(n_itf + 1);
+    itf_vendor = n_itf;
+    return cfg_psrx;
 }
 
 //--------------------------------------------------------------------+
@@ -1410,6 +1447,7 @@ static char const *string_desc_arr[] =
     "Sony Interactive Entertainment", // 1: Manufacturer
     NULL, // 2: Product
     NULL, // 3: Serials will use unique ID if possible
+    "PS-RX configurazione", // 4: interfaccia vendor per le app (PS-RX)
 };
 
 static uint16_t _desc_str[60 + 1];
@@ -1502,8 +1540,15 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
 // WinUSB tag on itf 0 would make Windows prefer WinUSB over the audio class
 // driver in FULL and bang it (Code 28).
 
+// PS-RX: function subset dell'interfaccia vendor: Compatible ID "WINUSB" (Windows aggancia WinUSB
+// da solo, nessun driver da installare) + DeviceInterfaceGUIDs (l'app trova il Pico per GUID).
+// 8 (subset) + 20 (compatible id) + 132 (registro: 10 + 42 nome + 80 dato).
+#define MS_OS_20_COMPAT_ID_LEN     20
+#define MS_OS_20_GUID_PROP_LEN     132
+#define MS_OS_20_VENDOR_FUNC_LEN   (MS_OS_20_FUNC_SUBSET_HDR_LEN + MS_OS_20_COMPAT_ID_LEN + MS_OS_20_GUID_PROP_LEN)
+
 #define MS_OS_20_CONFIG_SUBSET_TOTAL_LEN \
-    (MS_OS_20_CONFIG_SUBSET_LEN + MS_OS_20_AUDIO_FUNC_LEN)
+    (MS_OS_20_CONFIG_SUBSET_LEN + MS_OS_20_AUDIO_FUNC_LEN + MS_OS_20_VENDOR_FUNC_LEN)
 
 #define MS_OS_20_DESC_LEN \
     (MS_OS_20_SET_HEADER_LEN + MS_OS_20_CONFIG_SUBSET_TOTAL_LEN)
@@ -1563,12 +1608,43 @@ uint8_t const *tud_descriptor_bos_cb(void) {
     0x00,                                   /* bReserved */ \
     U16_TO_U8S_LE(cfg_subset_len)           /* wTotalLength of this subset */
 
-// The one MS OS 2.0 set: audio subset only, NO WinUSB tag (see note above).
-uint8_t const desc_ms_os_20[] = {
+// PS-RX: GUID dell'interfaccia di configurazione {6F1D2C3B-8A4E-4C59-9B7A-52A1D3E0C7F1}, in UTF-16LE
+// con doppio terminatore (REG_MULTI_SZ).
+#define PSRX_GUID_UTF16 \
+    '{',0,'6',0,'F',0,'1',0,'D',0,'2',0,'C',0,'3',0,'B',0,'-',0,'8',0,'A',0,'4',0,'E',0,'-',0, \
+    '4',0,'C',0,'5',0,'9',0,'-',0,'9',0,'B',0,'7',0,'A',0,'-',0,'5',0,'2',0,'A',0,'1',0,'D',0, \
+    '3',0,'E',0,'0',0,'C',0,'7',0,'F',0,'1',0,'}',0, 0,0, 0,0
+
+// The MS OS 2.0 set: audio subset (no WinUSB tag on the audio function, see note above) + the
+// PS-RX vendor interface subset. Non-const: bFirstInterface of the vendor subset is patched per
+// variant at request time (the vendor interface is always the LAST one).
+uint8_t desc_ms_os_20[] = {
     MS_OS_20_SET_AND_CONFIG_HEADER(MS_OS_20_DESC_LEN,
                                    MS_OS_20_CONFIG_SUBSET_TOTAL_LEN),
     MS_OS_20_AUDIO_SUBSET,
+    /* --- Function Subset: interfaccia vendor PS-RX (8 byte) --- */
+    U16_TO_U8S_LE(0x0008),
+    U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_FUNCTION),
+    0x00,                                   /* bFirstInterface: corretto a ogni richiesta */
+    0x00,
+    U16_TO_U8S_LE(MS_OS_20_VENDOR_FUNC_LEN),
+    /* --- Compatible ID "WINUSB" (20 byte) --- */
+    U16_TO_U8S_LE(MS_OS_20_COMPAT_ID_LEN),
+    U16_TO_U8S_LE(MS_OS_20_FEATURE_COMPATBLE_ID),
+    'W', 'I', 'N', 'U', 'S', 'B', 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    /* --- Registry Property "DeviceInterfaceGUIDs" (REG_MULTI_SZ, 132 byte) --- */
+    U16_TO_U8S_LE(MS_OS_20_GUID_PROP_LEN),
+    U16_TO_U8S_LE(MS_OS_20_FEATURE_REG_PROPERTY),
+    U16_TO_U8S_LE(0x0007),                  /* REG_MULTI_SZ */
+    U16_TO_U8S_LE(42),                      /* "DeviceInterfaceGUIDs\0" = 21 caratteri UTF-16 */
+    'D',0, 'e',0, 'v',0, 'i',0, 'c',0, 'e',0, 'I',0, 'n',0, 't',0, 'e',0, 'r',0,
+    'f',0, 'a',0, 'c',0, 'e',0, 'G',0, 'U',0, 'I',0, 'D',0, 's',0, 0,0,
+    U16_TO_U8S_LE(80),                      /* 38 caratteri del GUID + 2 terminatori */
+    PSRX_GUID_UTF16
 };
+// Offset di bFirstInterface nel subset vendor: header (10) + config (8) + audio (70) + 4.
+#define MS_OS_20_VENDOR_ITF_OFFSET (MS_OS_20_SET_HEADER_LEN + MS_OS_20_CONFIG_SUBSET_LEN + MS_OS_20_AUDIO_FUNC_LEN + 4)
 TU_VERIFY_STATIC(sizeof(desc_ms_os_20) == MS_OS_20_DESC_LEN,
                  "MS OS 2.0 descriptor length mismatch");
 
@@ -1576,10 +1652,13 @@ TU_VERIFY_STATIC(sizeof(desc_ms_os_20) == MS_OS_20_DESC_LEN,
 // platform capability, then issues this vendor request to fetch the
 // descriptor set itself.
 bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request) {
-    if (stage != CONTROL_STAGE_SETUP) return true;
     if (request->bmRequestType_bit.type != TUSB_REQ_TYPE_VENDOR) return false;
+    // PS-RX: richieste delle app (tutte le fasi; il servizio gestisce anche i dati in arrivo).
+    if (request->bRequest == PSRX_RICHIESTA) return psrx_servizio_usb(rhport, stage, request);
+    if (stage != CONTROL_STAGE_SETUP) return true;
     if (request->bRequest == MS_OS_20_VENDOR_CODE && request->wIndex == 7) {
         // wIndex == 7 -> MS_OS_20_DESCRIPTOR_INDEX
+        desc_ms_os_20[MS_OS_20_VENDOR_ITF_OFFSET] = itf_vendor;
         return tud_control_xfer(rhport, request, (void *)(uintptr_t)desc_ms_os_20,
                                 sizeof(desc_ms_os_20));
     }

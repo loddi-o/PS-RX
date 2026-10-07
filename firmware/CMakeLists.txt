@@ -173,9 +173,22 @@ add_executable(ds5-bridge
 # Codice del ricevitore (src/psrx): servizio USB per l'app, rete e Wake-on-LAN, log non bloccante.
 # Tutto sul core 0, fuori dai percorsi per pacchetto salvo dove indicato.
 target_sources(ds5-bridge PRIVATE
+        src/psrx/aggiornamento.cpp
+        src/psrx/bootsel_gesti.cpp
+        src/psrx/caricamento.cpp
+        src/psrx/conta_click.cpp
+        src/psrx/eventi.cpp
         src/psrx/log_psrx.cpp
+        src/psrx/pad.cpp
+        src/psrx/politiche.cpp
         src/psrx/psrx.cpp
+        src/psrx/salvataggio.cpp
+        src/psrx/servizio_usb.cpp
         src/psrx/uart_asincrona.cpp
+)
+target_link_libraries(ds5-bridge
+        pico_sha256
+        pico_bootrom
 )
 target_include_directories(ds5-bridge PRIVATE src/psrx)
 

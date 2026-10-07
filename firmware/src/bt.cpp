@@ -98,6 +98,10 @@ struct bt_slot {
 
 static bt_slot slots[BT_MAX_SLOTS];
 
+// PS-RX: RSSI per posto, fuori da bt_slot per non cambiarne la disposizione in memoria.
+// 127 = non disponibile.
+static int8_t psrx_rssi[BT_MAX_SLOTS];
+
 static bt_slot *slot_by_handle(hci_con_handle_t handle) {
     if (handle == HCI_CON_HANDLE_INVALID) return nullptr;
     for (auto &s : slots) {
@@ -236,6 +240,11 @@ static bool bt_setup_in_progress() {
         if (s.connect_attempt_started != 0) return true;
     }
     return false;
+}
+
+// PS-RX: collegamento o abbinamento in corso (in quei momenti niente scritture in flash).
+bool bt_setup_attivo() {
+    return bt_setup_in_progress();
 }
 
 // Persistent blacklist of controllers the user forgot via the web UI. Survives
@@ -714,6 +723,17 @@ void bt_get_status(uint8_t slot, BtStatus *out) {
     out->charging = (st == 0x1 || st == 0x2); // charging or full
 }
 
+// PS-RX: RSSI dei controller collegati, chiesto dal servizio USB solo con l'app aperta.
+void bt_richiedi_rssi() {
+    for (auto &s : slots) {
+        if (s.acl_handle != HCI_CON_HANDLE_INVALID) gap_read_rssi(s.acl_handle);
+    }
+}
+
+int8_t bt_rssi(uint8_t slot) {
+    return slot < BT_MAX_SLOTS ? psrx_rssi[slot] : 127;
+}
+
 void bt_l2cap_init() {
     l2cap_event_callback_registration.callback = &l2cap_packet_handler;
     l2cap_add_event_handler(&l2cap_event_callback_registration);
@@ -726,6 +746,7 @@ void bt_l2cap_init() {
 }
 
 int bt_init() {
+    for (auto &r : psrx_rssi) r = 127;
     for (auto &s : slots) {
         // Depth 8 (was 10): 4 slots x 400 B elements come out of a heap with
         // single-digit-KB margin next to the opus states (see core1_entry).
@@ -890,7 +911,11 @@ static void hci_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *p
         case HCI_EVENT_COMMAND_COMPLETE: {
             const uint8_t status = hci_event_command_complete_get_return_parameters(packet)[0];
             const uint16_t opcode = hci_event_command_complete_get_command_opcode(packet);
-            printf("[HCI] CmdComplete %s(0x%04X) status=0x%02X\n", opcode_to_str(opcode), opcode, status);
+            // PS-RX: la lettura dell'RSSI (ogni 2 s con l'app aperta) non si registra: riempirebbe il
+            // registro e la UART.
+            if (opcode != HCI_OPCODE_HCI_READ_RSSI) {
+                printf("[HCI] CmdComplete %s(0x%04X) status=0x%02X\n", opcode_to_str(opcode), opcode, status);
+            }
             break;
         }
 
@@ -1094,6 +1119,15 @@ static void hci_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *p
             break;
         }
 
+        case GAP_EVENT_RSSI_MEASUREMENT: {
+            // PS-RX: risposta a bt_richiedi_rssi().
+            const hci_con_handle_t handle = gap_event_rssi_measurement_get_con_handle(packet);
+            if (bt_slot *s = slot_by_handle(handle)) {
+                psrx_rssi[slot_index(s)] = static_cast<int8_t>(gap_event_rssi_measurement_get_rssi(packet));
+            }
+            break;
+        }
+
         case HCI_EVENT_DISCONNECTION_COMPLETE: {
             const hci_con_handle_t handle = hci_event_disconnection_complete_get_connection_handle(packet);
             const uint8_t reason = hci_event_disconnection_complete_get_reason(packet);
@@ -1105,6 +1139,7 @@ static void hci_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *p
                 const bool was_audio_slot = (slot == tier_audio_slot());
                 printf("[HCI] Slot %d disconnected\n", slot);
                 slot_clear(s);
+                psrx_rssi[slot] = 127; // PS-RX
                 // Neutralize the slot's USB input buffer: in the MULTI variant
                 // the interface stays visible, and a pad that dropped mid-press
                 // must not leave its last buttons frozen "held" on the host.

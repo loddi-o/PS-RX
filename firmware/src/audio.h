@@ -14,4 +14,7 @@ void set_headset(bool state);
 void audio_set_mic_active(bool active);
 void mic_add_queue(uint8_t *data);
 
+// PS-RX: il microfono trasmette (un'app lo ha aperto).
+bool audio_mic_attivo();
+
 #endif //DS5_BRIDGE_AUDIO_H

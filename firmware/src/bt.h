@@ -138,4 +138,11 @@ bool bt_connected_addr(uint8_t *addr_out);
 // from the HID-open hot path). Call every main-loop iteration.
 void bt_blacklist_persist_if_dirty();
 
+// --- PS-RX ---
+// Collegamento o abbinamento in corso (in quei momenti niente scritture in flash).
+bool bt_setup_attivo();
+// RSSI dei controller collegati: la richiesta parte subito, il valore arriva con un evento HCI.
+void bt_richiedi_rssi();
+int8_t bt_rssi(uint8_t slot);   // 127 = non disponibile
+
 #endif //DS5_BRIDGE_BT_H

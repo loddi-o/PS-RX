@@ -238,6 +238,10 @@ void rete_info(InfoRete *out) {
     out->stato = join_in_corso ? RETE_CONNESSIONE : RETE_ERRORE;
 }
 
+bool rete_info_connessa() {
+    return link_pronto();
+}
+
 bool rete_invia_wol_ora() {
     if (!link_pronto()) return false;
     invia_wol_a_tutti();
