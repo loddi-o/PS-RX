@@ -45,6 +45,16 @@ IMPOSTAZIONI = [
                 'subito. Serve che la porta USB resti alimentata a PC spento o sospeso.',
     },
     {
+        'id': p.IMP_DURATA_RISVEGLIO, 'chiave': 'durata_risveglio', 'tipo': 'intero', 'min': 0, 'max': 120,
+        'passo': 5, 'sezione': 'rete', 'riconnette': False,
+        'titolo': 'Prova a svegliare il PC per (secondi)',
+        'predefinito': 20,
+        'nota': 'Quando colleghi il primo controller il ricevitore prova a svegliare il PC per questo tempo, via USB '
+                'e con il Wake-on-LAN, e il LED lampeggia; smette prima se vede il PC svegliarsi. Il gamepad '
+                'funziona normalmente. In questo tempo il WiFi resta acceso e divide la radio con il Bluetooth: '
+                'più è breve, meglio è per i primi secondi di gioco. 0 = disattivato.',
+    },
+    {
         'id': p.IMP_WOL_SPENTO, 'chiave': 'wol_spento', 'tipo': 'booleano', 'sezione': 'rete', 'riconnette': False,
         'titolo': 'Disattiva il Wake-on-LAN',
         'predefinito': 0,

@@ -20,9 +20,10 @@ enum StatoPc : uint8_t { PC_SCONOSCIUTO = 0, PC_ACCESO = 1, PC_SOSPESO = 2, PC_S
 
 void pc_task(uint32_t ora_ms);
 StatoPc pc_stato();
-// Il Wake-on-LAN al collegamento del primo controller serve (PC non acceso)? E con quanto ritardo (PC
-// sospeso che si puo' svegliare via USB: prima l'USB, il WoL e' di riserva)?
-bool pc_serve_wol();
-uint32_t pc_ritardo_wol_ms();
+// Finestra di risveglio (risveglio.h): al primo controller collegato prova a svegliare il PC via USB e con
+// il Wake-on-LAN per la durata scelta nell'app; il LED lampeggia.
+void pc_risveglio_task(uint32_t ora_ms);
+bool pc_finestra_risveglio();
+uint8_t pc_durata_risveglio_s();   // 0 = disattivata
 
 #endif // PSRX_PC_H
