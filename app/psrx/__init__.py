@@ -4,4 +4,4 @@ PS-RX - libreria per parlare col ricevitore PS-RX via USB (solo libreria standar
 Usata dall'app Windows, dal plugin Decky e dalla riga di comando (python -m psrx).
 """
 
-VERSIONE_APP = '0.1.5'
+VERSIONE_APP = '0.1.6'
