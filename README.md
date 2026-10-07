@@ -45,11 +45,8 @@ Tutti i file sono nell'ultima [release](https://github.com/loddi-o/PS-RX/release
    L'exe non è firmato: se Windows SmartScreen lo blocca, scegli "Ulteriori informazioni" → "Esegui
    comunque".
 2. Apri PS-RX e scegli **"Prepara un nuovo ricevitore…"**.
-3. Collega il Pico:
-   - un Pico nuovo si presenta da solo;
-   - un Pico già usato va collegato tenendo premuto il tasto **BOOTSEL**.
-
-   L'app scarica l'ultimo firmware, lo copia nel Pico e aspetta il ricevitore pronto.
+3. Collega il Pico. L'app scarica l'ultimo firmware, lo copia nel Pico e aspetta il ricevitore pronto. Per
+   un Pico già usato, o con un altro firmware, vedi [Installare il firmware sul Pico](#installare-il-firmware-sul-pico).
 
 ### SteamOS / Steam Deck (plugin Decky)
 
@@ -64,6 +61,66 @@ Tutti i file sono nell'ultima [release](https://github.com/loddi-o/PS-RX/release
 Apri `ps-rx-X.Y.Z.html` in Chrome o Edge (WebUSB). Il firmware lo scarichi a mano, poi lo carichi dalla
 pagina. Su un Pico nuovo copia il file `ps-rx-firmware-X.Y.Z.uf2` nell'unità "RP2350" che compare
 collegandolo con BOOTSEL premuto.
+
+## Installare il firmware sul Pico
+
+Il firmware si installa con il Pico in **modalità BOOTSEL**. In questa modalità il Pico si presenta al PC come
+un'unità USB chiamata **"RP2350"**, e basta copiarci dentro il file `.uf2`. La modalità BOOTSEL sta nella
+memoria fissa del chip: non si può cancellare, quindi c'è sempre e funziona con qualsiasi firmware.
+
+### Che Pico ho collegato?
+
+Collega il Pico al PC con un cavo dati e guarda cosa compare:
+
+| Cosa vedi | Cosa vuol dire |
+|---|---|
+| Un'unità **"RP2350"** | Il Pico è in BOOTSEL: è nuovo, ha la memoria vuota oppure hai tenuto premuto BOOTSEL. Vai allo scenario 1. |
+| Un'unità **"RPI-RP2"** | È un Pico o Pico W della prima generazione (RP2040): **non è compatibile**, serve un Pico 2 W. |
+| Il ricevitore PS-RX nell'app | PS-RX è già installato: vai allo scenario 3. |
+| Nient'altro | Il Pico ha un altro firmware (scenario 2), oppure il cavo serve solo per caricare: provane un altro. |
+
+### Scenario 1: Pico nuovo o con la memoria vuota
+
+Un Pico 2 W appena comprato è vuoto e si avvia da solo in BOOTSEL: non serve premere niente.
+
+- **Windows:** apri l'app PS-RX e collega il Pico. L'app trova l'unità "RP2350", apre da sola "Prepara un
+  nuovo ricevitore" e installa l'ultimo firmware. Puoi aprire la procedura anche a mano, dal pulsante
+  "Prepara un nuovo ricevitore…".
+- **SteamOS:** nel plugin Decky, sezione "Nuovo ricevitore", premi **"Installa PS-RX sul Pico"**.
+- **A mano (qualsiasi sistema):** copia `ps-rx-firmware-X.Y.Z.uf2` nell'unità "RP2350". Il Pico scrive il
+  firmware, l'unità sparisce e dopo qualche secondo il Pico si riavvia come ricevitore PS-RX.
+
+Senza internet, l'app e il plugin usano il firmware che hanno incluso.
+
+### Scenario 2: Pico con un altro firmware
+
+Il Pico ha MicroPython, CircuitPython o il firmware di un altro progetto, quindi non si avvia in BOOTSEL da solo.
+
+1. **Salva prima quello che ti serve.** Ad esempio, gli script di MicroPython: con l'installazione di PS-RX
+   il vecchio firmware viene sovrascritto.
+2. Stacca il Pico.
+3. **Tieni premuto il tasto BOOTSEL** (il pulsante bianco sulla scheda) e, sempre tenendolo premuto, ricollega
+   il cavo USB.
+4. Rilascia il tasto quando compare l'unità "RP2350".
+5. Prosegui come nello **scenario 1**.
+
+I dati lasciati in memoria dal vecchio firmware non danno problemi: PS-RX controlla le proprie impostazioni
+con un codice di verifica e, se non le trova, parte con quelle predefinite.
+
+### Scenario 3: Pico con PS-RX già installato
+
+- **Aggiornare:** Sistema → Aggiornamenti (GitHub) → "Cerca aggiornamenti", poi installa il firmware nuovo. Il
+  firmware passa via USB, senza BOOTSEL.
+- **Reinstallare** (per esempio se un aggiornamento si è interrotto): apri "Prepara un nuovo ricevitore…" con il
+  ricevitore collegato. L'app lo riavvia in BOOTSEL e gli reinstalla l'ultimo firmware.
+
+In entrambi i casi controller abbinati, reti WiFi e impostazioni restano. Servono i controller spenti.
+
+Se il ricevitore non risponde più, si recupera sempre con il tasto BOOTSEL, come nello scenario 2.
+
+> **Attenzione:** con l'app Windows aperta, *qualsiasi* Pico 2 collegato in BOOTSEL riceve PS-RX
+> automaticamente. Se stai programmando un Pico per un altro progetto, chiudi prima l'app PS-RX
+> (anche dall'icona vicino all'orologio).
 
 ## Primi passi
 

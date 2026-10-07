@@ -46,11 +46,9 @@ All files are in the latest [release](https://github.com/loddi-o/PS-RX/releases/
    - The installer uses the Windows language and adds PS-RX to the Start menu.
    - The exe is not signed: if Windows SmartScreen blocks it, choose "More info" → "Run anyway".
 2. Open PS-RX and choose **"Set up a new receiver…"**.
-3. Connect the Pico:
-   - a new Pico shows up by itself;
-   - a Pico that was used before must be plugged in while holding the **BOOTSEL** button.
-
-   The app downloads the latest firmware, copies it to the Pico and waits for the receiver to be ready.
+3. Connect the Pico. The app downloads the latest firmware, copies it to the Pico and waits for the
+   receiver to be ready. For a used Pico, or one with another firmware, see
+   [Installing the firmware on the Pico](#installing-the-firmware-on-the-pico).
 
 ### SteamOS / Steam Deck (Decky plugin)
 
@@ -64,6 +62,65 @@ All files are in the latest [release](https://github.com/loddi-o/PS-RX/releases/
 Open `ps-rx-X.Y.Z.html` in Chrome or Edge (WebUSB). You download the firmware yourself and load it from the
 page. On a new Pico, copy `ps-rx-firmware-X.Y.Z.uf2` to the "RP2350" drive that appears when you plug it
 in with BOOTSEL held.
+
+## Installing the firmware on the Pico
+
+The firmware is installed with the Pico in **BOOTSEL mode**. In this mode the Pico shows up on your PC as a
+USB drive called **"RP2350"**, and you just copy the `.uf2` file onto it. BOOTSEL mode lives in the chip's
+read-only memory: it can't be erased, so it's always there and works whatever firmware is installed.
+
+### Which Pico do I have?
+
+Connect the Pico to the PC with a data cable and see what appears:
+
+| What you see | What it means |
+|---|---|
+| A drive named **"RP2350"** | The Pico is in BOOTSEL: it's new, its memory is empty, or you held BOOTSEL. Go to scenario 1. |
+| A drive named **"RPI-RP2"** | It's a first-generation Pico or Pico W (RP2040): **not compatible**, you need a Pico 2 W. |
+| The PS-RX receiver in the app | PS-RX is already installed: go to scenario 3. |
+| Nothing else | The Pico has another firmware (scenario 2), or the cable is charge-only: try another one. |
+
+### Scenario 1: new Pico or empty memory
+
+A brand-new Pico 2 W is empty and starts in BOOTSEL by itself: no need to press anything.
+
+- **Windows:** open the PS-RX app and connect the Pico. The app finds the "RP2350" drive, opens "Set up a new
+  receiver" by itself and installs the latest firmware. You can also open it yourself with the "Set up a new
+  receiver…" button.
+- **SteamOS:** in the Decky plugin, "New receiver" section, press **"Install PS-RX on the Pico"**.
+- **By hand (any system):** copy `ps-rx-firmware-X.Y.Z.uf2` to the "RP2350" drive. The Pico writes the
+  firmware, the drive disappears, and a few seconds later the Pico restarts as a PS-RX receiver.
+
+Without internet, the app and the plugin use the firmware bundled with them.
+
+### Scenario 2: Pico with another firmware
+
+The Pico has MicroPython, CircuitPython or another project's firmware, so it won't start in BOOTSEL by itself.
+
+1. **Save what you need first.** For example, your MicroPython scripts: installing PS-RX overwrites the old
+   firmware.
+2. Unplug the Pico.
+3. **Hold the BOOTSEL button** (the white button on the board) and, while holding it, plug the USB cable back in.
+4. Release the button when the "RP2350" drive appears.
+5. Continue as in **scenario 1**.
+
+Data left in memory by the old firmware won't cause problems: PS-RX checks its own settings with a
+checksum and, if it doesn't find them, starts with the defaults.
+
+### Scenario 3: Pico that already has PS-RX
+
+- **Update:** System → Updates (GitHub) → "Check for updates", then install the new firmware. The firmware goes
+  over USB, no BOOTSEL needed.
+- **Reinstall** (for example if an update was interrupted): open "Set up a new receiver…" with the receiver
+  connected. The app restarts it in BOOTSEL and reinstalls the latest firmware.
+
+Either way, paired controllers, WiFi networks and settings are kept. The controllers must be off.
+
+If the receiver stops responding, you can always recover it with the BOOTSEL button, as in scenario 2.
+
+> **Warning:** while the Windows app is open, *any* Pico 2 connected in BOOTSEL gets PS-RX installed
+> automatically. If you're programming a Pico for another project, close the PS-RX app first (also from
+> the icon near the clock).
 
 ## First steps
 
