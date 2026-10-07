@@ -29,7 +29,10 @@ pacchetti va detta all'utente con il costo misurato. Le alternative più leggere
 | `strumenti/compila_firmware.ps1 [-Versione x] [-SenzaConfronto]` | Build normale + riferimento in `.ds5-build\build-psrx`, poi confronto del codice macchina e dell'heap |
 | `strumenti/prova_logica.ps1` | Test g++ della logica pura (moduli in `firmware/test/moduli.txt`) |
 | `strumenti/flash.ps1` | Copia l'uf2 sul Pico in BOOTSEL |
-| `cd app; python -m unittest discover -s test` | Test della libreria Python con il Pico simulato |
+| `cd app; python -m unittest discover -s test` | Test della libreria, del plugin Decky e della pagina con il Pico simulato |
+| `strumenti/compila_app.ps1` | Exe dell'app Windows (PyInstaller) |
+| `strumenti/compila_decky.ps1` | Zip del plugin Decky |
+| `python strumenti/genera_pagina.py` | Schema delle impostazioni nella pagina WebUSB |
 
 ## Stato delle fasi (piano approvato)
 
@@ -57,8 +60,14 @@ pacchetti va detta all'utente con il costo misurato. Le alternative più leggere
    - Niente tastiera e niente audio in modalità Xbox.
    - Invio solo quando lo stato cambia, da `xbox_invia()` nel ciclo principale; `interrupt_loop` resta
      identica.
-7. **App Windows (PySide6), plugin Decky, pagina WebUSB:** da fare. La libreria `app/psrx` è pronta
-   (protocollo, WinUSB/usbfs, notifiche, CLI).
+7. **App e pagina:** scritte e provate con il ricevitore simulato, non ancora con l'hardware.
+   - Libreria `app/psrx`: protocollo, WinUSB/usbfs, notifiche, CLI.
+   - App Windows `app/psrx_app` (PySide6): tutto l'I/O USB in un thread; finestra chiusa = una lettura
+     silenziosa ogni 2 s e dispositivo chiuso fra un giro e l'altro (WinUSB è esclusivo).
+     Exe con `strumenti/compila_app.ps1`; prova con `python -m psrx_app --simulatore` da `app/`.
+   - Plugin Decky `app/decky`: zip con `strumenti/compila_decky.ps1`.
+   - Pagina WebUSB `web/ps-rx.html`: lo schema lo inserisce `strumenti/genera_pagina.py` e un test controlla
+     che sia aggiornato.
 8. **Modalità Steam Controller (sperimentale):** da fare.
 9. **Documenti e release GitHub:** da fare.
 

@@ -246,7 +246,7 @@ class TestCli(unittest.TestCase):
         codice, testo = self.esegui('regola-udev')
         self.assertEqual(codice, 0)
         self.assertIn('ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6"', testo)
-        self.assertIn('ATTR{idVendor}=="045e", ATTR{idProduct}=="028e"', testo)
+        self.assertIn('ATTR{idVendor}=="1209", ATTR{idProduct}=="0001"', testo)
 
 
 if __name__ == '__main__':

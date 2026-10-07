@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS-RX</title>
+<!--
+  PS-RX - pagina di configurazione via WebUSB (Chrome o Edge, anche aperta come file locale).
+  Parla col ricevitore con le stesse richieste di controllo dell'app (app/psrx/protocollo.py): niente
+  driver da installare (Windows usa WinUSB sull'interfaccia di configurazione), niente rete.
+  Lo SCHEMA qui sotto lo genera strumenti/genera_pagina.py da app/psrx/schema.py: non modificarlo a mano.
+-->
+<style>
+:root {
+  --sfondo: #f6f7f9; --carta: #ffffff; --testo: #1b1f24; --tenue: #5b6470; --bordo: #d8dde3;
+  --accento: #1f6feb; --accento-testo: #ffffff; --errore: #c62828; --ok: #2e7d32; --barra: #e8ebef;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sfondo: #0f1216; --carta: #171b21; --testo: #e6e9ed; --tenue: #9aa4af; --bordo: #2a313a;
+    --accento: #4c8dff; --accento-testo: #0b0e12; --errore: #ff6b6b; --ok: #66bb6a; --barra: #232a33;
+  }
+}
+:root[data-theme="dark"] {
+  --sfondo: #0f1216; --carta: #171b21; --testo: #e6e9ed; --tenue: #9aa4af; --bordo: #2a313a;
+  --accento: #4c8dff; --accento-testo: #0b0e12; --errore: #ff6b6b; --ok: #66bb6a; --barra: #232a33;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--sfondo); color: var(--testo); font: 15px/1.45 system-ui, "Segoe UI", sans-serif; }
+header { padding: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+header h1 { font-size: 20px; margin: 0; }
+#stato-conn { color: var(--tenue); flex: 1; min-width: 200px; }
+main { max-width: 920px; margin: 0 auto; padding: 0 16px 48px; }
+nav { display: flex; gap: 4px; border-bottom: 1px solid var(--bordo); margin-bottom: 16px; }
+nav button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--tenue); padding: 10px 14px; font: inherit; cursor: pointer; }
+nav button[aria-selected="true"] { color: var(--testo); border-bottom-color: var(--accento); font-weight: 600; }
+section.carta { background: var(--carta); border: 1px solid var(--bordo); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+section.carta h2 { font-size: 15px; margin: 0 0 10px; }
+.griglia { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.posto { border: 1px solid var(--bordo); border-radius: 8px; padding: 10px 12px; }
+.posto b { display: block; }
+.tenue, .nota { color: var(--tenue); font-size: 13px; }
+.nota { margin: 2px 0 10px; }
+.barra { height: 6px; background: var(--barra); border-radius: 3px; overflow: hidden; margin: 6px 0; }
+.barra > div { height: 100%; background: var(--accento); }
+button.az, label.az { background: var(--accento); color: var(--accento-testo); border: 0; border-radius: 6px; padding: 7px 12px; font: inherit; cursor: pointer; }
+button.sec { background: transparent; color: var(--testo); border: 1px solid var(--bordo); border-radius: 6px; padding: 6px 11px; font: inherit; cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+.riga { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+input[type=text], input[type=password], select, input[type=number] { background: var(--sfondo); color: var(--testo); border: 1px solid var(--bordo); border-radius: 6px; padding: 6px 8px; font: inherit; max-width: 100%; }
+.voce { margin: 8px 0; }
+.voce label { display: flex; gap: 8px; align-items: center; }
+table { width: 100%; border-collapse: collapse; }
+td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--bordo); }
+.lista-pad { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr; gap: 14px; }
+@media (max-width: 640px) { .lista-pad { grid-template-columns: 1fr; } }
+.lista-pad ul { list-style: none; margin: 0; padding: 0; border: 1px solid var(--bordo); border-radius: 8px; }
+.lista-pad li { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--bordo); }
+.lista-pad li:last-child { border-bottom: 0; }
+.lista-pad li[aria-selected="true"] { background: var(--barra); font-weight: 600; }
+#messaggio { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--carta); border: 1px solid var(--bordo); border-radius: 8px; padding: 8px 14px; max-width: calc(100% - 32px); display: none; }
+#messaggio.errore { color: var(--errore); }
+pre { white-space: pre-wrap; font-size: 12px; max-height: 50vh; overflow: auto; background: var(--sfondo); padding: 8px; border-radius: 6px; }
+.nascosto { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PS-RX</h1>
+  <span id="stato-conn">Nessun ricevitore collegato a questa pagina.</span>
+  <button class="az" id="collega">Collega il ricevitore</button>
+</header>
+<main>
+  <section class="carta" id="avviso-webusb">
+    <h2>Come funziona</h2>
+    <div class="nota">Collega il PS-RX a una porta USB e premi "Collega il ricevitore": il browser chiede quale
+      dispositivo usare. Serve Chrome o Edge (WebUSB). Se l'app PS-RX è aperta, chiudila: il dispositivo
+      si apre da un programma alla volta.</div>
+  </section>
+  <div id="contenuto" class="nascosto">
+    <nav role="tablist">
+      <button role="tab" data-scheda="gamepad" aria-selected="true">Gamepad</button>
+      <button role="tab" data-scheda="rete" aria-selected="false">Rete</button>
+      <button role="tab" data-scheda="sistema" aria-selected="false">Sistema</button>
+    </nav>
+
+    <div data-pannello="gamepad">
+      <section class="carta"><h2>Posti</h2><div class="griglia" id="posti"></div>
+        <div class="riga">
+          <button class="az" id="abbina">Abbina un nuovo controller</button>
+          <button class="sec" id="spegni-tutti">Spegni tutti</button>
+        </div>
+        <div class="nota" id="nota-abbina">Dopo il pulsante (o un click sul BOOTSEL del Pico) tieni premuti Create + PS
+          (DualSense) o Share + PS (DualShock 4) finché la luce lampeggia veloce.</div>
+      </section>
+      <section class="carta"><h2>Controller abbinati</h2>
+        <div class="lista-pad"><ul id="abbinati"></ul><div id="dettaglio-pad"></div></div>
+      </section>
+      <section class="carta"><h2>Tutti i controller</h2><div id="imp-gamepad"></div></section>
+      <section class="carta"><h2>Ultimi eventi</h2><div id="eventi" class="tenue">-</div></section>
+    </div>
+
+    <div data-pannello="rete" class="nascosto">
+      <section class="carta"><h2>WiFi del ricevitore</h2><div id="wifi"></div>
+        <div class="nota">Il WiFi è acceso solo senza controller collegati, per il Wake-on-LAN. Al primo controller
+          il ricevitore manda 3 pacchetti (entro 30 s al massimo), poi lo spegne.</div></section>
+      <section class="carta"><h2>Reti salvate (fino a 5)</h2>
+        <table><thead><tr><th>#</th><th>Nome della rete</th><th>Sicurezza</th><th></th></tr></thead><tbody id="reti"></tbody></table>
+        <div id="modulo-rete" class="nascosto">
+          <div class="riga"><b id="titolo-rete"></b></div>
+          <div class="riga"><input type="text" id="ssid" maxlength="32" placeholder="Nome della rete (SSID)">
+            <input type="password" id="psk" maxlength="63" placeholder="Password">
+            <label><input type="checkbox" id="wpa3"> WPA3</label></div>
+          <div class="nota" id="nota-psk">Password vuota = rete aperta.</div>
+          <div class="riga"><button class="az" id="salva-rete">Salva</button><button class="sec" id="annulla-rete">Annulla</button></div>
+        </div>
+      </section>
+      <section class="carta"><h2>Wake-on-LAN</h2><div id="imp-rete"></div>
+        <div class="riga">PC 1 <input type="text" id="wol1" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF"></div>
+        <div class="riga">PC 2 <input type="text" id="wol2" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF"></div>
+        <div class="riga"><button class="az" id="salva-wol">Salva</button><button class="sec" id="prova-wol">Prova ora</button></div>
+        <div class="nota">MAC della scheda di rete cablata del PC da accendere. Da spento, la porta USB del ricevitore
+          deve restare alimentata (opzione del BIOS tipo "USB power in S5").</div>
+      </section>
+    </div>
+
+    <div data-pannello="sistema" class="nascosto">
+      <section class="carta"><h2>Ricevitore</h2><div id="info"></div></section>
+      <section class="carta"><h2>Impostazioni del ricevitore</h2><div id="imp-sistema"></div>
+        <div class="riga"><button class="sec" id="salva-ora">Salva ora</button><button class="sec" id="predefinite">Impostazioni di fabbrica</button></div></section>
+      <section class="carta"><h2>Firmware</h2>
+        <div class="riga"><label class="az">Aggiorna il firmware…<input type="file" id="file-fw" accept=".uf2,.bin" hidden></label>
+          <button class="sec" id="bootsel">Riavvia in BOOTSEL</button><button class="sec" id="mostra-registro">Registro</button></div>
+        <div id="fw-stato" class="tenue"></div>
+        <div class="barra nascosto" id="fw-barra"><div style="width:0"></div></div>
+        <pre id="registro" class="nascosto"></pre>
+      </section>
+    </div>
+  </div>
+</main>
+<div id="messaggio" role="status"></div>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------------------------------
+// Schema delle impostazioni (generato da app/psrx/schema.py)
+// SCHEMA-INIZIO
+const SCHEMA = {"impostazioni":[{"id":1,"chiave":"modalita","tipo":"scelta","sezione":"sistema","riconnette":true,"titolo":"Modalità del ricevitore","opzioni":[[0,"PlayStation"],[1,"Xbox"],[2,"Steam Controller (sperimentale)"]],"predefinito":0,"nota":"Come il PC vede i controller. PlayStation: DualSense (anche il DualShock 4), con tutto. Xbox: controller Xbox 360 (XInput), senza giroscopio e audio; il touchpad funziona solo come mouse. Steam: mouse e tastiera finché Steam non lo prende."},{"id":2,"chiave":"posti_fissi","tipo":"booleano","sezione":"sistema","riconnette":true,"titolo":"Sempre 4 gamepad sull'USB","predefinito":0,"nota":"Attivo: il PC vede sempre 4 gamepad e collegare un controller non interrompe gli altri. Spento: il PC vede solo quelli accesi, ma quando se ne collega uno nuovo gli altri si fermano per circa 1 s."},{"id":3,"chiave":"led_posto","tipo":"booleano","sezione":"gamepad","riconnette":false,"titolo":"Colore della barra luminosa secondo il posto","predefinito":0,"nota":"Come la PS5: 1 blu, 2 rosso, 3 verde, 4 rosa. Ignora i colori decisi dai giochi."},{"id":4,"chiave":"wol_spento","tipo":"booleano","sezione":"rete","riconnette":false,"titolo":"Disattiva il Wake-on-LAN","predefinito":0,"nota":"Senza Wake-on-LAN il WiFi si spegne appena si collega un controller."},{"id":5,"chiave":"buffer_audio","tipo":"intero","min":16,"max":128,"passo":8,"sezione":"sistema","riconnette":false,"titolo":"Buffer audio del controller","predefinito":64,"nota":"Più alto = meno scatti in cuffia, con un po' di ritardo solo sull'audio. Non tocca i tasti."},{"id":6,"chiave":"inattivita","tipo":"intero","min":5,"max":60,"passo":5,"sezione":"sistema","riconnette":false,"titolo":"Spegni il controller dopo (minuti di inattività)","predefinito":30,"nota":"Il controller si spegne se resta fermo per questo tempo."},{"id":7,"chiave":"mai_disconnettere","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"Non spegnere mai i controller per inattività","predefinito":0,"nota":""},{"id":8,"chiave":"led_pico_spento","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"LED del ricevitore spento","predefinito":0,"nota":"Di solito il LED del Pico resta acceso finché c'è almeno un controller collegato."},{"id":9,"chiave":"tastiera_risveglio","tipo":"booleano","sezione":"sistema","riconnette":true,"titolo":"Sveglia il PC dalla sospensione via USB","predefinito":0,"nota":"Aggiunge una piccola tastiera USB che preme un tasto quando premi PS a PC sospeso. Alcuni anticheat la notano: tienila spenta se non ti serve (il Wake-on-LAN funziona comunque)."},{"id":10,"chiave":"registro","tipo":"booleano","sezione":"sistema","riconnette":false,"titolo":"Registro diagnostico","predefinito":0,"nota":"Tiene in RAM le ultime righe di log del ricevitore, da leggere nell'app."}],"impostazioni_pad":[{"id":1,"chiave":"audio","tipo":"booleano","predefinito":1,"titolo":"Audio (altoparlante e cuffie del controller)","nota":"Solo con un controller collegato: con due o più il Bluetooth non regge l'audio. Spento libera banda e rende la connessione più stabile. Non disponibile sul DualShock 4."},{"id":2,"chiave":"microfono","tipo":"booleano","predefinito":1,"titolo":"Microfono (integrato o delle cuffie)","nota":"Trasmette solo quando un'app usa il microfono."},{"id":3,"chiave":"polling","tipo":"scelta","predefinito":0,"opzioni":[[0,"1000 Hz"],[1,"500 Hz"],[2,"250 Hz"],[3,"125 Hz"]],"titolo":"Frequenza verso il PC","nota":"Quante volte al secondo il PC riceve lo stato di questo controller. 1000 Hz = latenza minima."},{"id":4,"chiave":"trackpad","tipo":"booleano","predefinito":0,"titolo":"Touchpad come mouse","nota":"Il touchpad muove il puntatore e il suo click è il tasto sinistro; la striscia a sinistra fa da rotellina."},{"id":5,"chiave":"inverti_scorrimento","tipo":"booleano","predefinito":0,"titolo":"Inverti la rotellina","nota":""}]};
+// SCHEMA-FINE
+
+// ---------------------------------------------------------------------------------------------------
+// Protocollo (specchio di app/psrx/protocollo.py)
+const RICHIESTA = 0x50, PAD_MAX = 4, RETI_MAX = 5, SETTORE = 4096;
+const CMD = { INFO: 0x00, STATO: 0x01, IMPOSTAZIONI: 0x02, ABBINATI: 0x03, REGISTRO: 0x04, ERRORE: 0x05,
+  CARICAMENTO: 0x06, EVENTI: 0x07, RETI: 0x08, IMPOSTA: 0x10, SALVA_ORA: 0x11, PREDEFINITE: 0x12,
+  IMPOSTA_PAD: 0x13, RINOMINA: 0x20, DIMENTICA: 0x21, ABBINA: 0x23, SPEGNI_PAD: 0x24,
+  RETE_SALVA: 0x30, RETE_CANCELLA: 0x31, WOL_DESTINAZIONI: 0x32, WOL_PROVA: 0x33, CARICA_INIZIO: 0x40,
+  CARICA_BLOCCO: 0x41, CARICA_FINE: 0x42, CARICA_ANNULLA: 0x43, INSTALLA_ORA: 0x44, BOOTSEL_ORA: 0x45 };
+const LUNGHEZZA = { 0: 76, 1: 112, 2: 64, 3: 128, 4: 2304, 5: 2, 6: 12, 7: 1 + 16 * 14, 8: RETI_MAX * 35 + 13 };
+const ERRORI = ["nessun errore", "comando sconosciuto", "lunghezza dei dati sbagliata", "valore non ammesso",
+  "il ricevitore sta ancora finendo l'operazione precedente",
+  "spegni prima i controller (PS-RX scrive in memoria solo senza controller collegati)",
+  "controller non trovato fra gli abbinati", "posti esauriti", "scrittura in memoria fallita",
+  "blocco fuori ordine o caricamento non iniziato", "firmware di dimensione non valida",
+  "impronta SHA-256 diversa: firmware rovinato durante il caricamento",
+  "il file non è un firmware per Raspberry Pi Pico 2 W", "nessun firmware pronto da installare", "WiFi non connesso"];
+const ERR_OCCUPATO = 4, ERR_PAD_CONNESSO = 5;
+const MODALITA = { 0: "PlayStation", 1: "Xbox", 2: "Steam Controller" };
+const MODELLI = { 0: "-", 1: "DualSense", 2: "DualSense Edge", 3: "DualShock 4" };
+const HZ = { 0: 1000, 1: 500, 2: 250, 3: 125 };
+const RETE = { 0: "spento (radio al Bluetooth)", 1: "connessione in corso", 2: "connesso", 3: "nessuna rete raggiungibile" };
+const CAR = { INATTIVO: 0, RICEZIONE: 1, SCRITTURA: 2, VERIFICA: 3, PRONTO: 4, INSTALLAZIONE: 5, ERRORE: 6 };
+
+class ErrorePsrx extends Error { constructor(codice) { super(ERRORI[codice] || `errore ${codice}`); this.codice = codice; } }
+
+const testoUtf8 = (b) => new TextDecoder().decode(b.slice(0, b.indexOf(0) >= 0 ? b.indexOf(0) : b.length));
+const macTesto = (b) => Array.from(b, (x) => x.toString(16).padStart(2, "0").toUpperCase()).join(":");
+function macBytes(t) {
+  const p = t.trim().replace(/-/g, ":").split(":");
+  if (p.length !== 6 || p.some((x) => !/^[0-9a-fA-F]{2}$/.test(x))) throw new Error(`MAC non valido: ${t}`);
+  return Uint8Array.from(p.map((x) => parseInt(x, 16)));
+}
+const sonno = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// --- trasporto WebUSB -----------------------------------------------------------------------------
+let dev = null;
+let coda = Promise.resolve();
+// Una richiesta alla volta, in ordine.
+function inCoda(f) { const r = coda.then(f, f); coda = r.catch(() => {}); return r; }
+
+async function apri(d) {
+  await d.open();
+  if (d.configuration === null) await d.selectConfiguration(1);
+  const itf = d.configuration.interfaces.find((i) => i.alternates.some((a) => a.interfaceClass === 0xFF && a.interfaceSubclass === 0x50));
+  if (!itf) throw new Error("interfaccia di configurazione PS-RX non trovata");
+  await d.claimInterface(itf.interfaceNumber);
+  dev = d;
+}
+
+async function erroreDalPico() {
+  const r = await dev.controlTransferIn({ requestType: "vendor", recipient: "device", request: RICHIESTA, value: CMD.ERRORE, index: 0 }, 2);
+  return r.data && r.data.byteLength ? r.data.getUint8(0) || 1 : 1;
+}
+
+function leggi(cmd, indice = 0) {
+  return inCoda(async () => {
+    if (!dev) throw new Error("ricevitore non collegato");
+    const r = await dev.controlTransferIn({ requestType: "vendor", recipient: "device", request: RICHIESTA, value: cmd, index: indice }, LUNGHEZZA[cmd] || 2304);
+    if (r.status === "stall") throw new ErrorePsrx(await erroreDalPico());
+    return new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
+  });
+}
+
+function scrivi(cmd, indice = 0, dati = new Uint8Array(0)) {
+  return inCoda(async () => {
+    if (!dev) throw new Error("ricevitore non collegato");
+    const r = await dev.controlTransferOut({ requestType: "vendor", recipient: "device", request: RICHIESTA, value: cmd, index: indice }, dati);
+    if (r.status === "stall") throw new ErrorePsrx(await erroreDalPico());
+  });
+}
+
+// --- letture ----------------------------------------------------------------------------------------
+async function leggiInfo() {
+  const b = await leggi(CMD.INFO), v = new DataView(b.buffer, b.byteOffset);
+  if (testoUtf8(b.slice(0, 4)) !== "PSRX") throw new Error("non è un PS-RX");
+  return { protocollo: b[4], slotMax: b[5], capacita: v.getUint32(8, true), appoggio: v.getUint32(12, true),
+           versione: testoUtf8(b.slice(16, 48)), base: testoUtf8(b.slice(48, 76)) };
+}
+
+async function leggiStato() {
+  const b = await leggi(CMD.STATO), v = new DataView(b.buffer, b.byteOffset);
+  const s = { modalita: b[1], usbGamepad: b[2], usbSospeso: !!(b[3] & 2), altoparlante: !!(b[4] & 1),
+    microfono: !!(b[4] & 2), padConnessi: b[5], abbinamento: !!(b[6] & 1), inSospeso: !!(b[6] & 2),
+    postiFissi: !!(b[6] & 4), caricamento: b[7], uptime: v.getUint32(8, true), heap: v.getUint32(12, true),
+    ultimoEvento: v.getUint16(16, true), reteStato: b[18], reteIndice: v.getInt8(19),
+    ip: Array.from(b.slice(20, 24)).join("."), rssi: v.getInt16(24, true), wolFinestra: !!b[26],
+    msWol: v.getUint32(28, true), pad: [] };
+  if (s.msWol === 0xFFFFFFFF) s.msWol = null;
+  for (let i = 0; i < PAD_MAX; i++) {
+    const o = 32 + i * 20;
+    s.pad.push({ posto: i, connesso: !!b[o], modello: b[o + 1], batteria: b[o + 2], valida: !!(b[o + 3] & 1),
+      carica: !!(b[o + 3] & 2), audio: !!(b[o + 3] & 4), rssi: v.getInt8(o + 4) === 127 ? null : v.getInt8(o + 4),
+      mac: macTesto(b.slice(o + 5, o + 11)), polling: b[o + 11], rps: v.getUint16(o + 12, true) });
+  }
+  return s;
+}
+
+async function leggiImpostazioni() {
+  const b = await leggi(CMD.IMPOSTAZIONI), v = new DataView(b.buffer, b.byteOffset), r = {};
+  for (let k = 0; k < b[0]; k++) r[b[1 + k * 3]] = v.getUint16(2 + k * 3, true);
+  return r;
+}
+
+async function leggiAbbinati() {
+  const b = await leggi(CMD.ABBINATI), r = [];
+  for (let k = 0; k < b[0]; k++) {
+    const o = 1 + k * 29;
+    r.push({ mac: macTesto(b.slice(o, o + 6)), nome: testoUtf8(b.slice(o + 6, o + 22)),
+      posto: b[o + 22] === 0xFF ? null : b[o + 22],
+      valori: { audio: b[o + 23], microfono: b[o + 24], polling: b[o + 25], trackpad: b[o + 26], inverti_scorrimento: b[o + 27] } });
+  }
+  return r;
+}
+
+async function leggiReti() {
+  const b = await leggi(CMD.RETI), reti = [];
+  for (let i = 0; i < RETI_MAX; i++) {
+    const o = i * 35;
+    reti.push({ indice: i, ssid: testoUtf8(b.slice(o, o + 33)), wpa3: !!b[o + 33], haPassword: !!b[o + 34] });
+  }
+  const o = RETI_MAX * 35;
+  const mac = [b.slice(o, o + 6), b.slice(o + 6, o + 12)].map((m) => (m.some((x) => x) ? macTesto(m) : ""));
+  return { reti, wol: mac, wolSpento: !!b[o + 12] };
+}
+
+async function leggiEventi(dopo) {
+  const b = await leggi(CMD.EVENTI, dopo), v = new DataView(b.buffer, b.byteOffset), r = [];
+  for (let k = 0; k < b[0]; k++) {
+    const o = 1 + k * 14;
+    r.push({ numero: v.getUint16(o, true), tipo: b[o + 2], posto: b[o + 3], modello: b[o + 4],
+      batteria: b[o + 5] === 0xFF ? null : b[o + 5], critico: !!b[o + 6], modalita: b[o + 7], mac: macTesto(b.slice(o + 8, o + 14)) });
+  }
+  return r;
+}
+
+async function leggiCaricamento() {
+  const b = await leggi(CMD.CARICAMENTO), v = new DataView(b.buffer, b.byteOffset);
+  return { stato: b[0], errore: b[1], scritti: v.getUint16(2, true) };
+}
+
+// --- interfaccia ----------------------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+let st = null, imp = {}, abbinati = [], reti = null, info = null, scelto = null, ultimoEvento = null;
+let caricamentoInCorso = false, interrompi = false;
+const eventiVisti = [];
+
+function messaggio(testo, errore = false) {
+  const m = $("messaggio");
+  m.textContent = testo;
+  m.className = errore ? "errore" : "";
+  m.style.display = "block";
+  clearTimeout(messaggio.t);
+  messaggio.t = setTimeout(() => { m.style.display = "none"; }, 6000);
+}
+
+async function azione(f, ok) {
+  try { await f(); if (ok) messaggio(ok); } catch (e) { messaggio(e.message, true); }
+  await aggiorna(true);
+}
+
+function el(tag, attributi = {}, ...figli) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attributi)) {
+    if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k === "testo") e.textContent = v;
+    else e.setAttribute(k, v);
+  }
+  for (const f of figli) if (f) e.append(f);
+  return e;
+}
+
+// Controllo costruito da una voce dello schema.
+function controllo(voce, valore, cambia) {
+  const box = el("div", { class: "voce" });
+  if (voce.tipo === "booleano") {
+    const c = el("input", { type: "checkbox", onchange: () => cambia(c.checked ? 1 : 0) });
+    c.checked = !!valore;
+    box.append(el("label", {}, c, voce.titolo));
+  } else if (voce.tipo === "scelta") {
+    const s = el("select", { onchange: () => cambia(Number(s.value)) });
+    for (const [v, t] of voce.opzioni) { const o = el("option", { value: v, testo: t }); if (v === valore) o.selected = true; s.append(o); }
+    box.append(el("label", {}, voce.titolo, s));
+  } else {
+    const n = el("input", { type: "number", min: voce.min, max: voce.max, step: voce.passo || 1, onchange: () => cambia(Number(n.value)) });
+    n.value = valore;
+    box.append(el("label", {}, voce.titolo, n));
+  }
+  const nota = voce.nota + (voce.riconnette ? " Cambiarla ricollega l'USB del ricevitore." : "");
+  if (nota.trim()) box.append(el("div", { class: "nota", testo: nota }));
+  return box;
+}
+
+function disegnaImpostazioni(sezione, contenitore) {
+  const c = $(contenitore);
+  c.replaceChildren();
+  for (const voce of SCHEMA.impostazioni.filter((v) => v.sezione === sezione)) {
+    c.append(controllo(voce, imp[voce.id] ?? voce.predefinito, (x) => {
+      if (voce.riconnette && st && st.padConnessi && !confirm(`${voce.titolo}: il ricevitore si ricollega all'USB e per circa un secondo i controller non arrivano al PC. Continuare?`)) {
+        disegnaImpostazioni(sezione, contenitore);
+        return;
+      }
+      const v = new Uint8Array([x & 0xFF, x >> 8]);
+      azione(() => scrivi(CMD.IMPOSTA, voce.id, v), `${voce.titolo}: salvato`);
+    }));
+  }
+}
+
+function disegnaPosti() {
+  const c = $("posti");
+  c.replaceChildren();
+  const nomi = Object.fromEntries(abbinati.map((a) => [a.mac, a.nome]));
+  for (const p of st.pad) {
+    const box = el("div", { class: "posto" }, el("div", { class: "tenue", testo: `Posto ${p.posto + 1}` }));
+    if (!p.connesso) { box.append(el("b", { testo: "Libero" })); c.append(box); continue; }
+    box.append(el("b", { testo: nomi[p.mac] || p.mac }));
+    box.append(el("div", { class: "tenue", testo: `${MODELLI[p.modello] || "?"} · ${p.rps} report/s · ${HZ[p.polling]} Hz · segnale ${p.rssi ?? "-"}${p.audio ? " · audio" : ""}` }));
+    const barra = el("div", { class: "barra" }, el("div", { style: `width:${p.valida ? p.batteria : 0}%` }));
+    box.append(barra, el("div", { class: "riga" },
+      el("span", { class: "tenue", testo: p.valida ? `Batteria ${p.batteria}%${p.carica ? " · in carica" : ""}` : "Batteria sconosciuta" }),
+      el("button", { class: "sec", testo: "Spegni", onclick: () => azione(() => scrivi(CMD.SPEGNI_PAD, p.posto), `Posto ${p.posto + 1} spento`) })));
+    c.append(box);
+  }
+  $("abbina").textContent = st.abbinamento ? "Abbinamento in corso…" : "Abbina un nuovo controller";
+}
+
+function disegnaAbbinati() {
+  const ul = $("abbinati");
+  ul.replaceChildren();
+  if (!abbinati.some((a) => a.mac === scelto)) scelto = abbinati.length ? abbinati[0].mac : null;
+  for (const a of abbinati) {
+    ul.append(el("li", { "aria-selected": String(a.mac === scelto), title: a.mac,
+      testo: `${a.nome || a.mac}${a.posto !== null ? ` · posto ${a.posto + 1}` : ""}`,
+      onclick: () => { scelto = a.mac; disegnaAbbinati(); } }));
+  }
+  const d = $("dettaglio-pad");
+  d.replaceChildren();
+  const a = abbinati.find((x) => x.mac === scelto);
+  if (!a) { d.append(el("div", { class: "tenue", testo: "Nessun controller abbinato." })); return; }
+  const nome = el("input", { type: "text", maxlength: 15, placeholder: "Nome (facoltativo)" });
+  nome.value = a.nome;
+  d.append(el("div", { class: "riga" }, nome, el("button", { class: "sec", testo: "Rinomina", onclick: () => {
+    const t = new TextEncoder().encode(nome.value.trim()).slice(0, 15), dati = new Uint8Array(22);
+    dati.set(macBytes(a.mac)); dati.set(t, 6);
+    azione(() => scrivi(CMD.RINOMINA, 0, dati), "Nome salvato");
+  } })));
+  for (const voce of SCHEMA.impostazioni_pad) {
+    const box = controllo(voce, a.valori[voce.chiave], (x) => {
+      const dati = new Uint8Array(8);
+      dati.set(macBytes(a.mac)); dati[6] = voce.id; dati[7] = x;
+      azione(() => scrivi(CMD.IMPOSTA_PAD, 0, dati), `${a.nome || a.mac}: ${voce.titolo} salvato`);
+    });
+    if (voce.chiave === "inverti_scorrimento" && !a.valori.trackpad) box.querySelector("input").disabled = true;
+    d.append(box);
+  }
+  d.append(el("button", { class: "sec", testo: "Dimentica questo controller", onclick: () => {
+    if (confirm(`Dimenticare ${a.nome || a.mac}? Va abbinato di nuovo e le sue impostazioni si perdono.`))
+      azione(() => scrivi(CMD.DIMENTICA, 0, macBytes(a.mac)), "Controller dimenticato");
+  } }));
+}
+
+function durata(s) {
+  if (s >= 3600) return `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`;
+  return s >= 60 ? `${Math.floor(s / 60)} min` : `${s} s`;
+}
+
+function disegnaRete() {
+  let t = RETE[st.reteStato] || "?";
+  if (st.reteStato === 2) t = `Connesso a ${reti.reti[st.reteIndice]?.ssid || "?"} · IP ${st.ip} · segnale ${st.rssi} dBm`;
+  else if (st.reteStato === 0 && st.padConnessi) t = "Spento: con i controller collegati la radio è tutta al Bluetooth";
+  $("wifi").textContent = `${t} · ultimo Wake-on-LAN: ${st.msWol === null ? "mai" : durata(Math.floor(st.msWol / 1000)) + " fa"}`;
+  const tb = $("reti");
+  tb.replaceChildren();
+  for (const r of reti.reti) {
+    tb.append(el("tr", {}, el("td", { testo: r.indice + 1 }), el("td", { testo: r.ssid || "(vuota)" }),
+      el("td", { testo: r.ssid ? `${r.wpa3 ? "WPA3" : "WPA2"}${r.haPassword ? "" : " · aperta"}` : "" }),
+      el("td", {}, el("button", { class: "sec", testo: r.ssid ? "Modifica" : "Aggiungi", onclick: () => apriRete(r) }),
+        r.ssid ? el("button", { class: "sec", testo: "Elimina", onclick: () => {
+          if (confirm(`Eliminare la rete ${r.ssid}?`)) azione(() => scrivi(CMD.RETE_CANCELLA, r.indice), "Rete eliminata");
+        } }) : null)));
+  }
+  for (const [i, id] of [[0, "wol1"], [1, "wol2"]]) if (document.activeElement !== $(id) && !$(id).dataset.modificato) $(id).value = reti.wol[i];
+}
+
+let reteAperta = null;
+function apriRete(r) {
+  reteAperta = r;
+  $("modulo-rete").classList.remove("nascosto");
+  $("titolo-rete").textContent = `Rete ${r.indice + 1}`;
+  $("ssid").value = r.ssid; $("psk").value = ""; $("wpa3").checked = r.wpa3;
+  $("nota-psk").textContent = r.ssid && r.haPassword ? "Password vuota = mantieni quella salvata." : "Password vuota = rete aperta.";
+}
+
+function disegnaInfo() {
+  const audio = [st.altoparlante ? "altoparlante" : "", st.microfono ? "microfono" : ""].filter(Boolean).join(", ") || "non in uso";
+  $("info").replaceChildren(
+    el("b", { testo: `PS-RX ${info.versione}` }), ` · base ${info.base} · acceso da ${durata(st.uptime)}`, el("br"),
+    `Modalità ${MODALITA[st.modalita]} · ${st.usbGamepad} sull'USB${st.usbSospeso ? " (PC in sospensione)" : ""} · audio: ${audio}`, el("br"),
+    `Memoria libera ${Math.floor(st.heap / 1024)} KB${st.inSospeso ? " · modifiche in attesa di salvataggio (a controller spenti)" : ""}`);
+}
+
+function testoEvento(e) {
+  const nome = abbinati.find((a) => a.mac === e.mac)?.nome || `Controller ${e.posto + 1}`;
+  const batt = e.batteria === null ? "batteria sconosciuta" : `batteria ${e.batteria}%`;
+  if (e.tipo === 1) return `${nome} collegato · posto ${e.posto + 1} · ${MODELLI[e.modello]} · modalità ${MODALITA[e.modalita]} · ${batt}`;
+  if (e.tipo === 2) return `${nome} scollegato (posto ${e.posto + 1})`;
+  if (e.tipo === 3) return `${e.critico ? "Batteria quasi scarica" : "Batteria in esaurimento"}: ${nome}, ${batt}`;
+  return `evento ${e.tipo}`;
+}
+
+let giro = 0;
+async function aggiorna(dettagli = false) {
+  if (!dev || caricamentoInCorso) return;
+  try {
+    if (!info) info = await leggiInfo();
+    st = await leggiStato();
+    if (dettagli || giro++ % 5 === 0) {
+      imp = await leggiImpostazioni();
+      abbinati = await leggiAbbinati();
+      reti = await leggiReti();
+      disegnaImpostazioni("gamepad", "imp-gamepad");
+      disegnaImpostazioni("rete", "imp-rete");
+      disegnaImpostazioni("sistema", "imp-sistema");
+      disegnaAbbinati();
+    }
+    if (ultimoEvento === null) ultimoEvento = st.ultimoEvento;
+    else if (st.ultimoEvento !== ultimoEvento) {
+      for (const e of await leggiEventi(ultimoEvento)) eventiVisti.unshift(`${new Date().toLocaleTimeString()} · ${testoEvento(e)}`);
+      ultimoEvento = st.ultimoEvento;
+      eventiVisti.length = Math.min(eventiVisti.length, 10);
+      $("eventi").replaceChildren(...eventiVisti.flatMap((t) => [t, el("br")]));
+    }
+    disegnaPosti();
+    disegnaRete();
+    disegnaInfo();
+    $("stato-conn").textContent = `Collegato · modalità ${MODALITA[st.modalita]} · ${st.padConnessi} controller`;
+  } catch (e) {
+    $("stato-conn").textContent = `Errore: ${e.message}`;
+  }
+}
+
+// --- firmware -------------------------------------------------------------------------------------------
+function daUf2(buf) {
+  const v = new DataView(buf), pezzi = new Map();
+  if (buf.byteLength % 512) throw new Error("file UF2 di lunghezza non multipla di 512");
+  for (let o = 0; o < buf.byteLength; o += 512) {
+    if (v.getUint32(o, true) !== 0x0A324655 || v.getUint32(o + 4, true) !== 0x9E5D5157 || v.getUint32(o + 508, true) !== 0x0AB16F30)
+      throw new Error("blocco UF2 non valido");
+    const flag = v.getUint32(o + 8, true), ind = v.getUint32(o + 12, true), dim = v.getUint32(o + 16, true), fam = v.getUint32(o + 28, true);
+    if (flag & 1 || !(flag & 0x2000) || fam !== 0xE48BFF59 || dim > 476 || ind < 0x10000000 || ind >= 0x11000000) continue;
+    pezzi.set(ind, new Uint8Array(buf, o + 32, dim));
+  }
+  if (!pezzi.size) throw new Error("nessun blocco RP2350 nel file UF2");
+  const inizio = Math.min(...pezzi.keys());
+  if (inizio !== 0x10000000) throw new Error("il firmware non parte dall'inizio della flash");
+  const fine = Math.max(...[...pezzi].map(([a, d]) => a + d.length));
+  const img = new Uint8Array(fine - inizio).fill(0xFF);
+  for (const [a, d] of pezzi) img.set(d, a - inizio);
+  return img;
+}
+
+function controllaImmagine(img) {
+  if (img.length < 64 * 1024) throw new Error("file troppo piccolo");
+  if (info && img.length > info.appoggio) throw new Error(`troppo grande: al massimo ${info.appoggio} byte`);
+  const v = new DataView(img.buffer), sp = v.getUint32(0, true), reset = v.getUint32(4, true);
+  if (sp < 0x20000000 || sp > 0x20082000 || sp & 7) throw new Error("tabella dei vettori non valida (stack)");
+  if (!(reset & 1)) throw new Error("tabella dei vettori non valida (reset)");
+  let trovato = false;
+  for (let o = 8; o < 4096; o += 4) if (v.getUint32(o, true) === 0xFFFFDED3) { trovato = true; break; }
+  if (!trovato) throw new Error("manca il blocco IMAGE_DEF: non è un firmware RP2350");
+}
+
+function avanzamento(testo, percento) {
+  $("fw-stato").textContent = testo;
+  const b = $("fw-barra");
+  b.classList.toggle("nascosto", percento === null);
+  if (percento !== null) b.firstElementChild.style.width = `${percento}%`;
+}
+
+async function ripetiSePad(f) {
+  for (;;) {
+    try { return await f(); } catch (e) {
+      if (interrompi) throw new Error("annullato");
+      if (e.codice === ERR_PAD_CONNESSO) { avanzamento("Spegni i controller: il firmware si carica e si installa solo senza controller.", null); await sonno(1000); continue; }
+      if (e.codice === ERR_OCCUPATO) { await sonno(10); continue; }
+      throw e;
+    }
+  }
+}
+
+async function caricaFirmware(file) {
+  const buf = await file.arrayBuffer();
+  const u = new Uint8Array(buf);
+  const img = file.name.toLowerCase().endsWith(".uf2") || new DataView(buf).getUint32(0, true) === 0x0A324655 ? daUf2(buf) : u;
+  controllaImmagine(img);
+  const versione = (new TextDecoder("latin1").decode(img).match(/ps-rx-[0-9A-Za-z.\-_]+/) || ["sconosciuta"])[0];
+  if (!confirm(`Installata: ${info.versione}\nNuova: ${versione} (${Math.round(img.length / 1024)} KB)\n\nIl ricevitore si riavvia alla fine. Continuare?`)) return;
+  const sha = new Uint8Array(await crypto.subtle.digest("SHA-256", img));
+  const blocchi = Math.ceil(img.length / SETTORE);
+  caricamentoInCorso = true; interrompi = false;
+  try {
+    const inizio = new Uint8Array(36);
+    new DataView(inizio.buffer).setUint32(0, img.length, true);
+    inizio.set(sha, 4);
+    await ripetiSePad(() => scrivi(CMD.CARICA_INIZIO, 0, inizio));
+    for (let i = 0; i < blocchi; i++) {
+      for (let t = Date.now(); ;) {           // il Pico ha scritto i blocchi precedenti?
+        const c = await leggiCaricamento();
+        if (c.stato === CAR.RICEZIONE && c.scritti === i) break;
+        if (c.stato === CAR.ERRORE) throw new ErrorePsrx(c.errore);
+        if (interrompi) throw new Error("annullato");
+        if (Date.now() - t > 30000) throw new Error("il ricevitore non risponde");
+        await sonno(5);
+      }
+      const blocco = new Uint8Array(SETTORE).fill(0xFF);
+      blocco.set(img.subarray(i * SETTORE, Math.min(img.length, (i + 1) * SETTORE)));
+      await ripetiSePad(() => scrivi(CMD.CARICA_BLOCCO, i, blocco));
+      avanzamento(`Caricamento: blocco ${i + 1} di ${blocchi}`, Math.round((i + 1) * 90 / blocchi));
+    }
+    for (let t = Date.now(); ;) {
+      const c = await leggiCaricamento();
+      if (c.stato === CAR.RICEZIONE && c.scritti === blocchi) break;
+      if (c.stato === CAR.ERRORE) throw new ErrorePsrx(c.errore);
+      if (Date.now() - t > 30000) throw new Error("il ricevitore non risponde");
+      await sonno(5);
+    }
+    await scrivi(CMD.CARICA_FINE);
+    for (let t = Date.now(); ;) {
+      const c = await leggiCaricamento();
+      if (c.stato === CAR.PRONTO) break;
+      if (c.stato === CAR.ERRORE) throw new ErrorePsrx(c.errore);
+      if (Date.now() - t > 30000) throw new Error("verifica non conclusa");
+      avanzamento("Verifica dell'impronta SHA-256…", 95);
+      await sonno(100);
+    }
+    avanzamento("Installazione: il ricevitore si riavvia (non staccarlo)…", 99);
+    await ripetiSePad(() => scrivi(CMD.INSTALLA_ORA));
+    messaggio("Firmware installato: il ricevitore si riavvia. Ricollegalo a questa pagina tra qualche secondo.");
+  } catch (e) {
+    if (e.message === "annullato") { try { await scrivi(CMD.CARICA_ANNULLA); } catch { /* niente */ } }
+    messaggio(`Aggiornamento non riuscito: ${e.message}`, true);
+  } finally {
+    caricamentoInCorso = false;
+    avanzamento("", null);
+  }
+}
+
+// --- collegamento e pulsanti -------------------------------------------------------------------------
+async function collegato(d) {
+  try {
+    await apri(d);
+    info = null; ultimoEvento = null;
+    $("avviso-webusb").classList.add("nascosto");
+    $("contenuto").classList.remove("nascosto");
+    await aggiorna(true);
+  } catch (e) {
+    dev = null;
+    $("stato-conn").textContent = `Non riesco ad aprire il ricevitore: ${e.message}`;
+  }
+}
+
+$("collega").onclick = async () => {
+  if (!navigator.usb) { messaggio("Questo browser non ha WebUSB: usa Chrome o Edge.", true); return; }
+  try {
+    const d = await navigator.usb.requestDevice({ filters: [{ classCode: 0xFF, subclassCode: 0x50 }] });
+    await collegato(d);
+  } catch { /* scelta annullata */ }
+};
+
+if (navigator.usb) {
+  // Il ricevitore si ricollega quando cambia forma USB (controller, modalità, posti): si riapre da solo.
+  navigator.usb.addEventListener("disconnect", (e) => {
+    if (e.device === dev) { dev = null; $("stato-conn").textContent = "Ricevitore scollegato: attendo che torni…"; }
+  });
+  navigator.usb.addEventListener("connect", (e) => { if (!dev) collegato(e.device); });
+  navigator.usb.getDevices().then((l) => { if (l.length) collegato(l[0]); });
+}
+
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+  document.querySelectorAll("[data-pannello]").forEach((p) => p.classList.toggle("nascosto", p.dataset.pannello !== b.dataset.scheda));
+}));
+
+$("abbina").onclick = () => azione(() => scrivi(CMD.ABBINA), "Abbinamento aperto per 30 secondi");
+$("spegni-tutti").onclick = () => azione(() => scrivi(CMD.SPEGNI_PAD, 0xFF), "Controller spenti");
+$("annulla-rete").onclick = () => $("modulo-rete").classList.add("nascosto");
+$("salva-rete").onclick = () => {
+  const r = reteAperta, enc = new TextEncoder(), ssid = enc.encode($("ssid").value), psk = enc.encode($("psk").value);
+  if (!ssid.length || ssid.length > 32) { messaggio("Nome della rete vuoto o troppo lungo (massimo 32 byte)", true); return; }
+  if (psk.length && (psk.length < 8 || psk.length > 63)) { messaggio("La password WPA va da 8 a 63 caratteri", true); return; }
+  const dati = new Uint8Array(99);
+  dati.set(ssid, 0); dati.set(psk, 33);
+  dati[97] = $("wpa3").checked ? 1 : 0;
+  dati[98] = !psk.length && $("ssid").value === r.ssid && r.haPassword ? 1 : 0;
+  $("modulo-rete").classList.add("nascosto");
+  azione(() => scrivi(CMD.RETE_SALVA, r.indice, dati), `Rete ${$("ssid").value} salvata`);
+};
+for (const id of ["wol1", "wol2"]) $(id).addEventListener("input", () => { $(id).dataset.modificato = "1"; });
+$("salva-wol").onclick = () => {
+  try {
+    const dati = new Uint8Array(12);
+    ["wol1", "wol2"].forEach((id, i) => { if ($(id).value.trim()) dati.set(macBytes($(id).value), i * 6); });
+    ["wol1", "wol2"].forEach((id) => delete $(id).dataset.modificato);
+    azione(() => scrivi(CMD.WOL_DESTINAZIONI, 0, dati), "Destinazioni del Wake-on-LAN salvate");
+  } catch (e) { messaggio(e.message, true); }
+};
+$("prova-wol").onclick = () => azione(() => scrivi(CMD.WOL_PROVA), "Pacchetto Wake-on-LAN inviato");
+$("salva-ora").onclick = () => azione(() => scrivi(CMD.SALVA_ORA), "Impostazioni salvate");
+$("predefinite").onclick = () => {
+  if (confirm("Impostazioni di fabbrica? Reti WiFi, Wake-on-LAN e controller abbinati restano."))
+    azione(() => scrivi(CMD.PREDEFINITE), "Impostazioni di fabbrica ripristinate");
+};
+$("bootsel").onclick = () => {
+  if (confirm("Il ricevitore si riavvia come chiavetta RP2350 (servono i controller spenti). Continuare?"))
+    azione(() => scrivi(CMD.BOOTSEL_ORA), "Ricevitore in modalità BOOTSEL");
+};
+$("mostra-registro").onclick = async () => {
+  try {
+    const b = await leggi(CMD.REGISTRO), n = b[2] | (b[3] << 8);
+    const pre = $("registro");
+    pre.textContent = b[0] ? new TextDecoder().decode(b.slice(4, 4 + n)) : "Registro spento: attiva \"Registro diagnostico\".";
+    pre.classList.remove("nascosto");
+    pre.scrollTop = pre.scrollHeight;
+  } catch (e) { messaggio(e.message, true); }
+};
+$("file-fw").onchange = async (e) => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  try { await caricaFirmware(f); } catch (err) { messaggio(`File non valido: ${err.message}`, true); }
+};
+
+setInterval(() => aggiorna(false), 1000);
+</script>
+</body>
+</html>

@@ -25,7 +25,7 @@ MAGIC = b'PSRX'
 IDENTITA = [
     (0x054C, 0x0CE6),   # PlayStation: DualSense
     (0x054C, 0x0DF2),   # PlayStation: DualSense Edge
-    (0x045E, 0x028E),   # Xbox 360
+    (0x1209, 0x0001),   # Xbox: composito con interfacce XInput (pid.codes, vedi firmware/src/psrx/xbox.h)
     (0x28DE, 0x1102),   # Steam Controller (cablato)
     (0x28DE, 0x1142),   # Steam Controller (ricevitore)
 ]
