@@ -16,8 +16,9 @@ IMPOSTAZIONI = [
         'titolo': 'Modalità del ricevitore',
         'opzioni': [(0, 'PlayStation'), (1, 'Xbox'), (2, 'Steam Controller (sperimentale)')],
         'predefinito': 0,
-        'nota': 'Come il PC vede i controller. PlayStation: DualSense (anche il DualShock 4). Xbox: controller '
-                'Xbox 360, senza touchpad, giroscopio e audio. Steam: mouse e tastiera finché Steam non lo prende.',
+        'nota': 'Come il PC vede i controller. PlayStation: DualSense (anche il DualShock 4), con tutto. Xbox: '
+                'controller Xbox 360 (XInput), senza giroscopio e audio; il touchpad funziona solo come mouse. '
+                'Steam: mouse e tastiera finché Steam non lo prende.',
     },
     {
         'id': p.IMP_POSTI_FISSI, 'chiave': 'posti_fissi', 'tipo': 'booleano', 'sezione': 'sistema', 'riconnette': True,

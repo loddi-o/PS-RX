@@ -1,0 +1,213 @@
+"""
+PS-RX app - scheda Sistema: impostazioni del ricevitore, firmware, registro e opzioni dell'app.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFontDatabase
+from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGroupBox, QLabel, QPlainTextEdit, QProgressDialog,
+                               QPushButton, QVBoxLayout)
+
+from psrx import protocollo as p
+from psrx.firmware import FirmwareNonValido, leggi as leggi_firmware
+
+from . import opzioni
+from .controlli import nota, riga
+from .lavoratore import Istantanea, testo_errore
+from .scheda_gamepad import Scheda
+
+
+def _durata(s: int) -> str:
+    if s >= 86400:
+        return f'{s // 86400} g {s % 86400 // 3600} h'
+    if s >= 3600:
+        return f'{s // 3600} h {s % 3600 // 60} min'
+    return f'{s // 60} min' if s >= 60 else f'{s} s'
+
+
+class DialogoRegistro(QDialog):
+    def __init__(self, scheda: 'SchedaSistema'):
+        super().__init__(scheda)
+        self.scheda = scheda
+        self.setWindowTitle('Registro del ricevitore')
+        self.resize(820, 480)
+        v = QVBoxLayout(self)
+        self.testo = QPlainTextEdit()
+        self.testo.setReadOnly(True)
+        self.testo.setFont(QFontDatabase.systemFont(QFontDatabase.FixedFont))
+        v.addWidget(self.testo)
+        aggiorna = QPushButton('Aggiorna')
+        aggiorna.clicked.connect(self.carica)
+        v.addLayout(riga(aggiorna))
+        self.carica()
+
+    def carica(self) -> None:
+        def fatto(r):
+            attivo, testo = r
+            self.testo.setPlainText(testo if attivo else 'Registro spento: attiva "Registro diagnostico" qui sotto '
+                                                         'nella scheda Sistema.')
+            self.testo.verticalScrollBar().setValue(self.testo.verticalScrollBar().maximum())
+        self.scheda.finestra.esegui(lambda c: c.registro(), '', fatto)
+
+
+class SchedaSistema(Scheda):
+    avanzamento = Signal(str, int, int)
+
+    def __init__(self, finestra):
+        super().__init__(finestra)
+        gruppo = QGroupBox('Ricevitore')
+        v = QVBoxLayout(gruppo)
+        self.info = QLabel('-')
+        self.info.setWordWrap(True)
+        self.info.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        v.addWidget(self.info)
+        self.col.addWidget(gruppo)
+
+        gruppo = QGroupBox('Impostazioni del ricevitore')
+        v = QVBoxLayout(gruppo)
+        self.globali = self.controlli_globali('sistema', v)
+        self.predefinite = QPushButton('Impostazioni di fabbrica')
+        self.predefinite.setToolTip('Reti WiFi, Wake-on-LAN, abbinamenti e impostazioni dei controller restano')
+        self.predefinite.clicked.connect(self._predefinite)
+        self.salva = QPushButton('Salva ora')
+        self.salva.setToolTip('Le modifiche si salvano da sole appena non ci sono controller collegati')
+        self.salva.clicked.connect(lambda: self.esegui(lambda c: c.salva_ora(), 'Impostazioni salvate'))
+        v.addLayout(riga(self.salva, self.predefinite))
+        self.col.addWidget(gruppo)
+
+        gruppo = QGroupBox('Firmware')
+        v = QVBoxLayout(gruppo)
+        self.aggiorna_fw = QPushButton('Aggiorna il firmware…')
+        self.aggiorna_fw.clicked.connect(self._aggiorna_firmware)
+        self.bootsel = QPushButton('Riavvia in modalità aggiornamento (BOOTSEL)')
+        self.bootsel.clicked.connect(self._bootsel)
+        self.registro = QPushButton('Registro…')
+        self.registro.clicked.connect(lambda: DialogoRegistro(self).exec())
+        v.addLayout(riga(self.aggiorna_fw, self.bootsel, self.registro))
+        v.addWidget(nota('L\'aggiornamento dall\'app carica il file (.uf2 o .bin), ne verifica l\'impronta e lo '
+                         'installa: serve che i controller siano spenti. In modalità BOOTSEL il Pico compare come '
+                         'chiavetta e il file .uf2 si copia a mano.'))
+        self.col.addWidget(gruppo)
+
+        gruppo = QGroupBox('App')
+        v = QVBoxLayout(gruppo)
+        self.avvio = QCheckBox('Avvia con Windows (nell\'area di notifica)')
+        self.avvio.setChecked(opzioni.avvio_automatico())
+        self.avvio.toggled.connect(opzioni.imposta_avvio_automatico)
+        self.notifiche = QCheckBox('Notifiche di collegamento e batteria')
+        self.notifiche.setChecked(opzioni.leggi('notifiche', True))
+        self.notifiche.toggled.connect(lambda v_: opzioni.scrivi('notifiche', v_))
+        self.vassoio = QCheckBox('Chiudendo la finestra l\'app resta nell\'area di notifica')
+        self.vassoio.setChecked(opzioni.leggi('resta_in_vassoio', True))
+        self.vassoio.toggled.connect(lambda v_: opzioni.scrivi('resta_in_vassoio', v_))
+        for w in (self.avvio, self.notifiche, self.vassoio):
+            v.addWidget(w)
+        if not opzioni.AVVIO_DISPONIBILE:
+            self.avvio.setEnabled(False)
+        self.col.addWidget(gruppo)
+        self.col.addStretch(1)
+
+        self._progresso: Optional[QProgressDialog] = None
+        self._interrotto = False
+        self.avanzamento.connect(self._su_avanzamento)
+
+    def aggiorna(self, ist: Optional[Istantanea]) -> None:
+        super().aggiorna(ist)
+        attivo = ist is not None and ist.stato is not None and ist.info is not None
+        for w in (self.predefinite, self.salva, self.aggiorna_fw, self.bootsel, self.registro):
+            w.setEnabled(attivo)
+        for ident, c in self.globali.items():
+            c.mostra(ist.impostazioni.get(ident) if attivo else None)
+        if not attivo:
+            self.info.setText('Ricevitore non collegato')
+            return
+        i, st = ist.info, ist.stato
+        usb = f'{st.usb_gamepad} {"controller Xbox" if st.modalita == 1 else "gamepad"} sull\'USB'
+        if st.usb_sospeso:
+            usb += ' (PC in sospensione)'
+        audio = [n for n, a in (('altoparlante', st.altoparlante), ('microfono', st.microfono)) if a]
+        righe = [
+            f'<b>PS-RX {i.versione}</b> · base {i.base} · acceso da {_durata(st.uptime_s)}',
+            f'Modalità {st.nome_modalita} · {usb} · audio: {", ".join(audio) or "non in uso"}',
+            f'Memoria libera {st.heap_libero // 1024} KB' + (' · modifiche in attesa di salvataggio (a controller '
+                                                             'spenti)' if st.salvataggio_in_sospeso else ''),
+        ]
+        self.info.setText('<br>'.join(righe))
+
+    def _predefinite(self) -> None:
+        if self.finestra.conferma('Impostazioni di fabbrica?',
+                                  'Le impostazioni del ricevitore tornano quelle iniziali (modalità PlayStation, '
+                                  'posti dinamici...). Reti WiFi, Wake-on-LAN e controller abbinati restano.'):
+            self.esegui(lambda c: c.predefinite(), 'Impostazioni di fabbrica ripristinate')
+
+    def _bootsel(self) -> None:
+        if self.finestra.conferma('Riavviare in modalità aggiornamento?',
+                                  'Il ricevitore si riavvia come chiavetta "RP2350": copia il file .uf2 al suo '
+                                  'interno. Servono i controller spenti.'):
+            self.esegui(lambda c: c.bootsel_ora(), 'Ricevitore in modalità BOOTSEL')
+
+    # --- aggiornamento del firmware -------------------------------------------------------------
+    def _aggiorna_firmware(self) -> None:
+        percorso, _ = QFileDialog.getOpenFileName(self, 'Firmware PS-RX', '', 'Firmware (*.uf2 *.bin)')
+        if not percorso:
+            return
+        capacita = self.ist.info.staging_max if self.ist and self.ist.info else None
+        try:
+            img = leggi_firmware(percorso, capacita)
+        except (FirmwareNonValido, OSError) as e:
+            self.finestra.messaggio(f'File non valido: {e}', errore=True)
+            return
+        attuale = self.ist.info.versione if self.ist and self.ist.info else '?'
+        if not self.finestra.conferma('Aggiornare il firmware?',
+                                      f'Installata: {attuale}\nNuova: {img.versione or "sconosciuta"} '
+                                      f'({img.dimensione // 1024} KB)\n\nIl ricevitore si riavvia alla fine.'):
+            return
+        self._interrotto = False
+        self._progresso = QProgressDialog('Preparazione…', 'Annulla', 0, 100, self)
+        self._progresso.setWindowTitle('Aggiornamento del firmware')
+        self._progresso.setWindowModality(Qt.WindowModal)
+        self._progresso.setMinimumDuration(0)
+        self._progresso.canceled.connect(self._annulla)
+        self._progresso.show()
+
+        def avanz(fase, fatto, totale):
+            self.avanzamento.emit(fase, fatto, totale)
+
+        def fatto(_):
+            self._chiudi_progresso()
+            self.finestra.messaggio('Firmware installato: il ricevitore si riavvia')
+
+        def errore(e):
+            self._chiudi_progresso()
+            self.finestra.messaggio(f'Aggiornamento non riuscito: {testo_errore(e)}', errore=True)
+
+        self.finestra.ponte.esegui(lambda c: c.carica_firmware(img, avanz, lambda: self._interrotto), fatto, errore)
+
+    def _annulla(self) -> None:
+        self._interrotto = True
+
+    def _chiudi_progresso(self) -> None:
+        if self._progresso:
+            self._progresso.canceled.disconnect(self._annulla)
+            self._progresso.close()
+            self._progresso = None
+
+    def _su_avanzamento(self, fase: str, fatto: int, totale: int) -> None:
+        if not self._progresso:
+            return
+        testi = {
+            'attesa_pad': 'Spegni i controller: il firmware si carica e si installa solo senza controller collegati.',
+            'caricamento': f'Caricamento: blocco {fatto} di {totale}',
+            'verifica': 'Verifica dell\'impronta SHA-256…',
+            'installazione': 'Installazione: il ricevitore si riavvia (non staccarlo)…',
+        }
+        self._progresso.setLabelText(testi.get(fase, fase))
+        if fase == 'caricamento' and totale:
+            self._progresso.setValue(int(fatto * 90 / totale))
+        elif fase == 'verifica':
+            self._progresso.setValue(95)
+        elif fase == 'installazione':
+            self._progresso.setValue(99)
