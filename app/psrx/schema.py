@@ -35,6 +35,15 @@ IMPOSTAZIONI = [
         'nota': 'Come la PS5: 1 blu, 2 rosso, 3 verde, 4 rosa. Ignora i colori decisi dai giochi.',
     },
     {
+        'id': p.IMP_SPEGNI_CON_PC, 'chiave': 'spegni_con_pc', 'tipo': 'booleano', 'sezione': 'gamepad',
+        'riconnette': False,
+        'titolo': 'Spegni i controller quando il PC si spegne o va in sospensione',
+        'predefinito': 1,
+        'nota': 'Il ricevitore capisce lo stato del PC dall\'USB (Windows e Linux). Per riaccendere il PC basta '
+                'premere PS sul controller (Wake-on-LAN, o la tastiera di risveglio). Serve che la porta USB resti '
+                'alimentata a PC spento.',
+    },
+    {
         'id': p.IMP_WOL_SPENTO, 'chiave': 'wol_spento', 'tipo': 'booleano', 'sezione': 'rete', 'riconnette': False,
         'titolo': 'Disattiva il Wake-on-LAN',
         'predefinito': 0,

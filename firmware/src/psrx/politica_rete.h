@@ -35,7 +35,10 @@ public:
     // link_pronto:    WiFi connesso con indirizzo IP
     // wol_attivo:     Wake-on-LAN configurato (almeno un MAC) e non disattivato
     // ha_reti:        almeno una rete salvata
-    DecisioneRete aggiorna(uint32_t ora, int pad, bool link_pronto, bool wol_attivo, bool ha_reti);
+    // ritardo_ms:     attesa prima del primo pacchetto (il PC si puo' svegliare via USB: WoL di riserva)
+    // Se durante la finestra wol_attivo diventa falso (il PC si e' svegliato) la finestra si chiude.
+    DecisioneRete aggiorna(uint32_t ora, int pad, bool link_pronto, bool wol_attivo, bool ha_reti,
+                           uint32_t ritardo_ms = 0);
 
     bool finestra_wol() const { return in_finestra_; }
     uint8_t pacchetti_inviati() const { return inviati_; }
@@ -48,6 +51,7 @@ private:
     uint32_t t_ultimo_ = 0;
     uint8_t inviati_ = 0;
     uint32_t t_senza_pad_ = 0;     // da quando non ci sono controller
+    uint32_t ritardo_ = 0;
     bool acceso_ = false;
 };
 

@@ -95,8 +95,9 @@ enum ImpostazionePsrx : uint8_t {
     IMP_LED_PICO_SPENTO    = 8,  // 0/1
     IMP_TASTIERA_RISVEGLIO = 9,  // 0/1: tastiera USB per svegliare il PC dalla sospensione
     IMP_REGISTRO           = 10, // 0/1: registro diagnostico in RAM
+    IMP_SPEGNI_CON_PC      = 11, // 0/1: spegni i controller quando il PC si spegne o va in sospensione
 };
-constexpr uint8_t PSRX_N_IMPOSTAZIONI = 10;
+constexpr uint8_t PSRX_N_IMPOSTAZIONI = 11;
 
 // --- Impostazioni per controller (CMD_IMPOSTA_PAD) -------------------------------
 enum ImpostazionePad : uint8_t {

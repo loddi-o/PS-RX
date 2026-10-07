@@ -4,7 +4,8 @@
 
 #include "politica_rete.h"
 
-DecisioneRete PoliticaRete::aggiorna(uint32_t ora, int pad, bool link_pronto, bool wol_attivo, bool ha_reti) {
+DecisioneRete PoliticaRete::aggiorna(uint32_t ora, int pad, bool link_pronto, bool wol_attivo, bool ha_reti,
+                                     uint32_t ritardo_ms) {
     DecisioneRete d{false, false};
 
     if (!avviata_) {
@@ -20,6 +21,7 @@ DecisioneRete PoliticaRete::aggiorna(uint32_t ora, int pad, bool link_pronto, bo
             in_finestra_ = true;
             t_finestra_ = ora;
             inviati_ = 0;
+            ritardo_ = ritardo_ms;
         }
     }
     if (pad == 0 && pad_prima_ > 0) {
@@ -29,8 +31,10 @@ DecisioneRete PoliticaRete::aggiorna(uint32_t ora, int pad, bool link_pronto, bo
     pad_prima_ = pad;
 
     if (in_finestra_) {
-        if (ora - t_finestra_ >= rete::T_FINESTRA_WOL_MS) {
-            in_finestra_ = false;
+        if (ora - t_finestra_ >= rete::T_FINESTRA_WOL_MS || !wol_attivo) {
+            in_finestra_ = false;   // tempo scaduto, o il WoL non serve piu' (il PC si e' svegliato)
+        } else if (ora - t_finestra_ < ritardo_) {
+            // si aspetta il risveglio via USB prima del WoL di riserva
         } else if (link_pronto && (inviati_ == 0 || ora - t_ultimo_ >= rete::T_TRA_PACCHETTI_MS)) {
             d.invia_wol = true;
             inviati_++;

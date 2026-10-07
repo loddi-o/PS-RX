@@ -162,7 +162,8 @@ struct __attribute__((packed)) Config_body {
     uint8_t psrx_posti_fissi;             // 1 = sempre 4 gamepad sull'USB (niente ri-enumerazione)
     uint8_t psrx_led_posto;               // 1 = lightbar col colore del posto (blu, rosso, verde, rosa)
     uint8_t psrx_wol_spento;              // 1 = niente Wake-on-LAN al collegamento del primo pad
-    uint8_t psrx_riservato[12];
+    uint8_t psrx_pad_accesi_con_pc_spento;  // 1 = NON spegnere i controller quando il PC si spegne/sospende
+    uint8_t psrx_riservato[11];
     PadImpostazioni psrx_pad[PSRX_MAX_PAD];
     ReteSalvata psrx_reti[PSRX_MAX_RETI];
 };

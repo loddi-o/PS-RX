@@ -11,6 +11,7 @@
 #include "log_psrx.h"
 #include "mouse.h"
 #include "pad.h"
+#include "pc.h"
 #include "posti.h"
 #include "salvataggio.h"
 #include "servizio_usb.h"
@@ -38,6 +39,7 @@ void psrx_task() {
     xbox_task();
     steam_task(ora);
     pad_task(ora);
+    pc_task(ora);
     servizio_usb_task();
     salvataggio_task();
     aggiornamento_task();

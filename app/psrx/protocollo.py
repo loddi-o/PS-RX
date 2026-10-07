@@ -110,7 +110,8 @@ IMP_MAI_DISCONNETTERE = 7
 IMP_LED_PICO_SPENTO = 8
 IMP_TASTIERA_RISVEGLIO = 9
 IMP_REGISTRO = 10
-N_IMPOSTAZIONI = 10
+IMP_SPEGNI_CON_PC = 11
+N_IMPOSTAZIONI = 11
 
 # --- impostazioni per controller ------------------------------------------------------------
 PAD_AUDIO = 1

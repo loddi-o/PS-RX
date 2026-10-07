@@ -92,6 +92,12 @@ extern "C" __attribute__((weak)) bool wake_emit_wol(void) { return false; }
 static volatile bool     wol_fired_this_spell = false;
 static volatile bool     link_fired_this_spell = false; // companion-Pico pulse latch
 static volatile uint64_t last_wol_us = 0;
+// PS-RX: il PC, sospendendo il bus, ha permesso il risveglio via USB (remote wakeup)? Allora si prova prima
+// quello e il Wake-on-LAN parte solo se dopo WOL_RISERVA_US il PC dorme ancora.
+static volatile bool usb_wake_armato = false;
+static volatile bool wol_riserva = false;
+static volatile uint64_t wol_riserva_us = 0;
+static constexpr uint64_t WOL_RISERVA_US = 3ULL * 1000000ULL;
 static constexpr uint64_t WAKE_WOL_MIN_INTERVAL_US = 10ULL * 1000000ULL; // 10 s
 
 static void maybe_emit_wol(const char *reason) {
@@ -138,7 +144,15 @@ static void maybe_emit_wol(const char *reason) {
 // keystroke FSM below is keyboard-specific.)
 static void request_host_wake(const char *reason) {
     (void)reason;
-    maybe_emit_wol(reason);
+    // PS-RX: con il risveglio USB permesso dal PC, il WoL e' solo di riserva (wake_task).
+    if (host_suspended && usb_wake_armato) {
+        if (!wol_riserva) {
+            wol_riserva = true;
+            wol_riserva_us = time_us_64() + WOL_RISERVA_US;
+        }
+    } else {
+        maybe_emit_wol(reason);
+    }
 
     bool ok = tud_remote_wakeup();
 
@@ -225,6 +239,8 @@ extern "C" void tud_suspend_cb(bool remote_wakeup_en) {
     host_suspended = true;
     host_resumed_event = false;
     usb_set_host_suspended(true);
+    usb_wake_armato = remote_wakeup_en;   // PS-RX
+    wol_riserva = false;
     wol_fired_this_spell = false;  // new suspend spell -> allow one WOL again
     link_fired_this_spell = false; // ... and one companion-Pico pulse
 
@@ -260,6 +276,7 @@ extern "C" void tud_resume_cb(void) {
     host_suspended = false;
     power_off_armed = false; // cancel pending power-off
     usb_set_host_suspended(false);
+    wol_riserva = false;     // PS-RX: il PC si e' svegliato (via USB): niente WoL di riserva
     // Only the FSM-arming flag is suppressed during a swap: this is the
     // resume our own tud_connect generated, not a real wake event, and
     // letting the FSM act on it caused the "fic" key spam.
@@ -376,10 +393,14 @@ void wake_task(void) {
     const uint64_t armed_at_now = power_off_armed_at_us;
     critical_section_exit(&wake_cs);
     if (armed_now && (now - armed_at_now) >= POWER_OFF_DEBOUNCE_US) {
+        // PS-RX: lo spegnimento dei controller lo fa psrx/pc.cpp (stessa attesa, anche il DualShock 4,
+        // anche a PC spento, e solo se l'impostazione e' attiva).
         power_off_armed = false;
-        bt_dualsense_power_off();
-        WAKE_DBG("dispatched DualSense power-off (debounce %llu ms elapsed)",
-                 (unsigned long long)(POWER_OFF_DEBOUNCE_US / 1000));
+    }
+    // PS-RX: WoL di riserva se il risveglio via USB non ha svegliato il PC.
+    if (wol_riserva && static_cast<int64_t>(now - wol_riserva_us) >= 0) {
+        wol_riserva = false;
+        if (host_suspended) maybe_emit_wol("riserva dopo il risveglio USB");
     }
 
     // The keyboard wake FSM (drive the F15 keystroke after a USB remote-wakeup).
@@ -495,3 +516,8 @@ void wake_task(void) {
 }
 
 #endif // ENABLE_WAKE_HID
+
+// PS-RX: il PC e' sospeso e ha permesso il risveglio via USB.
+bool wake_usb_possibile(void) {
+    return host_suspended && usb_wake_armato;
+}

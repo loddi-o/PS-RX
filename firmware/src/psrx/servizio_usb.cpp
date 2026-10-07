@@ -101,6 +101,7 @@ static bool valore_impostazione(const Config_body &c, uint8_t id, uint16_t *valo
         case IMP_LED_PICO_SPENTO:    *valore = c.disable_pico_led; return true;
         case IMP_TASTIERA_RISVEGLIO: *valore = c.wake_kbd_enabled; return true;
         case IMP_REGISTRO:           *valore = c.weblog_enabled; return true;
+        case IMP_SPEGNI_CON_PC:      *valore = c.psrx_pad_accesi_con_pc_spento ? 0 : 1; return true;
     }
     return false;
 }
@@ -126,6 +127,7 @@ static uint8_t imposta(uint8_t id, uint16_t valore) {
                 case IMP_LED_PICO_SPENTO:    c.disable_pico_led = valore; break;
                 case IMP_TASTIERA_RISVEGLIO: c.wake_kbd_enabled = valore; break;
                 case IMP_REGISTRO:           c.weblog_enabled = valore; break;
+                case IMP_SPEGNI_CON_PC:      c.psrx_pad_accesi_con_pc_spento = valore ? 0 : 1; break;
             }
     }
     if (attuale == valore) return ERR_NESSUNO;

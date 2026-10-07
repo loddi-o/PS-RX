@@ -86,11 +86,12 @@ struct SimRete {
     bool reti = true;
     int pacchetti = 0;
     bool acceso = false;
+    uint32_t ritardo = 0;   // risveglio via USB possibile: WoL di riserva
 
     // Avanza di 'ms' a passi di 10 ms (come il ciclo del firmware).
     void avanza(uint32_t ms) {
         for (uint32_t t = 0; t < ms; t += 10) {
-            const DecisioneRete d = p.aggiorna(ora, pad, link && acceso, wol, reti);
+            const DecisioneRete d = p.aggiorna(ora, pad, link && acceso, wol, reti, ritardo);
             if (d.invia_wol) pacchetti++;
             acceso = d.wifi_acceso;
             ora += 10;
@@ -791,6 +792,42 @@ void test_prova_rete() {
     VERIFICA(!dns_risposta_valida(r, 8, 0xBEEF));                                 // troppo corta
 }
 
+void test_risveglio_usb() {
+    printf("[test] risveglio via USB prima del Wake-on-LAN\n");
+    {   // PC sospeso che si sveglia via USB: il WoL di riserva non parte
+        SimRete s;
+        s.link = true;
+        s.avanza(3000);
+        s.ritardo = 3000;
+        s.pad = 1;
+        s.avanza(1500);
+        VERIFICA(s.pacchetti == 0 && s.acceso);   // aspetta l'USB, il WiFi resta pronto
+        s.wol = false;                            // il PC si e' svegliato
+        s.avanza(3000);
+        VERIFICA(s.pacchetti == 0 && !s.acceso);
+    }
+    {   // il risveglio via USB non funziona: dopo il ritardo parte il WoL
+        SimRete s;
+        s.link = true;
+        s.avanza(3000);
+        s.ritardo = 3000;
+        s.pad = 1;
+        s.avanza(2900);
+        VERIFICA(s.pacchetti == 0);
+        s.avanza(2000);
+        VERIFICA(s.pacchetti == static_cast<int>(rete::N_PACCHETTI_WOL));
+    }
+    {   // PC acceso: nessun WoL, WiFi spento subito
+        SimRete s;
+        s.link = true;
+        s.avanza(3000);
+        s.wol = false;
+        s.pad = 1;
+        s.avanza(100);
+        VERIFICA(s.pacchetti == 0 && !s.acceso);
+    }
+}
+
 } // namespace
 
 int esegui_test_logica() {
@@ -808,6 +845,7 @@ int esegui_test_logica() {
     test_xinput();
     test_steam();
     test_prova_rete();
+    test_risveglio_usb();
     printf("[test] %d controlli, %d falliti: %s\n", controlli, fallimenti, fallimenti ? "ERRORE" : "OK");
     return fallimenti;
 }
