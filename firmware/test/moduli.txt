@@ -1,6 +1,7 @@
 # Moduli di src/psrx compilati nei test della logica sul PC (niente SDK del Pico).
 caricamento.cpp
 conta_click.cpp
+ds4.cpp
 eventi.cpp
 politica_rete.cpp
 politiche.cpp

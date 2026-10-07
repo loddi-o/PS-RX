@@ -144,5 +144,10 @@ bool bt_setup_attivo();
 // RSSI dei controller collegati: la richiesta parte subito, il valore arriva con un evento HCI.
 void bt_richiedi_rssi();
 int8_t bt_rssi(uint8_t slot);   // 127 = non disponibile
+// DualShock 4: report feature memorizzati per posto (Report ID in testa), riconoscimento del modello.
+bool bt_feature_slot(uint8_t slot, uint8_t id, std::vector<uint8_t> &out);
+void bt_feature_slot_imposta(uint8_t slot, uint8_t id, const uint8_t *dati, uint16_t lunghezza);
+bool bt_slot_ds4(uint8_t slot);
+void bt_slot_segna_ds4(uint8_t slot);
 
 #endif //DS5_BRIDGE_BT_H

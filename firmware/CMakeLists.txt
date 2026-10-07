@@ -174,9 +174,12 @@ add_executable(ds5-bridge
 # Tutto sul core 0, fuori dai percorsi per pacchetto salvo dove indicato.
 target_sources(ds5-bridge PRIVATE
         src/psrx/aggiornamento.cpp
+        src/psrx/audio_pad.cpp
         src/psrx/bootsel_gesti.cpp
         src/psrx/caricamento.cpp
         src/psrx/conta_click.cpp
+        src/psrx/ds4.cpp
+        src/psrx/ds4_posti.cpp
         src/psrx/eventi.cpp
         src/psrx/log_psrx.cpp
         src/psrx/pad.cpp

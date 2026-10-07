@@ -25,6 +25,7 @@
 #include "dse.h"
 #include "wake.h"
 #include "pico/util/queue.h"
+#include "psrx/ds4.h"
 #if ENABLE_BATT_LED
 #include "battery_led.h"
 #endif
@@ -101,6 +102,8 @@ static bt_slot slots[BT_MAX_SLOTS];
 // PS-RX: RSSI per posto, fuori da bt_slot per non cambiarne la disposizione in memoria.
 // 127 = non disponibile.
 static int8_t psrx_rssi[BT_MAX_SLOTS];
+// PS-RX: il posto ha un DualShock 4 (riconosciuto dal report 0xA3): l'uscita va tradotta.
+static volatile bool psrx_ds4[BT_MAX_SLOTS];
 
 static bt_slot *slot_by_handle(hci_con_handle_t handle) {
     if (handle == HCI_CON_HANDLE_INVALID) return nullptr;
@@ -1140,6 +1143,7 @@ static void hci_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *p
                 printf("[HCI] Slot %d disconnected\n", slot);
                 slot_clear(s);
                 psrx_rssi[slot] = 127; // PS-RX
+                psrx_ds4[slot] = false;
                 // Neutralize the slot's USB input buffer: in the MULTI variant
                 // the interface stays visible, and a pad that dropped mid-press
                 // must not leave its last buttons frozen "held" on the host.
@@ -1615,10 +1619,19 @@ bool bt_feature_snapshot_get(uint8_t reportId, vector<uint8_t> &out) {
     return !out.empty();
 }
 
-void bt_write(uint8_t slot, const uint8_t *data, const uint16_t len, bool kick) {
+void bt_write(uint8_t slot, const uint8_t *data, uint16_t len, bool kick) {
     if (slot >= BT_MAX_SLOTS) return;
     bt_slot &s = slots[slot];
     if (s.interrupt_cid == 0) return;
+    // PS-RX: un DualShock 4 riceve solo lo stato (rumble, lightbar) nel suo report 0x11; audio e
+    // configurazione del microfono del DualSense non gli servono.
+    if (psrx_ds4[slot]) {
+        static uint8_t ds4_uscita_buf[DS4_LUNGHEZZA_USCITA];
+        if (data[0] != 0x31 || len < 3 + 47) return;
+        ds4_uscita(data + 3, 4, ds4_uscita_buf);
+        data = ds4_uscita_buf;
+        len = DS4_LUNGHEZZA_USCITA;
+    }
     if (static_cast<size_t>(len) + 1 > BT_SEND_MAX_PACKET_SIZE) {
         printf("[L2CAP bt_write] Error: packet too large: %u\n", len);
         return;
@@ -1756,6 +1769,49 @@ void init_feature(uint8_t slot) {
     // If len == 1, it's DS5
     slots[slot].check_dse = true;
     get_feature_data(slot, 0x70, 64);
+    // PS-RX: solo il DualShock 4 ha il report 0xA3 (versione del firmware). Chiesto DOPO lo 0x70: la
+    // risposta (o l'errore del DualSense) arriva quando DualSense ed Edge sono gia' riconosciuti.
+    get_feature_data(slot, DS4_FEATURE_FIRMWARE, 49);
+}
+
+// --- PS-RX: DualShock 4 -----------------------------------------------------------------------
+
+bool bt_feature_slot(uint8_t slot, uint8_t id, vector<uint8_t> &out) {
+    if (slot >= BT_MAX_SLOTS) return false;
+    auto it = slots[slot].feature_data.find(id);
+    if (it == slots[slot].feature_data.end()) return false;
+    out = it->second;
+    return !out.empty();
+}
+
+void bt_feature_slot_imposta(uint8_t slot, uint8_t id, const uint8_t *dati, uint16_t lunghezza) {
+    if (slot >= BT_MAX_SLOTS) return;
+    slots[slot].feature_data[id].assign(dati, dati + lunghezza);
+}
+
+bool bt_slot_ds4(uint8_t slot) {
+    return slot < BT_MAX_SLOTS && psrx_ds4[slot];
+}
+
+// Il posto ha un DualShock 4. Se DS5-Linux-Bridge non ha ancora chiuso il riconoscimento (aspetta una
+// risposta da DualSense allo 0x70), lo chiude qui come per un DualSense: il ricevitore si presenta
+// all'host come DualSense.
+void bt_slot_segna_ds4(uint8_t slot) {
+    if (slot >= BT_MAX_SLOTS) return;
+    bt_slot &s = slots[slot];
+    psrx_ds4[slot] = true;
+    if (!s.check_dse) return;
+    printf("Connected DS4 Controller (slot %d)\n", slot);
+    s.check_dse = false;
+    s.is_dse = false;
+    s.connect_attempt_started = 0;
+    if (slot == BT_USB_SLOT) is_dse = false;
+    wake_on_bt_connect();
+#ifdef ENABLE_WAKE_HID
+    bt_apply_usb_variant_policy();
+#else
+    tud_connect();
+#endif
 }
 
 void bt_slot_power_off(uint8_t slot) {

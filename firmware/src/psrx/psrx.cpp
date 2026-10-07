@@ -5,6 +5,8 @@
 #include "psrx.h"
 
 #include "aggiornamento.h"
+#include "audio_pad.h"
+#include "ds4_posti.h"
 #include "bootsel_gesti.h"
 #include "log_psrx.h"
 #include "pad.h"
@@ -24,7 +26,10 @@ void psrx_init() {
 }
 
 void psrx_task() {
-    pad_task(to_ms_since_boot(get_absolute_time()));
+    const uint32_t ora = to_ms_since_boot(get_absolute_time());
+    ds4_posti_task(ora);
+    audio_pad_task();
+    pad_task(ora);
     servizio_usb_task();
     salvataggio_task();
     aggiornamento_task();

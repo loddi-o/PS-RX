@@ -32,6 +32,10 @@ CRITICHE = [
 
 # Funzioni critiche che PS-RX modifica apposta: nome -> motivo. Si aggiornano insieme al codice.
 MODIFICATE = {
+    'on_bt_data': "ramo del DualShock 4 (report 0x11) valutato solo quando il report non e' 0x31",
+    'bt_write': "un DualShock 4 riceve lo stato tradotto nel suo report 0x11; per il DualSense un controllo in piu'",
+    'l2cap_packet_handler': "solo il ramo di apertura del canale: contiene bt_write e init_feature (inline), che "
+                            "ora chiede anche il report 0xA3; il ramo dei dati e' identico",
 }
 
 INDIRIZZO = re.compile(r'\b(?:0x)?[12]00[0-9a-f]{5}\b')

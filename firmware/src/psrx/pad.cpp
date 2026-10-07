@@ -38,7 +38,7 @@ void pad_info(uint8_t posto, PadPerEventi &out) {
     bt_get_status(posto, &st);
     out.connesso = st.connected;
     if (!st.connected) return;
-    out.modello = st.is_dse ? MODELLO_EDGE : MODELLO_DUALSENSE;
+    out.modello = bt_slot_ds4(posto) ? MODELLO_DS4 : st.is_dse ? MODELLO_EDGE : MODELLO_DUALSENSE;
     out.batteria_valida = st.battery_valid;
     out.batteria = st.battery_pct;
     out.in_carica = st.charging;

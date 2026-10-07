@@ -74,7 +74,7 @@ struct __attribute__((packed)) PadImpostazioni {
     uint8_t polling;                   // 0 = 1000 Hz, 1 = 500, 2 = 250, 3 = 125
     uint8_t trackpad;                  // 1 = il touchpad muove il mouse (rotellina a sinistra)
     uint8_t inverti_scorrimento;       // 1 = rotellina invertita
-    uint8_t riservato;
+    uint8_t modello;                   // ModelloPad visto l'ultima volta (0 = sconosciuto)
 };
 
 struct __attribute__((packed)) BondName {

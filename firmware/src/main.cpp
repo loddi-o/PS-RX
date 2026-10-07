@@ -24,6 +24,8 @@
 #include "weblog.h"
 #include "wifi_net.h"
 #include "psrx.h"
+#include "psrx/ds4.h"
+#include "psrx/ds4_posti.h"
 
 #if ENABLE_BATT_LED
 #include "battery_led.h"
@@ -342,6 +344,10 @@ void __not_in_flash_func(on_bt_data)(uint8_t slot, CHANNEL_TYPE channel, uint8_t
       battery_led_note_report();
     }
 #endif
+  } else if (channel == INTERRUPT && len > 2 && data[1] == DS4_REPORT_BT) {
+    // PS-RX: DualShock 4, tradotto in report del DualSense (src/psrx/ds4_posti.cpp). Valutato solo
+    // quando il report non e' 0x31: il percorso del DualSense non cambia.
+    psrx_ds4_ingresso(slot, data, len);
   }
 }
 

@@ -11,6 +11,7 @@
 #include "caricamento.h"
 #include "coda_uart.h"
 #include "conta_click.h"
+#include "ds4.h"
 #include "eventi.h"
 #include "politica_rete.h"
 #include "politiche.h"
@@ -456,6 +457,122 @@ void test_eventi() {
     }
 }
 
+// --- DualShock 4 presentato come DualSense ------------------------------------------
+
+// Report 0x11 come arriva dall'L2CAP: A1 11 C0 00 + report USB del DualShock 4 da [1].
+struct ReportDs4 {
+    uint8_t b[79] = {};
+    ReportDs4() {
+        b[0] = 0xA1;
+        b[1] = 0x11;
+        b[2] = 0xC0;
+        for (int k = 1; k <= 4; k++) usb(k) = 0x80;   // sticks al centro
+        usb(5) = 0x08;                                  // croce direzionale rilasciata
+        usb(35) = 0x80;                                 // nessun tocco
+        usb(39) = 0x80;
+    }
+    uint8_t &usb(int k) { return b[k + 3]; }
+};
+
+void test_ds4() {
+    printf("[test] DualShock 4 come DualSense\n");
+    uint8_t neutro[DS5_LUNGHEZZA_REPORT];
+    memset(neutro, 0, sizeof neutro);
+    neutro[0] = neutro[1] = neutro[2] = neutro[3] = 0x80;
+    neutro[7] = 0x08;
+    {   // tasti, sticks, grilletti, batteria
+        ReportDs4 r;
+        r.usb(1) = 0x10; r.usb(2) = 0x20; r.usb(3) = 0x30; r.usb(4) = 0x40;
+        r.usb(5) = 0x20 | 0x02;          // croce + destra
+        r.usb(6) = 0x01 | 0x10 | 0x20;   // L1, Share, Options
+        r.usb(7) = 0x01 | 0x02 | (5 << 2); // PS, click del touchpad, contatore 5
+        r.usb(8) = 200; r.usb(9) = 100;
+        r.usb(13) = 0x34; r.usb(14) = 0x12;   // primo valore del giroscopio
+        r.usb(30) = 0x07;                // batteria 70%, senza cavo
+        StatoDs4 st;
+        uint8_t out[DS5_LUNGHEZZA_REPORT];
+        VERIFICA(ds4_in_dualsense(r.b, sizeof r.b, neutro, st, out));
+        VERIFICA(out[0] == 0x10 && out[1] == 0x20 && out[2] == 0x30 && out[3] == 0x40);
+        VERIFICA(out[4] == 200 && out[5] == 100);
+        VERIFICA(out[6] == 5);
+        VERIFICA(out[7] == (0x20 | 0x02));
+        VERIFICA(out[8] == (0x01 | 0x10 | 0x20));
+        VERIFICA(out[9] == 0x03);
+        VERIFICA(out[15] == 0x34 && out[16] == 0x12);
+        VERIFICA(out[52] == 0x07);       // livello 7, scarica
+        r.usb(30) = 0x10 | 0x05;         // cavo, 50%
+        ds4_in_dualsense(r.b, sizeof r.b, neutro, st, out);
+        VERIFICA(out[52] == (0x05 | 0x10));
+        r.usb(30) = 0x10 | 11;           // cavo, carica completa
+        ds4_in_dualsense(r.b, sizeof r.b, neutro, st, out);
+        VERIFICA(out[52] == (10 | 0x20));
+    }
+    {   // touchpad: stessa forma, y riscalata da 942 a 1079
+        ReportDs4 r;
+        r.usb(35) = 0x05;                // tocco attivo, id 5
+        const uint16_t x = 1000, y = 942;
+        r.usb(36) = x & 0xFF;
+        r.usb(37) = static_cast<uint8_t>((x >> 8) | (y & 0x0F) << 4);
+        r.usb(38) = static_cast<uint8_t>(y >> 4);
+        StatoDs4 st;
+        uint8_t out[DS5_LUNGHEZZA_REPORT];
+        ds4_in_dualsense(r.b, sizeof r.b, neutro, st, out);
+        const uint16_t x5 = static_cast<uint16_t>(out[33] | (out[34] & 0x0F) << 8);
+        const uint16_t y5 = static_cast<uint16_t>((out[34] >> 4) | out[35] << 4);
+        VERIFICA(out[32] == 0x05);
+        VERIFICA(x5 == 1000 && y5 == 1079);
+        VERIFICA(out[36] == 0x80);       // secondo punto: nessun tocco
+    }
+    {   // timestamp continuo anche quando il contatore a 16 bit riparte
+        ReportDs4 r;
+        StatoDs4 st;
+        uint8_t out[DS5_LUNGHEZZA_REPORT];
+        uint32_t ts;
+        r.usb(10) = 0xF0; r.usb(11) = 0xFF;    // 65520
+        ds4_in_dualsense(r.b, sizeof r.b, neutro, st, out);
+        memcpy(&ts, &out[27], 4);
+        VERIFICA(ts == 0);
+        r.usb(10) = 0x10; r.usb(11) = 0x00;    // 16: +32 unita' da 5,33 us
+        ds4_in_dualsense(r.b, sizeof r.b, neutro, st, out);
+        memcpy(&ts, &out[27], 4);
+        VERIFICA(ts == 32 * 16);
+    }
+    {   // pacchetti non validi
+        ReportDs4 r;
+        StatoDs4 st;
+        uint8_t out[DS5_LUNGHEZZA_REPORT];
+        VERIFICA(!ds4_in_dualsense(r.b, 20, neutro, st, out));
+        r.b[1] = 0x31;
+        VERIFICA(!ds4_in_dualsense(r.b, sizeof r.b, neutro, st, out));
+    }
+    {   // uscita: rumble e lightbar dallo stato del DualSense
+        uint8_t stato[63] = {};
+        stato[2] = 40;     // motore leggero
+        stato[3] = 200;    // motore pesante
+        stato[44] = 1; stato[45] = 2; stato[46] = 3;
+        uint8_t out[DS4_LUNGHEZZA_USCITA];
+        ds4_uscita(stato, 4, out);
+        VERIFICA(out[0] == 0x11 && out[1] == 0xC4 && out[3] == 0x07);
+        VERIFICA(out[6] == 40 && out[7] == 200);
+        VERIFICA(out[8] == 1 && out[9] == 2 && out[10] == 3);
+    }
+    {   // calibrazione riordinata e report sintetici
+        uint8_t cal[41];
+        for (int i = 0; i < 41; i++) cal[i] = static_cast<uint8_t>(i);
+        ds4_calibrazione_in_dualsense(cal, sizeof cal);
+        // DS4: [7]=pitch+ [9]=yaw+ [11]=roll+ [13]=pitch- [15]=yaw- [17]=roll-
+        VERIFICA(cal[7] == 7 && cal[9] == 13 && cal[11] == 9 && cal[13] == 15 && cal[15] == 11 && cal[17] == 17);
+        VERIFICA(cal[1] == 1 && cal[19] == 19);
+        uint8_t f09[DS5_LUNGHEZZA_FEATURE_09];
+        const uint8_t mac[6] = {0xA0, 0xAB, 0x51, 0x01, 0x02, 0x03};
+        ds4_feature_09(mac, f09);
+        VERIFICA(f09[0] == 0x09 && f09[1] == 0x03 && f09[6] == 0xA0);
+        uint8_t f20[DS5_LUNGHEZZA_FEATURE_20];
+        ds4_feature_20(f20);
+        VERIFICA(f20[0] == 0x20 && f20[44] == 0x24 && f20[45] == 0x02);
+    }
+}
+
 } // namespace
 
 int esegui_test_logica() {
@@ -467,6 +584,7 @@ int esegui_test_logica() {
     test_eventi();
     test_conta_click();
     test_caricamento();
+    test_ds4();
     printf("[test] %d controlli, %d falliti: %s\n", controlli, fallimenti, fallimenti ? "ERRORE" : "OK");
     return fallimenti;
 }
