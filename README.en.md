@@ -57,11 +57,22 @@ All files are in the latest [release](https://github.com/loddi-o/PS-RX/releases/
 3. Open PS-RX from the quick access menu (`…` button). For a new Pico use **"Install PS-RX on the Pico"**
    in the "New receiver" section.
 
-### Linux and other systems (web page)
+### Web page (any system, including Linux and Steam Deck)
 
-Open `ps-rx-X.Y.Z.html` in Chrome or Edge (WebUSB). You download the firmware yourself and load it from the
-page. On a new Pico, copy `ps-rx-firmware-X.Y.Z.uf2` to the "RP2350" drive that appears when you plug it
-in with BOOTSEL held.
+Open **https://loddi-o.github.io/PS-RX/** in Chrome or Edge, with the receiver connected over USB to that
+computer. It has the same settings as the app and updates itself with every release. The page runs in the
+browser and talks to the receiver over USB only: nothing is sent over the network. The same page is also in
+the release as `ps-rx-X.Y.Z.html`, for use without internet.
+
+- **Browser:** you need Chrome, Edge or another Chromium-based browser (WebUSB). Firefox, Safari and Steam's
+  built-in browser don't work: the page tells you and suggests alternatives.
+- **Linux and SteamOS, first time:** a udev rule is needed for USB permission. The page shows the commands to
+  paste into a terminal ("Linux and SteamOS: first use" section); with the Decky plugin installed it's already
+  there.
+- **Steam Deck:** in desktop mode install Google Chrome from Discover and open the address. In game mode the
+  Decky plugin is handier.
+- **Firmware update:** the page finds the new version, but you download the file yourself and load it with
+  "Update the firmware…".
 
 ## Installing the firmware on the Pico
 

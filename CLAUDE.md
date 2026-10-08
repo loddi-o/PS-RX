@@ -69,8 +69,10 @@ pacchetti va detta all'utente con il costo misurato. Le alternative più leggere
      silenziosa ogni 2 s e dispositivo chiuso fra un giro e l'altro (WinUSB è esclusivo).
      Exe con `strumenti/compila_app.ps1`; prova con `python -m psrx_app --simulatore` da `app/`.
    - Plugin Decky `app/decky`: zip con `strumenti/compila_decky.ps1`.
-   - Pagina WebUSB `web/ps-rx.html`: lo schema lo inserisce `strumenti/genera_pagina.py` e un test controlla
-     che sia aggiornato.
+   - Pagina WebUSB `web/ps-rx.html`: lo schema (e la regola udev per Linux) lo inserisce
+     `strumenti/genera_pagina.py` e un test controlla che sia aggiornato. Online su
+     https://loddi-o.github.io/PS-RX/ (`.github/workflows/pagina.yml`: a ogni release, oppure a mano con un tag o
+     `main`). Su Linux e SteamOS mostra la guida alla regola udev; senza WebUSB indica Chrome o il plugin Decky.
 8. **Modalità Steam (sperimentale):** firmware scritto (`steam.cpp` puro e testato, `steam_usb.cpp`), **non provato
    con Steam**. Si intende il **nuovo Steam Controller (2026)**, con due stick.
    - Il ricevitore si presenta come il suo dongle (28DE:1304, bcdDevice 2, "Valve Software" / "Steam Controller

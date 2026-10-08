@@ -1,0 +1,56 @@
+# PS-RX - pagina di configurazione WebUSB su GitHub Pages (https://loddi-o.github.io/PS-RX/).
+# Si pubblica da sola a ogni release, con la pagina di quella release (stesso protocollo del firmware).
+# A mano (Actions -> "Pagina web" -> Run workflow) si sceglie cosa pubblicare: un tag o "main".
+
+name: Pagina web
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag o ramo da pubblicare (vuoto = ultima release)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  pubblica:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Cosa pubblicare
+        id: ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCELTO: ${{ github.event.release.tag_name || inputs.ref }}
+        run: |
+          ref="$SCELTO"
+          if [ -z "$ref" ]; then ref=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName); fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Pubblico la pagina di $ref"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+      - name: Sito
+        run: |
+          mkdir sito
+          cp web/ps-rx.html sito/index.html
+          touch sito/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: sito
+      - id: deploy
+        uses: actions/deploy-pages@v4

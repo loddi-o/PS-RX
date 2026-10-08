@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-PS-RX - inserisce lo schema delle impostazioni (app/psrx/schema.py), con la traduzione inglese dei suoi testi,
-nella pagina WebUSB web/ps-rx.html fra i segni SCHEMA-INIZIO e SCHEMA-FINE. Da rilanciare dopo ogni modifica dello schema (un test lo controlla).
+PS-RX - inserisce lo schema delle impostazioni (app/psrx/schema.py), con la traduzione inglese dei suoi testi e la
+regola udev per Linux, nella pagina WebUSB web/ps-rx.html fra i segni SCHEMA-INIZIO e SCHEMA-FINE. Da rilanciare dopo ogni modifica dello schema (un test lo controlla).
 
     python strumenti/genera_pagina.py
 """
@@ -14,7 +14,7 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, 'app'))
 
-from psrx import schema  # noqa: E402
+from psrx import permessi, schema  # noqa: E402
 from psrx.lingua_en import EN  # noqa: E402
 
 PAGINA = os.path.join(REPO, 'web', 'ps-rx.html')
@@ -28,7 +28,8 @@ def riga_schema() -> str:
         testi += [voce['titolo'], voce.get('nota', '')] + [testo for _, testo in voce.get('opzioni', [])]
     inglese = {k: EN[k] for k in testi if k in EN}
     return ('const SCHEMA = ' + json.dumps(dati, ensure_ascii=False, separators=(',', ':')) + ';\n' +
-            'const SCHEMA_EN = ' + json.dumps(inglese, ensure_ascii=False, separators=(',', ':')) + ';\n')
+            'const SCHEMA_EN = ' + json.dumps(inglese, ensure_ascii=False, separators=(',', ':')) + ';\n' +
+            'const REGOLA_UDEV = ' + json.dumps(permessi.REGOLA, ensure_ascii=False) + ';\n')
 
 
 def pagina_aggiornata(testo: str) -> str:
