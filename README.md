@@ -1,213 +1,256 @@
 # PS-RX
 
-**[English](README.en.md)** · Italiano
+English · **[Italiano](README.it.md)**
 
-Ricevitore Bluetooth per **DualSense**, **DualSense Edge** e **DualShock 4** costruito con un
-**Raspberry Pi Pico 2 W**. Collega fino a **4 controller** al PC (Windows, Linux, SteamOS) come se fossero
-via cavo, con bassa latenza, audio e microfono. Si configura con un'app per Windows, un plugin Decky per
-SteamOS oppure una pagina web, senza driver da installare.
+A Bluetooth receiver for **DualSense**, **DualSense Edge** and **DualShock 4** controllers, built on a
+**Raspberry Pi Pico 2 W**. It connects up to **4 controllers** to your PC (Windows, Linux, SteamOS) as if
+they were wired, with low latency, audio and microphone. No drivers to install, and no software required:
+the receiver works on its own, and a Windows app, a Decky plugin for SteamOS or a web page are there when you
+want to change its settings.
 
-## Funzioni
+## Features
 
-- **Tre modalità**, da scegliere nell'app:
-  - **PlayStation**: il PC vede dei DualSense, con giroscopio, touchpad, vibrazione, audio e microfono.
-    Anche il DualShock 4 appare come DualSense.
-  - **Xbox**: il PC vede dei controller Xbox 360 (XInput), per i giochi che non riconoscono i controller
-    PlayStation.
-  - **Steam Controller 2026** (sperimentale): ogni controller diventa un nuovo Steam Controller, con due
-    trackpad e giroscopio. Funziona solo con Steam aperto.
-- **Audio e microfono** del controller (altoparlante e jack delle cuffie), con un controller collegato.
-- **Touchpad come mouse**, con la striscia sinistra che fa da rotellina.
-- **Colore della barra luminosa secondo il posto**, come su PS5 (1 blu, 2 rosso, 3 verde, 4 rosa).
-- **Spegnimento dei controller** quando il PC si spegne o va in sospensione, per inattività o con la
-  combinazione Share/Create + Options + L2 + R2.
-- **Risveglio del PC** premendo PS: via USB dalla sospensione, oppure con il **Wake-on-LAN** dal PC spento.
-- **WiFi solo per il Wake-on-LAN**: si spegne appena si collega un controller, così il Bluetooth ha tutta
-  la radio. Ci sono la ricerca delle reti e una prova della rete (password, indirizzo, internet).
-- **Aggiornamenti da GitHub** del firmware, dell'app e del plugin, direttamente dall'app.
-- **Notifiche**: controller collegato (posto, modello, batteria) e batteria in esaurimento.
-- **Italiano e inglese**: si usa la lingua del sistema; se non è l'italiano, l'inglese.
+- **Three modes**:
+  - **PlayStation**: the PC sees DualSense controllers, with gyro, touchpad, rumble, audio and microphone.
+    The DualShock 4 also shows up as a DualSense.
+  - **Xbox**: the PC sees Xbox 360 controllers (XInput), for games that don't recognize PlayStation
+    controllers.
+  - **Steam Controller 2026** (experimental): each controller becomes a new Steam Controller, with two
+    trackpads and gyro. Works only while Steam is running.
+- **Controller audio and microphone** (speaker and headphone jack), with one controller connected.
+- **Touchpad as mouse**, with the left strip working as a scroll wheel.
+- **Light bar color by slot**, like on PS5 (1 blue, 2 red, 3 green, 4 pink).
+- **Controllers turn off**:
+  - when the PC shuts down or goes to sleep;
+  - after inactivity;
+  - with the Share/Create + Options + L2 + R2 combination.
+- **Wake the PC** by pressing PS: over USB from sleep, or with **Wake-on-LAN** when it's off.
+- **WiFi only for Wake-on-LAN**: it turns off as soon as a controller connects, so Bluetooth gets the whole
+  radio. You can scan for networks and test a network (password, address, internet).
+- **Updates from GitHub** for the firmware, the app and the plugin, right from the app.
+- **Notifications**: controller connected (slot, model, battery) and low battery.
+- **English and Italian**: the app, the installer and the plugin follow the system language (English for
+  anything other than Italian); the web page is in English, with a language menu.
 
-## Cosa serve
+## What you need
 
-- Un **Raspberry Pi Pico 2 W** (con il WiFi). Il Pico 2 senza "W" e il primo Pico non vanno bene.
-- Un **cavo USB dati** (alcuni cavi caricano soltanto).
-- Facoltativa, per il Wake-on-LAN: una rete **WiFi a 2,4 GHz**. Il Pico 2 W non vede le reti a 5 GHz.
+- A **Raspberry Pi Pico 2 W** (the one with WiFi). The Pico 2 without "W" and the original Pico won't work.
+- A **USB data cable** (some cables only charge).
+- Optional, for Wake-on-LAN: a **2.4 GHz WiFi** network. The Pico 2 W can't see 5 GHz networks.
 
-## Installazione
+## Do I need the software?
 
-Tutti i file sono nell'ultima [release](https://github.com/loddi-o/PS-RX/releases/latest).
+**No.** The firmware on the Pico does all the work; the software is only for setting it up. The receiver keeps
+its settings in its own memory, so you can set it up once from any computer and then use it anywhere, even
+where nothing is installed.
+
+**Without any software** you get the defaults: PlayStation mode, audio and microphone on, waking the PC
+over USB from sleep, controllers turning off with the PC.
+- **Install the firmware:** copy the `.uf2` file to the Pico (see
+  [Installing the firmware on the Pico](#installing-the-firmware-on-the-pico)).
+- **Pair a controller:** with no controllers connected, click the Pico's **BOOTSEL** button once. This opens
+  a 30-second pairing window: hold **Create + PS** (DualSense) or **Share + PS** (DualShock 4) until the light
+  flashes quickly.
+
+**You need the software (at least once) to:**
+- set up **Wake-on-LAN** (WiFi network and the PC's MAC address);
+- switch to **Xbox** or **Steam Controller** mode;
+- change any other setting, including per-controller settings;
+- update the firmware over USB.
+
+### App, plugin or web page?
+
+All three change every setting of the receiver, and all three can scan for WiFi networks and test them. The
+**Windows app** does the most for you:
+
+| | Windows app | Decky plugin (SteamOS) | Web page |
+|---|---|---|---|
+| All receiver and controller settings | ✓ | ✓ | ✓ |
+| Scan and test WiFi networks | ✓ | ✓ | ✓ |
+| PC's MAC address for Wake-on-LAN | **Detected**: pick it from the PC's network adapters | Typed by hand | Typed by hand |
+| Firmware updates | Download and install in one click | Download and install in one click | Finds them; you download the file and load it |
+| Set up a brand-new Pico | **Automatic** as soon as it's plugged in | One button | Copy the `.uf2` by hand |
+| Notifications (controller connected, low battery) | ✓ near the clock | ✓ in Steam | — |
+| Runs in the background | ✓ (optionally starts with Windows) | ✓ | — |
+| Installation | Installer | Decky Loader | Nothing: just open the address |
+
+## Installation
+
+All files are in the latest [release](https://github.com/loddi-o/PS-RX/releases/latest).
 
 ### Windows
 
-1. Scarica ed esegui `PS-RX-Setup-X.Y.Z.exe`. L'installer usa la lingua di Windows e mette PS-RX nel menu
-   Start.
-   L'exe non è firmato: se Windows SmartScreen lo blocca, scegli "Ulteriori informazioni" → "Esegui
-   comunque".
-2. Apri PS-RX e scegli **"Prepara un nuovo ricevitore…"**.
-3. Collega il Pico. L'app scarica l'ultimo firmware, lo copia nel Pico e aspetta il ricevitore pronto. Per
-   un Pico già usato, o con un altro firmware, vedi [Installare il firmware sul Pico](#installare-il-firmware-sul-pico).
+1. Download and run `PS-RX-Setup-X.Y.Z.exe`.
+   - The installer uses the Windows language and adds PS-RX to the Start menu.
+   - The exe is not signed: if Windows SmartScreen blocks it, choose "More info" → "Run anyway".
+2. Open PS-RX and choose **"Set up a new receiver…"**.
+3. Connect the Pico. The app downloads the latest firmware, copies it to the Pico and waits for the
+   receiver to be ready. For a used Pico, or one with another firmware, see
+   [Installing the firmware on the Pico](#installing-the-firmware-on-the-pico).
 
-### SteamOS / Steam Deck (plugin Decky)
+### SteamOS / Steam Deck (Decky plugin)
 
-1. Installa [Decky Loader](https://decky.xyz).
-2. Scarica `ps-rx-decky-X.Y.Z.zip`. In Decky, apri Impostazioni → Sviluppatore → **"Installa plugin da
-   ZIP"**.
-3. Nel menu rapido (tasto `…`) apri PS-RX. Per un Pico nuovo usa **"Installa PS-RX sul Pico"**, nella sezione
-   "Nuovo ricevitore".
+1. Install [Decky Loader](https://decky.xyz).
+2. Download `ps-rx-decky-X.Y.Z.zip`. In Decky, open Settings → Developer → **"Install plugin from ZIP"**.
+3. Open PS-RX from the quick access menu (`…` button). For a new Pico use **"Install PS-RX on the Pico"**
+   in the "New receiver" section.
 
-### Pagina web (qualsiasi sistema, anche Linux e Steam Deck)
+### Web page (any system, including Linux and Steam Deck)
 
-Apri **https://loddi-o.github.io/PS-RX/** in Chrome o Edge, con il ricevitore collegato via USB a quel computer.
-Ha le stesse impostazioni dell'app e si aggiorna da sola a ogni release. La pagina gira nel browser e parla
-con il ricevitore solo via USB: niente viene mandato in rete. La stessa pagina è anche nella release come
-file `ps-rx-X.Y.Z.html`, da usare senza internet.
+Open **https://loddi-o.github.io/PS-RX/** in Chrome or Edge, with the receiver connected over USB to that
+computer. It has the same settings as the app and updates itself with every release. The page runs in the
+browser and talks to the receiver over USB only: nothing is sent over the network. The same page is also in
+the release as `ps-rx-X.Y.Z.html`, for use without internet.
 
-- **Browser:** servono Chrome, Edge o un altro browser basato su Chromium (WebUSB). Firefox, Safari e il
-  browser integrato di Steam non vanno: la pagina lo dice e indica le alternative.
-- **Linux e SteamOS, la prima volta:** serve una regola udev per il permesso sull'USB. La pagina mostra i comandi
-  da copiare nel terminale (sezione "Linux e SteamOS: primo utilizzo"); con il plugin Decky installato c'è già.
-- **Steam Deck:** in modalità desktop installa Google Chrome da Discover e apri l'indirizzo. In modalità gioco
-  è più comodo il plugin Decky.
-- **Aggiornamento del firmware:** la pagina trova la versione nuova, ma il file lo scarichi tu e poi lo carichi
-  con "Aggiorna il firmware…".
+- **Language:** English by default; switch to Italian from the menu at the top right. The browser remembers
+  your choice.
+- **Browser:** you need Chrome, Edge or another Chromium-based browser (WebUSB). Firefox, Safari and Steam's
+  built-in browser don't work: the page tells you and suggests alternatives.
+- **Linux and SteamOS, first time:** a udev rule is needed for USB permission. The page shows the commands to
+  paste into a terminal ("Linux and SteamOS: first use" section); with the Decky plugin installed it's already
+  there.
+- **Steam Deck:** in desktop mode install Google Chrome from Discover and open the address. In game mode the
+  Decky plugin is handier.
+- **Firmware update:** the page finds the new version, but you download the file yourself and load it with
+  "Update the firmware…".
 
-## Installare il firmware sul Pico
+## Installing the firmware on the Pico
 
-Il firmware si installa con il Pico in **modalità BOOTSEL**. In questa modalità il Pico si presenta al PC come
-un'unità USB chiamata **"RP2350"**, e basta copiarci dentro il file `.uf2`. La modalità BOOTSEL sta nella
-memoria fissa del chip: non si può cancellare, quindi c'è sempre e funziona con qualsiasi firmware.
+The firmware is installed with the Pico in **BOOTSEL mode**. In this mode the Pico shows up on your PC as a
+USB drive called **"RP2350"**, and you just copy the `.uf2` file onto it. BOOTSEL mode lives in the chip's
+read-only memory: it can't be erased, so it's always there and works whatever firmware is installed.
 
-### Che Pico ho collegato?
+### Which Pico do I have?
 
-Collega il Pico al PC con un cavo dati e guarda cosa compare:
+Connect the Pico to the PC with a data cable and see what appears:
 
-| Cosa vedi | Cosa vuol dire |
+| What you see | What it means |
 |---|---|
-| Un'unità **"RP2350"** | Il Pico è in BOOTSEL: è nuovo, ha la memoria vuota oppure hai tenuto premuto BOOTSEL. Vai allo scenario 1. |
-| Un'unità **"RPI-RP2"** | È un Pico o Pico W della prima generazione (RP2040): **non è compatibile**, serve un Pico 2 W. |
-| Il ricevitore PS-RX nell'app | PS-RX è già installato: vai allo scenario 3. |
-| Nient'altro | Il Pico ha un altro firmware (scenario 2), oppure il cavo serve solo per caricare: provane un altro. |
+| A drive named **"RP2350"** | The Pico is in BOOTSEL: it's new, its memory is empty, or you held BOOTSEL. Go to scenario 1. |
+| A drive named **"RPI-RP2"** | It's a first-generation Pico or Pico W (RP2040): **not compatible**, you need a Pico 2 W. |
+| The PS-RX receiver in the app | PS-RX is already installed: go to scenario 3. |
+| Nothing else | The Pico has another firmware (scenario 2), or the cable is charge-only: try another one. |
 
-### Scenario 1: Pico nuovo o con la memoria vuota
+### Scenario 1: new Pico or empty memory
 
-Un Pico 2 W appena comprato è vuoto e si avvia da solo in BOOTSEL: non serve premere niente.
+A brand-new Pico 2 W is empty and starts in BOOTSEL by itself: no need to press anything.
 
-- **Windows:** apri l'app PS-RX e collega il Pico. L'app trova l'unità "RP2350", apre da sola "Prepara un
-  nuovo ricevitore" e installa l'ultimo firmware. Puoi aprire la procedura anche a mano, dal pulsante
-  "Prepara un nuovo ricevitore…".
-- **SteamOS:** nel plugin Decky, sezione "Nuovo ricevitore", premi **"Installa PS-RX sul Pico"**.
-- **A mano (qualsiasi sistema):** copia `ps-rx-firmware-X.Y.Z.uf2` nell'unità "RP2350". Il Pico scrive il
-  firmware, l'unità sparisce e dopo qualche secondo il Pico si riavvia come ricevitore PS-RX.
+- **Windows:** open the PS-RX app and connect the Pico. The app finds the "RP2350" drive, opens "Set up a new
+  receiver" by itself and installs the latest firmware. You can also open it yourself with the "Set up a new
+  receiver…" button.
+- **SteamOS:** in the Decky plugin, "New receiver" section, press **"Install PS-RX on the Pico"**.
+- **By hand (any system):** copy `ps-rx-firmware-X.Y.Z.uf2` to the "RP2350" drive. The Pico writes the
+  firmware, the drive disappears, and a few seconds later the Pico restarts as a PS-RX receiver.
 
-Senza internet, l'app e il plugin usano il firmware che hanno incluso.
+Without internet, the app and the plugin use the firmware bundled with them.
 
-### Scenario 2: Pico con un altro firmware
+### Scenario 2: Pico with another firmware
 
-Il Pico ha MicroPython, CircuitPython o il firmware di un altro progetto, quindi non si avvia in BOOTSEL da solo.
+The Pico has MicroPython, CircuitPython or another project's firmware, so it won't start in BOOTSEL by itself.
 
-1. **Salva prima quello che ti serve.** Ad esempio, gli script di MicroPython: con l'installazione di PS-RX
-   il vecchio firmware viene sovrascritto.
-2. Stacca il Pico.
-3. **Tieni premuto il tasto BOOTSEL** (il pulsante bianco sulla scheda) e, sempre tenendolo premuto, ricollega
-   il cavo USB.
-4. Rilascia il tasto quando compare l'unità "RP2350".
-5. Prosegui come nello **scenario 1**.
+1. **Save what you need first.** For example, your MicroPython scripts: installing PS-RX overwrites the old
+   firmware.
+2. Unplug the Pico.
+3. **Hold the BOOTSEL button** (the white button on the board) and, while holding it, plug the USB cable back in.
+4. Release the button when the "RP2350" drive appears.
+5. Continue as in **scenario 1**.
 
-I dati lasciati in memoria dal vecchio firmware non danno problemi: PS-RX controlla le proprie impostazioni
-con un codice di verifica e, se non le trova, parte con quelle predefinite.
+Data left in memory by the old firmware won't cause problems: PS-RX checks its own settings with a
+checksum and, if it doesn't find them, starts with the defaults.
 
-### Scenario 3: Pico con PS-RX già installato
+### Scenario 3: Pico that already has PS-RX
 
-- **Aggiornare:** Sistema → Aggiornamenti (GitHub) → "Cerca aggiornamenti", poi installa il firmware nuovo. Il
-  firmware passa via USB, senza BOOTSEL.
-- **Reinstallare** (per esempio se un aggiornamento si è interrotto): apri "Prepara un nuovo ricevitore…" con il
-  ricevitore collegato. L'app lo riavvia in BOOTSEL e gli reinstalla l'ultimo firmware.
+- **Update:** System → Updates (GitHub) → "Check for updates", then install the new firmware. The firmware goes
+  over USB, no BOOTSEL needed.
+- **Reinstall** (for example if an update was interrupted): open "Set up a new receiver…" with the receiver
+  connected. The app restarts it in BOOTSEL and reinstalls the latest firmware.
 
-In entrambi i casi controller abbinati, reti WiFi e impostazioni restano. Servono i controller spenti.
+Either way, paired controllers, WiFi networks and settings are kept. The controllers must be off.
 
-Se il ricevitore non risponde più, si recupera sempre con il tasto BOOTSEL, come nello scenario 2.
+If the receiver stops responding, you can always recover it with the BOOTSEL button, as in scenario 2.
 
-> **Attenzione:** con l'app Windows aperta, *qualsiasi* Pico 2 collegato in BOOTSEL riceve PS-RX
-> automaticamente. Se stai programmando un Pico per un altro progetto, chiudi prima l'app PS-RX
-> (anche dall'icona vicino all'orologio).
+> **Warning:** while the Windows app is open, *any* Pico 2 connected in BOOTSEL gets PS-RX installed
+> automatically. If you're programming a Pico for another project, close the PS-RX app first (also from
+> the icon near the clock).
 
-## Primi passi
+## First steps
 
-1. **Abbina un controller:** premi "Abbina un nuovo controller", poi tieni premuti **Create + PS**
-   (DualSense) o **Share + PS** (DualShock 4) finché la luce lampeggia veloce. Dalla volta dopo basta
-   premere PS.
-2. Scegli la **modalità** in Sistema. Cambiarla ricollega l'USB del ricevitore.
-3. Ogni controller abbinato ha le sue impostazioni: audio, microfono, frequenza (fino a 1000 Hz), touchpad
-   come mouse.
+1. **Pair a controller:** press "Pair a new controller" (or click the Pico's BOOTSEL button once), then hold
+   **Create + PS** (DualSense) or **Share + PS** (DualShock 4) until the light flashes quickly. After that,
+   pressing PS is enough.
+2. Choose the **mode** in System. Changing it reconnects the receiver's USB.
+3. Each paired controller has its own settings: audio, microphone, polling rate (up to 1000 Hz),
+   touchpad as mouse.
 
-Le modifiche si salvano da sole quando i controller sono spenti: il ricevitore scrive in memoria solo
-senza controller collegati, per non disturbare l'input.
+Changes are saved automatically when the controllers are off. The receiver writes to its memory only with
+no controllers connected, so the input is never disturbed.
 
-## Risvegliare il PC
+## Waking the PC
 
-Premendo PS su un controller abbinato, il ricevitore prova a risvegliare il PC.
+When you press PS on a paired controller, the receiver tries to wake the PC.
 
-- **Dalla sospensione, via USB.** "Sveglia il PC dalla sospensione via USB" è attiva di default: il
-  ricevitore aggiunge una piccola tastiera USB che preme un tasto. È il modo più affidabile. Se qualche
-  anticheat la nota, puoi spegnerla.
-- **Da spento o in alternativa: Wake-on-LAN.** In Rete:
-  1. salva la rete WiFi a 2,4 GHz e usa **Prova la rete** (Prova nel plugin e nella pagina);
-  2. scrivi il MAC della scheda di rete **cablata** del PC (per esempio `12:34:56:78:9A:BC`);
-  3. attiva il Wake-on-LAN nel BIOS e nella scheda di rete.
+- **From sleep, over USB.** "Wake the PC from sleep over USB" is on by default: the receiver adds a small
+  USB keyboard that presses a key. It's the most reliable way. If an anti-cheat flags it, you can turn it
+  off.
+- **From power-off, or as a fallback: Wake-on-LAN.** In Network:
+  1. save the 2.4 GHz WiFi network and use **Test the network** (Test in the plugin and the page);
+  2. enter the MAC of the PC's **wired** network adapter (for example `12:34:56:78:9A:BC`). The Windows app
+     lists the PC's adapters, so you just pick it;
+  3. enable Wake-on-LAN in the BIOS and on the network adapter.
 
-  La porta USB del ricevitore deve restare alimentata a PC spento (opzione del BIOS tipo "USB power in
-  S5").
+  The receiver's USB port must stay powered while the PC is off (a BIOS option like "USB power in S5").
 
-Mentre il ricevitore prova a svegliare il PC, il LED del Pico lampeggia (a meno che "LED del ricevitore
-spento" sia attiva) e il controller funziona normalmente.
+While the receiver is trying to wake the PC, the Pico's LED blinks (unless "Receiver LED off" is on), and
+the controller works normally.
 
-## Da sapere
+## Good to know
 
-- **Posti:** di default il PC vede solo i controller accesi. Quando se ne collega uno nuovo, gli altri si
-  fermano per circa 1 s. Con **"Sempre 4 gamepad sull'USB"** il PC vede sempre 4 gamepad e nessuno si
-  interrompe.
+- **Slots:** by default the PC sees only the controllers that are on, and when a new one connects the others
+  pause for about 1 s. With **"Always 4 gamepads on USB"** the PC always sees 4 gamepads and nothing
+  pauses.
 - **Audio:**
-  - funziona solo con **un** controller collegato, perché con due o più il Bluetooth non ce la fa;
-  - il DualShock 4 non ha l'audio.
-- **WiFi:** è spento mentre giochi. Si accende solo senza controller, per il Wake-on-LAN, la ricerca e la
-  prova delle reti.
-- **Un programma alla volta:** l'app, il plugin e la pagina usano lo stesso canale USB. Se uno non trova
-  il ricevitore, chiudi gli altri.
-- **Modalità Steam Controller:** è sperimentale. Steam potrebbe proporre aggiornamenti del firmware del
-  controller, ma non hanno effetto.
-- **Modalità Xbox:** niente giroscopio e niente audio; il touchpad funziona solo come mouse.
+  - works with **one** controller connected only: with two or more, Bluetooth can't keep up;
+  - the DualShock 4 has no audio.
+- **WiFi:** it's off while you play. It turns on only with no controllers connected, for Wake-on-LAN and
+  for scanning or testing networks.
+- **One program at a time:** the app, the plugin and the page share the same USB channel. If one can't
+  find the receiver, close the others.
+- **Steam Controller mode:** it's experimental. Steam may offer controller firmware updates; they have no
+  effect.
+- **Xbox mode:** no gyro and no audio; the touchpad works only as a mouse.
 
-## Problemi comuni
+## Troubleshooting
 
-| Problema | Cosa fare |
+| Problem | What to do |
 |---|---|
-| Il ricevitore non si trova | Chiudi l'app, il plugin o la pagina aperti altrove. Prova un altro cavo o un'altra porta. |
-| "comando sconosciuto" | Il firmware è più vecchio dell'app: aggiornalo da Sistema → Aggiornamenti (GitHub). |
-| La rete non compare nella ricerca | È a 5 GHz: usa il nome a 2,4 GHz del router. |
-| Il PC non si sveglia dalla sospensione | Controlla che "Sveglia il PC dalla sospensione via USB" sia attiva e che la porta resti alimentata. In Gestione dispositivi, sulla tastiera HID del ricevitore, attiva "Consenti al dispositivo di riattivare il computer". |
-| Il PC non si accende da spento | Usa Rete → Prova la rete, controlla il MAC e il Wake-on-LAN nel BIOS, e verifica l'alimentazione USB in S5. |
-| Il controller non si abbina | Spegnilo (tieni PS per 10 s), premi "Abbina" e tieni Create/Share + PS finché lampeggia veloce. |
+| Receiver not found | Close the app, plugin or page open elsewhere. Try another cable or port. |
+| "unknown command" | The firmware is older than the app: update it from System → Updates (GitHub). |
+| The network doesn't show up when scanning | It's 5 GHz: use the router's 2.4 GHz name. |
+| The PC doesn't wake from sleep | Check that "Wake the PC from sleep over USB" is on and that the port stays powered. In Device Manager, on the receiver's HID keyboard, enable "Allow this device to wake the computer". |
+| The PC doesn't turn on from power-off | Use Network → Test the network. Check the MAC, Wake-on-LAN in the BIOS and USB power in S5. |
+| The controller won't pair | Turn it off (hold PS for 10 s), press "Pair", then hold Create/Share + PS until it flashes quickly. |
 
-## Per sviluppatori
+## For developers
 
-Il firmware deriva da [DS5-Linux-Bridge](https://github.com/kungaa/ds5-linux-bridge) v2.3.0-beta.1 (`firmware/BASE_DLB.txt`):
+The firmware is based on [DS5-Linux-Bridge](https://github.com/kungaa/ds5-linux-bridge) v2.3.0-beta.1
+(`firmware/BASE_DLB.txt`). Where things are:
 
-- il codice di PS-RX sta in `firmware/src/psrx/`;
-- l'app Windows (PySide6) e la libreria Python stanno in `app/`;
-- il plugin Decky sta in `app/decky/`;
-- la pagina WebUSB sta in `web/`.
+- PS-RX code: `firmware/src/psrx/`;
+- Windows app (PySide6) and Python library: `app/`;
+- Decky plugin: `app/decky/`;
+- WebUSB page: `web/`.
 
-Gli strumenti di build (PowerShell) sono in `strumenti/`. Le note tecniche sono in [`CLAUDE.md`](CLAUDE.md).
+The build tools (PowerShell) are in `strumenti/`. The technical notes are in [`CLAUDE.md`](CLAUDE.md), in
+Italian.
 
-## Licenza e ringraziamenti
+## License and thanks
 
-PS-RX è distribuito con licenza **GPLv3** (vedi `firmware/LICENSE`), come DS5-Linux-Bridge da cui deriva.
+PS-RX is released under **GPLv3** (see `firmware/LICENSE`), like DS5-Linux-Bridge, which it's based on.
 
-Grazie a:
-- DS5-Linux-Bridge e DS5Dongle, per la base del firmware;
-- SDL3, per la documentazione dei controller;
-- openpuck e sc2-research, per il protocollo del nuovo Steam Controller.
+Thanks to:
+- DS5-Linux-Bridge and DS5Dongle, for the firmware base;
+- SDL3, for the controller documentation;
+- openpuck and sc2-research, for the protocol of the new Steam Controller.
 
-PS-RX non è affiliato a Sony, Microsoft o Valve. DualSense, DualShock, Xbox e Steam sono marchi dei
-rispettivi proprietari.
+PS-RX is not affiliated with Sony, Microsoft or Valve. DualSense, DualShock, Xbox and Steam are trademarks
+of their respective owners.

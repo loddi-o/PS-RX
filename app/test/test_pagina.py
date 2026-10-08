@@ -28,7 +28,9 @@ class TestiFissi(HTMLParser):
 
     def handle_data(self, dati):
         testo = re.sub(r'\s+', ' ', dati).strip()
-        if re.search(r'[a-zà-ù]{3}', testo) and testo not in ('PS-RX', 'Wake-on-LAN', 'WPA3', 'Password', 'Firmware'):
+        # Uguali nelle due lingue, compresi i nomi delle lingue del selettore.
+        uguali = ('PS-RX', 'Wake-on-LAN', 'WPA3', 'Password', 'Firmware', 'English', 'Italiano')
+        if re.search(r'[a-zà-ù]{3}', testo) and testo not in uguali:
             self.testi.append(testo)
 
     def handle_starttag(self, tag, attributi):

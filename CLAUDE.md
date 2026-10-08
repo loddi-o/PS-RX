@@ -1,7 +1,7 @@
 # PS-RX: note per Claude
 
 Ricevitore Bluetooth per DualSense, DualSense Edge e DualShock 4 (fino a 4) su Raspberry Pi Pico 2 W.
-Repo GitHub pubblica `loddi-o/PS-RX`; README per gli utenti in `README.md` (italiano) e `README.en.md`. L'utente scrive in italiano: rispondere in italiano.
+Repo GitHub pubblica `loddi-o/PS-RX`; README per gli utenti in `README.md` (inglese, quello che GitHub mostra) e `README.it.md` (italiano). L'utente scrive in italiano: rispondere in italiano.
 
 **Priorità assoluta: la stabilità dell'input.** Niente singhiozzi. Ogni modifica che tocca il percorso dei
 pacchetti va detta all'utente con il costo misurato. Le alternative più leggere si discutono prima.
@@ -94,7 +94,7 @@ pacchetti va detta all'utente con il costo misurato. Le alternative più leggere
       alla lettura). App: opzione `lingua` (auto/it/en, Sistema → App), poi `HKLM\Software\PS-RX\Lingua` scritta
       dall'installer, poi la lingua di Windows.
     - Decky: `src/lingua.ts` (lingua di Steam), il backend riceve la lingua con `imposta_lingua`.
-    - Pagina: `EN` nello script (lingua del browser), `SCHEMA_EN` generato; i testi fissi dell'HTML li traduce
+    - Pagina: inglese di default, selettore in alto (scelta in localStorage `psrx-lingua`); `EN` nello script, `SCHEMA_EN` generato; i testi fissi dell'HTML li traduce
       `traduciPagina()`.
     - Installer: English per primo, Italiano; `{language}` nel registro.
     - I test (`test_lingua`, `test_pagina`) falliscono se un testo nuovo non ha la traduzione.

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,6 +31,7 @@ body { margin: 0; background: var(--sfondo); color: var(--testo); font: 15px/1.4
 header { padding: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 header h1 { font-size: 20px; margin: 0; }
 #stato-conn { color: var(--tenue); flex: 1; min-width: 200px; }
+#lingua { background: var(--carta); color: var(--testo); border: 1px solid var(--bordo); border-radius: 6px; padding: 6px 8px; font: inherit; }
 main { max-width: 920px; margin: 0 auto; padding: 0 16px 48px; }
 nav { display: flex; gap: 4px; border-bottom: 1px solid var(--bordo); margin-bottom: 16px; }
 nav button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--tenue); padding: 10px 14px; font: inherit; cursor: pointer; }
@@ -80,6 +81,8 @@ details[open] summary { margin-bottom: 8px; }
 <header>
   <h1>PS-RX</h1>
   <span id="stato-conn">Nessun ricevitore collegato a questa pagina.</span>
+  <!-- Nomi delle lingue sempre nella loro lingua: non si traducono. -->
+  <select id="lingua" aria-label="Language / Lingua"><option value="en">English</option><option value="it">Italiano</option></select>
   <button class="az" id="collega">Collega il ricevitore</button>
 </header>
 <main>
@@ -375,7 +378,13 @@ const EN = {
   "Se il plugin Decky di PS-RX è installato, la regola c'è già. Su Steam Deck sudo chiede la password dell'utente deck: se non l'hai mai impostata, lancia prima passwd.": "If the PS-RX Decky plugin is installed, the rule is already there. On Steam Deck sudo asks for the deck user's password: if you never set one, run passwd first.",
   "Poi stacca e ricollega il ricevitore. Se usi Chrome installato da Discover (Flatpak) e il ricevitore non compare ancora, dai a Chrome l'accesso all'USB e riavvialo:": "Then unplug and reconnect the receiver. If you use Chrome installed from Discover (Flatpak) and the receiver still doesn't show up, give Chrome access to USB and restart it:",
 };
-const ITALIANO = (navigator.language || "").toLowerCase().startsWith("it");
+// Inglese di default; la scelta del selettore in alto resta in questo browser (localStorage).
+const CHIAVE_LINGUA = "psrx-lingua";
+const LINGUA = (() => {
+  try { const l = localStorage.getItem(CHIAVE_LINGUA); if (l === "it" || l === "en") return l; } catch { /* niente */ }
+  return "en";
+})();
+const ITALIANO = LINGUA === "it";
 
 // Testo nella lingua del browser; {0}, {1}... sostituiti dai valori.
 function t(testo, ...valori) {
@@ -385,8 +394,14 @@ function t(testo, ...valori) {
 
 // Testi fissi dell'HTML (titoli, pulsanti, note, segnaposto): tradotti una volta all'avvio.
 function traduciPagina() {
+  const scelta = document.getElementById("lingua");
+  scelta.value = LINGUA;
+  scelta.addEventListener("change", () => {
+    try { localStorage.setItem(CHIAVE_LINGUA, scelta.value); } catch { /* niente */ }
+    location.reload();   // le tabelle dei testi si costruiscono all'avvio
+  });
+  document.documentElement.lang = LINGUA;
   if (ITALIANO) return;
-  document.documentElement.lang = "en";
   const giro = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = giro.nextNode(); n; n = giro.nextNode()) {
     if (n.parentElement.closest("script")) continue;
