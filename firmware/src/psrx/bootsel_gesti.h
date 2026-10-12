@@ -1,7 +1,7 @@
 //
 // PS-RX - tasto BOOTSEL del Pico, a firmware in funzione.
 //
-//   1 click  -> finestra di abbinamento di 30 s
+//   2 click  -> finestra di abbinamento di 30 s (il LED fa due lampi e una pausa, come un DualSense)
 //   3 click  -> modalita' aggiornamento (bootloader, chiavetta RP2350)
 //
 // Il tasto si legge ogni T_BOOTSEL_LETTURA_MS e solo senza controller collegati: ogni lettura

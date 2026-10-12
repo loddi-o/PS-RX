@@ -253,8 +253,8 @@ EN = {
     "Spegne il controller (l'abbinamento resta)": 'Turns the controller off (the pairing is kept)',
     '{0} · {1} report/s · {2} Hz · segnale {3}{4}': '{0} · {1} reports/s · {2} Hz · signal {3}{4}',
     'Spegni tutti': 'Turn all off',
-    'Per abbinare: premi il pulsante qui accanto (o un click sul BOOTSEL del Pico), poi tieni premuti Create + PS (DualSense) o Share + PS (DualShock 4) finché la luce lampeggia veloce.':
-        "To pair: press the button next to this (or click the Pico's BOOTSEL once), then hold Create + PS "
+    'Per abbinare: premi il pulsante qui accanto (o un doppio click sul BOOTSEL del Pico), poi tieni premuti Create + PS (DualSense) o Share + PS (DualShock 4) finché la luce lampeggia veloce.':
+        "To pair: press the button next to this (or double-click the Pico's BOOTSEL), then hold Create + PS "
         '(DualSense) or Share + PS (DualShock 4) until the light blinks quickly.',
     'Controller abbinati': 'Paired controllers',
     'Nome (facoltativo)': 'Name (optional)',

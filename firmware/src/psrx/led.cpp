@@ -15,6 +15,8 @@ namespace {
 constexpr uint32_t PERIODO_LAMPEGGIO_MS = 250;
 constexpr uint32_t DURATA_MAX_MS = 120000;
 
+bool abbinamento = false;
+uint32_t t_abbinamento = 0;
 bool risveglio = false;
 uint32_t t_risveglio = 0;
 int pad_prima = 0;
@@ -38,8 +40,14 @@ void led_task(uint32_t ora) {
         risveglio = false;
     }
 
+    // Finestra di abbinamento aperta (doppio click sul BOOTSEL o app): lo schema riparte dall'inizio.
+    const bool finestra = pad_finestra_abbinamento();
+    if (finestra && !abbinamento) t_abbinamento = ora;
+    abbinamento = finestra;
+
     bool voluto;
     if (get_config().disable_pico_led) voluto = false;
+    else if (abbinamento) voluto = led_lampeggio_abbinamento(ora - t_abbinamento);
     else if (risveglio) voluto = ((ora - t_risveglio) / PERIODO_LAMPEGGIO_MS) % 2 == 0;
     else voluto = pad > 0;
 

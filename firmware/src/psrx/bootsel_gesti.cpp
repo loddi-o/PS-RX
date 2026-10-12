@@ -26,8 +26,8 @@ void bootsel_gesti_task() {
         return;
     }
     const uint8_t click = conta.aggiorna(bootsel_button_pressed(), ora);
-    if (click == 1) {
-        psrx_log("BOOTSEL: abbinamento, finestra di 30 s (Create/Share + PS sul controller)");
+    if (click == 2) {
+        psrx_log("BOOTSEL: doppio click, abbinamento per 30 s (Create/Share + PS sul controller)");
         pad_avvia_abbinamento();
     } else if (click == 3) {
         aggiornamento_entra_in_bootsel("BOOTSEL premuto 3 volte");

@@ -12,6 +12,10 @@ constexpr uint32_t T_BOOTSEL_LETTURA_MS = 100;   // lettura (parcheggia il core 
 constexpr uint32_t T_BOOTSEL_SERIE_MS = 600;     // fine di una serie di click
 constexpr uint32_t T_CLICK_MAX_MS = 1500;        // pressione piu' lunga: non e' un click
 
+// --- LED del Pico durante l'abbinamento: due lampi brevi e una pausa, come un DualSense ---
+constexpr uint32_t T_LAMPO_ABBINAMENTO_MS = 120;  // durata di un lampo (e dello spento fra i due)
+constexpr uint32_t T_CICLO_ABBINAMENTO_MS = 1000; // due lampi + pausa
+
 // --- Salvataggio differito delle impostazioni ----------------------------------------
 constexpr uint32_t T_SALVATAGGIO_ATTESA_MS = 2000;    // dall'ultima modifica
 constexpr uint32_t T_SALVATAGGIO_RIPROVA_MS = 10000;  // dopo una scrittura fallita
