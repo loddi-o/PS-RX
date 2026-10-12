@@ -108,7 +108,7 @@ class SchedaGamepad(Scheda):
         self.abbina.clicked.connect(lambda: self.esegui(lambda c: c.abbina(), tr('Abbinamento aperto per 30 secondi')))
         self.spegni_tutti = QPushButton(tr('Spegni tutti'))
         self.spegni_tutti.clicked.connect(lambda: self.esegui(lambda c: c.spegni_pad(None), tr('Controller spenti')))
-        self.stato_abbinamento = nota(tr('Per abbinare: premi il pulsante qui accanto (o un click sul BOOTSEL del Pico), poi tieni premuti Create + PS (DualSense) o Share + PS (DualShock 4) finché la luce lampeggia veloce.'))
+        self.stato_abbinamento = nota(tr('Per abbinare: premi il pulsante qui accanto (o un doppio click sul BOOTSEL del Pico), poi tieni premuti Create + PS (DualSense) o Share + PS (DualShock 4) finché la luce lampeggia veloce.'))
         self.col.addLayout(riga(self.abbina, self.spegni_tutti))
         self.col.addWidget(self.stato_abbinamento)
 

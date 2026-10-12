@@ -14,6 +14,7 @@
 #include "conta_click.h"
 #include "ds4.h"
 #include "eventi.h"
+#include "led.h"
 #include "politica_rete.h"
 #include "politiche.h"
 #include "psrx_config.h"
@@ -233,6 +234,12 @@ void test_conta_click() {
         s.tieni(false, 1000);
         VERIFICA(s.serie.size() == 1 && s.serie[0] == 3);
     }
+    {   // doppio click veloce (abbinamento): una serie da due
+        SimClick s;
+        s.tieni(true, 100); s.tieni(false, 200);
+        s.tieni(true, 100); s.tieni(false, 1000);
+        VERIFICA(s.serie.size() == 1 && s.serie[0] == 2);
+    }
     {   // due click lontani: due serie da uno
         SimClick s;
         s.tieni(true, 200); s.tieni(false, 1500);
@@ -254,6 +261,27 @@ void test_conta_click() {
         s.tieni(false, 1000);
         VERIFICA(s.serie.empty());
     }
+}
+
+void test_led_abbinamento() {
+    printf("[test] LED dell'abbinamento\n");
+    // Due lampi brevi e una pausa, come un DualSense: acceso, spento, acceso, poi spento fino al ciclo dopo.
+    int accensioni = 0;
+    bool prima = false;
+    for (uint32_t t = 0; t < T_CICLO_ABBINAMENTO_MS; t++) {
+        const bool ora = led_lampeggio_abbinamento(t);
+        if (ora && !prima) accensioni++;
+        prima = ora;
+    }
+    VERIFICA(accensioni == 2);
+    VERIFICA(led_lampeggio_abbinamento(0));
+    VERIFICA(!led_lampeggio_abbinamento(T_LAMPO_ABBINAMENTO_MS));
+    VERIFICA(led_lampeggio_abbinamento(2 * T_LAMPO_ABBINAMENTO_MS));
+    VERIFICA(!led_lampeggio_abbinamento(3 * T_LAMPO_ABBINAMENTO_MS));
+    VERIFICA(!led_lampeggio_abbinamento(T_CICLO_ABBINAMENTO_MS - 1));
+    VERIFICA(led_lampeggio_abbinamento(T_CICLO_ABBINAMENTO_MS));     // il ciclo si ripete
+    // La pausa e' piu' lunga dei lampi: si riconosce lo schema.
+    VERIFICA(T_CICLO_ABBINAMENTO_MS > 6 * T_LAMPO_ABBINAMENTO_MS);
 }
 
 void test_caricamento() {
@@ -838,6 +866,7 @@ int esegui_test_logica() {
     test_politiche();
     test_eventi();
     test_conta_click();
+    test_led_abbinamento();
     test_caricamento();
     test_ds4();
     test_combo();
