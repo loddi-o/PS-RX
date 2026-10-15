@@ -14,12 +14,17 @@ namespace {
 
 constexpr uint32_t PERIODO_LAMPEGGIO_MS = 250;
 constexpr uint32_t DURATA_MAX_MS = 120000;
+constexpr uint32_t PERIODO_LAMPEGGIO_ABBINAMENTO_MS = 110;  // lampeggio pieno ~4.5 Hz
+constexpr uint32_t DURATA_SEGNALAZIONE_MS = 3000;
 
 bool risveglio = false;
 uint32_t t_risveglio = 0;
 int pad_prima = 0;
 bool scritto = false;
 bool forza = true;
+bool segnalazione_richiesta = false;
+bool segnalazione = false;
+uint32_t t_segnalazione = 0;
 
 } // namespace
 
@@ -38,9 +43,22 @@ void led_task(uint32_t ora) {
         risveglio = false;
     }
 
+    if (segnalazione_richiesta) {
+        segnalazione = true;
+        t_segnalazione = ora;
+        segnalazione_richiesta = false;
+    }
+    if (segnalazione && ora - t_segnalazione > DURATA_SEGNALAZIONE_MS) {
+        segnalazione = false;
+    }
+
+    const bool abbinamento = pad_finestra_abbinamento();
+
     bool voluto;
     if (get_config().disable_pico_led) voluto = false;
+    else if (abbinamento) voluto = ((ora / PERIODO_LAMPEGGIO_ABBINAMENTO_MS) % 2) == 0;
     else if (risveglio) voluto = ((ora - t_risveglio) / PERIODO_LAMPEGGIO_MS) % 2 == 0;
+    else if (segnalazione) voluto = true;
     else voluto = pad > 0;
 
     if (voluto != scritto || forza) {
@@ -56,4 +74,8 @@ void led_forza() {
 
 bool led_risveglio_in_corso() {
     return risveglio;
+}
+
+void led_segnala_pronto() {
+    segnalazione_richiesta = true;
 }

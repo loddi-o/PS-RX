@@ -46,9 +46,9 @@ ovunque, anche dove non è installato niente.
 risveglio del PC dalla sospensione via USB, controller spenti insieme al PC.
 - **Installare il firmware:** copia il file `.uf2` nel Pico (vedi
   [Installare il firmware sul Pico](#installare-il-firmware-sul-pico)).
-- **Abbinare un controller:** senza controller collegati, premi una volta il tasto **BOOTSEL** del Pico. Si
-  apre l'abbinamento per 30 secondi: tieni premuti **Create + PS** (DualSense) o **Share + PS** (DualShock 4)
-  finché la luce lampeggia veloce.
+- **Abbinare un controller:** senza controller collegati, premi due volte il tasto **BOOTSEL** del Pico. Si
+  apre l'abbinamento per 30 secondi (il LED del Pico lampeggia veloce per tutta la durata): tieni premuti
+  **Create + PS** (DualSense) o **Share + PS** (DualShock 4) finché la luce del controller lampeggia veloce.
 
 **Il software serve (almeno una volta) per:**
 - configurare il **Wake-on-LAN** (rete WiFi e MAC del PC);
@@ -173,9 +173,10 @@ Se il ricevitore non risponde più, si recupera sempre con il tasto BOOTSEL, com
 
 ## Primi passi
 
-1. **Abbina un controller:** premi "Abbina un nuovo controller" (oppure premi una volta il tasto BOOTSEL del
-   Pico), poi tieni premuti **Create + PS** (DualSense) o **Share + PS** (DualShock 4) finché la luce
-   lampeggia veloce. Dalla volta dopo basta premere PS.
+1. **Abbina un controller:** premi "Abbina un nuovo controller" (oppure premi due volte il tasto BOOTSEL del
+   Pico — il LED del Pico lampeggia veloce per 30 secondi), poi tieni premuti **Create + PS** (DualSense) o
+   **Share + PS** (DualShock 4) finché la luce del controller lampeggia veloce. Dalla volta dopo basta premere
+   PS.
 2. Scegli la **modalità** in Sistema. Cambiarla ricollega l'USB del ricevitore.
 3. Ogni controller abbinato ha le sue impostazioni: audio, microfono, frequenza (fino a 1000 Hz), touchpad
    come mouse.

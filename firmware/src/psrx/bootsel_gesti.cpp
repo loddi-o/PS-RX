@@ -8,6 +8,7 @@
 #include "hardware/gpio.h" // GPIO_OVERRIDE_* per bootsel_button.h
 #include "bootsel_button.h"
 #include "conta_click.h"
+#include "led.h"
 #include "log_psrx.h"
 #include "pad.h"
 #include "psrx_config.h"
@@ -27,6 +28,9 @@ void bootsel_gesti_task() {
     }
     const uint8_t click = conta.aggiorna(bootsel_button_pressed(), ora);
     if (click == 1) {
+        psrx_log("BOOTSEL: un click, Pico attivo");
+        led_segnala_pronto();
+    } else if (click == 2) {
         psrx_log("BOOTSEL: abbinamento, finestra di 30 s (Create/Share + PS sul controller)");
         pad_avvia_abbinamento();
     } else if (click == 3) {

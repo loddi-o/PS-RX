@@ -48,9 +48,9 @@ where nothing is installed.
 over USB from sleep, controllers turning off with the PC.
 - **Install the firmware:** copy the `.uf2` file to the Pico (see
   [Installing the firmware on the Pico](#installing-the-firmware-on-the-pico)).
-- **Pair a controller:** with no controllers connected, click the Pico's **BOOTSEL** button once. This opens
-  a 30-second pairing window: hold **Create + PS** (DualSense) or **Share + PS** (DualShock 4) until the light
-  flashes quickly.
+- **Pair a controller:** with no controllers connected, double-click the Pico's **BOOTSEL** button. This opens
+  a 30-second pairing window (the Pico's LED flashes quickly for its duration): hold **Create + PS** (DualSense)
+  or **Share + PS** (DualShock 4) until the controller's own light flashes quickly.
 
 **You need the software (at least once) to:**
 - set up **Wake-on-LAN** (WiFi network and the PC's MAC address);
@@ -175,9 +175,9 @@ If the receiver stops responding, you can always recover it with the BOOTSEL but
 
 ## First steps
 
-1. **Pair a controller:** press "Pair a new controller" (or click the Pico's BOOTSEL button once), then hold
-   **Create + PS** (DualSense) or **Share + PS** (DualShock 4) until the light flashes quickly. After that,
-   pressing PS is enough.
+1. **Pair a controller:** press "Pair a new controller" (or double-click the Pico's BOOTSEL button — the
+   Pico's LED then flashes quickly for 30 seconds), then hold **Create + PS** (DualSense) or **Share + PS**
+   (DualShock 4) until the controller's own light flashes quickly. After that, pressing PS is enough.
 2. Choose the **mode** in System. Changing it reconnects the receiver's USB.
 3. Each paired controller has its own settings: audio, microphone, polling rate (up to 1000 Hz),
    touchpad as mouse.
